@@ -143,8 +143,24 @@ export function evaluateMathSum(expr: string): number {
   return hasValid ? Math.round(sum * 100) / 100 : 0;
 }
 
-export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
-  isOpen,
+interface EditTransactionContentProps {
+  transaction: Transaction;
+  accounts: Account[];
+  categories: Category[];
+  onClose: () => void;
+  onSave: (data: {
+    id: string;
+    amount: number;
+    account_id: string;
+    category_id?: string;
+    type: 'expense' | 'income' | 'transfer';
+    note?: string;
+  }) => void;
+  onDelete: (id: string) => void;
+  onHaptic?: (type: 'light' | 'medium' | 'heavy') => void;
+}
+
+const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
   onClose,
   transaction,
   accounts,
@@ -153,20 +169,18 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   onDelete,
   onHaptic,
 }) => {
-  if (!isOpen || !transaction) return null;
-
   const resolveInitialAcc = () =>
-    transaction?.account_id ||
-    accounts.find((a) => a.name === transaction?.account_name)?.id ||
+    transaction.account_id ||
+    accounts.find((a) => a.name === transaction.account_name)?.id ||
     accounts[0]?.id;
 
   const resolveInitialCat = () => {
-    if (transaction?.category_id) return transaction.category_id;
-    if (transaction?.type === 'transfer') {
+    if (transaction.category_id) return transaction.category_id;
+    if (transaction.type === 'transfer') {
       const tc = categories.find((c) => c.name === 'Переводы' || c.name.toLowerCase().includes('перевод'));
       if (tc) return tc.id;
     }
-    const found = categories.find((c) => c.name.toLowerCase() === transaction?.category_name?.toLowerCase());
+    const found = categories.find((c) => c.name.toLowerCase() === transaction.category_name?.toLowerCase());
     return found?.id || categories[0]?.id;
   };
 
@@ -177,33 +191,32 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   const [accountId, setAccountId] = useState<string>(resolveInitialAcc());
   const [categoryId, setCategoryId] = useState<string | undefined>(resolveInitialCat());
   const [note, setNote] = useState<string>(transaction.note || '');
+  const [selectedSubcat, setSelectedSubcat] = useState<string>(transaction.note || '');
 
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [isAccPickerOpen, setIsAccPickerOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Sync state when transaction or modal open changes
+  // Sync state when transaction changes
   React.useEffect(() => {
-    if (transaction && isOpen) {
-      setType(transaction.type || 'expense');
-      setAmountStr(transaction.amount.toString());
-      setAccountId(
-        transaction.account_id ||
-        accounts.find((a) => a.name === transaction.account_name)?.id ||
-        accounts[0]?.id
-      );
-      setCategoryId(
-        transaction.category_id ||
-        categories.find((c) => c.name.toLowerCase() === transaction.category_name?.toLowerCase())?.id ||
-        categories[0]?.id
-      );
-      setNote(transaction.note || '');
-      setSelectedSubcat(transaction.note || '');
-      setIsPickerOpen(false);
-      setIsAccPickerOpen(false);
-      setShowDeleteConfirm(false);
-    }
-  }, [transaction, isOpen]);
+    setType(transaction.type || 'expense');
+    setAmountStr(transaction.amount.toString());
+    setAccountId(
+      transaction.account_id ||
+      accounts.find((a) => a.name === transaction.account_name)?.id ||
+      accounts[0]?.id
+    );
+    setCategoryId(
+      transaction.category_id ||
+      categories.find((c) => c.name.toLowerCase() === transaction.category_name?.toLowerCase())?.id ||
+      categories[0]?.id
+    );
+    setNote(transaction.note || '');
+    setSelectedSubcat(transaction.note || '');
+    setIsPickerOpen(false);
+    setIsAccPickerOpen(false);
+    setShowDeleteConfirm(false);
+  }, [transaction]);
 
   const transferCat = categories.find((c) => c.name === 'Переводы' || c.name.toLowerCase().includes('перевод'));
   const defaultCat = (type === 'transfer' || transaction.type === 'transfer')
@@ -219,14 +232,6 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
     CATEGORIES_CATALOG[0];
 
   const currentSubcategories = activeCatalog.subcategories;
-
-  // Selected subcategory state
-  const [selectedSubcat, setSelectedSubcat] = useState<string>(() => {
-    if (transaction.note && currentSubcategories.includes(transaction.note)) {
-      return transaction.note;
-    }
-    return '';
-  });
 
   const filteredCatalog = CATEGORIES_CATALOG.filter((c) => {
     if (type === 'income') return c.type === 'income' || c.name === 'Подарки' || c.name === 'Переводы';
@@ -638,3 +643,14 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
     </div>
   );
 };
+
+export const EditTransactionModal: React.FC<EditTransactionModalProps> = (props) => {
+  if (!props.isOpen || !props.transaction) return null;
+  return (
+    <EditTransactionModalContent
+      {...props}
+      transaction={props.transaction}
+    />
+  );
+};
+

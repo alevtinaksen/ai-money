@@ -97,53 +97,94 @@ export const INITIAL_RECENT_TRANSACTIONS: Transaction[] = [
   { id: 'tx-2', user_id: 999999, account_id: 'acc-2', category_id: 'cat-6', amount: 645, type: 'expense', note: 'Подписки', created_at: '2026-05-07T11:15:00Z', account_name: 'Карта Альфа', category_name: 'Подписки', category_icon: '💿' },
 ];
 
-export function getStoredSyncData(): { balances?: Record<string, number>; recent_transactions?: any[] } | null {
+const LAST_INGESTED_SYNC_KEY = 'ai_money_last_ingested_sync_key';
+const STORAGE_SYNC_KEY = 'ai_money_sync_data';
+const STORAGE_ACCOUNTS_KEY = 'ai_money_accounts';
+
+export function getStoredSyncData(): { balances?: Record<string, number>; recent_transactions?: any[]; accounts?: Account[] } | null {
+  let incomingToken: string | null = null;
+  let parsedPayload: any = null;
+
   try {
     const fullUrl = window.location.href;
     if (fullUrl.includes('sync=')) {
       const syncStr = fullUrl.split('sync=')[1]?.split('&')[0]?.split('#')[0];
       if (syncStr) {
+        incomingToken = syncStr;
         const b64 = syncStr.replace(/-/g, '+').replace(/_/g, '/');
         const jsonStr = decodeURIComponent(escape(atob(b64)));
-        const data = JSON.parse(jsonStr);
-        localStorage.setItem('ai_money_sync_data', JSON.stringify(data));
+        parsedPayload = JSON.parse(jsonStr);
         try {
           if (window.history && window.history.replaceState) {
             const cleanUrl = fullUrl.replace(/[?#&]sync=[^&#]*/, '');
             window.history.replaceState({}, document.title, cleanUrl || window.location.pathname);
           }
-        } catch (e) {}
-        return data;
+        } catch {}
       }
     }
   } catch (e) {
     console.error('Failed to parse URL sync hash:', e);
   }
 
-  try {
-    const startParam = (window as any).Telegram?.WebApp?.initDataUnsafe?.start_param;
-    if (startParam && startParam.startsWith('sync_')) {
-      const b64 = startParam.replace('sync_', '').replace(/-/g, '+').replace(/_/g, '/');
-      const jsonStr = decodeURIComponent(escape(atob(b64)));
-      const data = JSON.parse(jsonStr);
-      localStorage.setItem('ai_money_sync_data', JSON.stringify(data));
-      return data;
-    }
-  } catch (e) {}
+  if (!parsedPayload) {
+    try {
+      const startParam = (window as any).Telegram?.WebApp?.initDataUnsafe?.start_param;
+      if (startParam && startParam.startsWith('sync_')) {
+        incomingToken = startParam;
+        const b64 = startParam.replace('sync_', '').replace(/-/g, '+').replace(/_/g, '/');
+        const jsonStr = decodeURIComponent(escape(atob(b64)));
+        parsedPayload = JSON.parse(jsonStr);
+      }
+    } catch {}
+  }
 
+  // Only ingest when this is a NEW incoming token from bot/URL that hasn't been ingested yet!
+  const lastIngested = localStorage.getItem(LAST_INGESTED_SYNC_KEY);
+  if (incomingToken && parsedPayload && incomingToken !== lastIngested) {
+    localStorage.setItem(LAST_INGESTED_SYNC_KEY, incomingToken);
+
+    const existing = (function() {
+      try {
+        const c = localStorage.getItem(STORAGE_SYNC_KEY);
+        return c ? JSON.parse(c) : {};
+      } catch {
+        return {};
+      }
+    })();
+
+    const merged = {
+      ...existing,
+      ...parsedPayload,
+      balances: {
+        ...(existing.balances || {}),
+        ...(parsedPayload.balances || {}),
+      },
+      recent_transactions: parsedPayload.recent_transactions && parsedPayload.recent_transactions.length > 0
+        ? parsedPayload.recent_transactions
+        : existing.recent_transactions,
+    };
+    localStorage.setItem(STORAGE_SYNC_KEY, JSON.stringify(merged));
+    return merged;
+  }
+
+  // On all subsequent calls: ALWAYS read from localStorage so user's edits are NEVER reverted
   try {
-    const cached = localStorage.getItem('ai_money_sync_data');
+    const cached = localStorage.getItem(STORAGE_SYNC_KEY);
     if (cached) return JSON.parse(cached);
-  } catch (e) {}
+  } catch {}
 
   return null;
 }
 
-export function saveStoredSyncData(data: { balances?: Record<string, number>; recent_transactions?: any[] }) {
+export function saveStoredSyncData(data: {
+  balances?: Record<string, number>;
+  recent_transactions?: any[];
+  accounts?: Account[];
+}) {
   try {
-    const existing = (function() {
+    const existing = (function () {
       try {
-        const c = localStorage.getItem('ai_money_sync_data');
+        const c = localStorage.getItem(STORAGE_SYNC_KEY);
         return c ? JSON.parse(c) : {};
       } catch {
         return {};
@@ -156,11 +197,33 @@ export function saveStoredSyncData(data: { balances?: Record<string, number>; re
         ...(existing.balances || {}),
         ...(data.balances || {}),
       },
-      recent_transactions: data.recent_transactions !== undefined ? data.recent_transactions : existing.recent_transactions,
+      recent_transactions:
+        data.recent_transactions !== undefined
+          ? data.recent_transactions
+          : existing.recent_transactions,
+      accounts:
+        data.accounts !== undefined ? data.accounts : existing.accounts,
     };
-    localStorage.setItem('ai_money_sync_data', JSON.stringify(merged));
+    localStorage.setItem(STORAGE_SYNC_KEY, JSON.stringify(merged));
+    if (data.accounts) {
+      localStorage.setItem(STORAGE_ACCOUNTS_KEY, JSON.stringify(data.accounts));
+    }
   } catch (e) {
     console.error('Failed to saveStoredSyncData:', e);
+  }
+}
+
+export function saveStoredAccounts(accounts: Account[]) {
+  try {
+    localStorage.setItem(STORAGE_ACCOUNTS_KEY, JSON.stringify(accounts));
+    const balancesMap: Record<string, number> = {};
+    for (const a of accounts) {
+      balancesMap[a.name] = a.balance;
+      balancesMap[a.id] = a.balance;
+    }
+    saveStoredSyncData({ balances: balancesMap, accounts });
+  } catch (e) {
+    console.error('Failed to saveStoredAccounts:', e);
   }
 }
 
@@ -176,15 +239,23 @@ export async function fetchDashboard(initData: string): Promise<DashboardSummary
     // Return mock data
   }
 
+  let currentAccounts = INITIAL_ACCOUNTS;
+  try {
+    const cached = localStorage.getItem(STORAGE_ACCOUNTS_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) currentAccounts = parsed;
+    }
+  } catch {}
+
   const sync = getStoredSyncData();
   const balances = sync?.balances;
-  const currentAccounts = INITIAL_ACCOUNTS.map(acc => {
-    if (balances) {
+  if (balances) {
+    currentAccounts = currentAccounts.map(acc => {
       const newBal = balances[acc.name] ?? balances[acc.id];
-      if (newBal !== undefined) return { ...acc, balance: Number(newBal) };
-    }
-    return acc;
-  });
+      return newBal !== undefined ? { ...acc, balance: Number(newBal) } : acc;
+    });
+  }
 
   const total = currentAccounts
     .filter(a => a.group_name !== 'Кредиты')
@@ -253,7 +324,20 @@ export async function fetchAccounts(initData: string): Promise<Account[]> {
     // Fallback
   }
 
+  // 1. Check local storage
+  try {
+    const cached = localStorage.getItem(STORAGE_ACCOUNTS_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+
+  // 2. Check sync
   const sync = getStoredSyncData();
+  if (sync && sync.accounts && sync.accounts.length > 0) {
+    return sync.accounts;
+  }
   if (sync && sync.balances) {
     const balances = sync.balances;
     return INITIAL_ACCOUNTS.map(acc => {

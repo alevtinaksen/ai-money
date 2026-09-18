@@ -8,6 +8,7 @@ import {
   updateTransactionAPI,
   deleteTransactionAPI,
   saveStoredSyncData,
+  saveStoredAccounts,
   INITIAL_ACCOUNTS,
   INITIAL_CATEGORIES,
 } from './api/client';
@@ -153,6 +154,7 @@ export const App: React.FC = () => {
         }
         return acc;
       });
+      saveStoredAccounts(updatedAccounts);
       return updatedAccounts;
     });
 
@@ -229,6 +231,7 @@ export const App: React.FC = () => {
         }
         return { ...acc, balance: Math.round(bal * 100) / 100 };
       });
+      saveStoredAccounts(updatedAccounts);
       return updatedAccounts;
     });
 
@@ -297,6 +300,7 @@ export const App: React.FC = () => {
           }
           return acc;
         });
+        saveStoredAccounts(updatedAccounts);
         return updatedAccounts;
       });
     }
@@ -333,9 +337,11 @@ export const App: React.FC = () => {
   const handleSaveAccount = (updated: Partial<Account> & { id?: string }) => {
     hapticNotification('success');
     if (updated.id) {
-      setAccounts((prev) =>
-        prev.map((a) => (a.id === updated.id ? { ...a, ...updated } : a))
-      );
+      setAccounts((prev) => {
+        const next = prev.map((a) => (a.id === updated.id ? { ...a, ...updated } : a));
+        saveStoredAccounts(next);
+        return next;
+      });
       if (selectedAccount.id === updated.id) {
         setSelectedAccount((prev) => ({ ...prev, ...updated }));
       }
@@ -352,14 +358,25 @@ export const App: React.FC = () => {
         is_default: false,
         sort_order: accounts.length + 1,
       };
-      setAccounts((prev) => [...prev, newAcc]);
+      setAccounts((prev) => {
+        const next = [...prev, newAcc];
+        saveStoredAccounts(next);
+        return next;
+      });
     }
   };
 
   // Handle deleting account
   const handleDeleteAccount = (id: string) => {
     hapticNotification('warning');
-    setAccounts((prev) => prev.filter((a) => a.id !== id));
+    setAccounts((prev) => {
+      const next = prev.filter((a) => a.id !== id);
+      saveStoredAccounts(next);
+      if (selectedAccount.id === id && next.length > 0) {
+        setSelectedAccount(next[0]);
+      }
+      return next;
+    });
     setIsEditAccountOpen(false);
   };
 
@@ -486,16 +503,18 @@ export const App: React.FC = () => {
       />
 
       {/* Edit Transaction Modal (Pixel-perfect matching media_1789730678657.png) */}
-      <EditTransactionModal
-        isOpen={isEditTxOpen}
-        onClose={() => setIsEditTxOpen(false)}
-        transaction={editingTransaction}
-        accounts={accounts}
-        categories={categories}
-        onSave={handleSaveEditedTransaction}
-        onDelete={handleDeleteTransaction}
-        onHaptic={hapticImpact}
-      />
+      {isEditTxOpen && editingTransaction && (
+        <EditTransactionModal
+          isOpen={isEditTxOpen}
+          onClose={() => setIsEditTxOpen(false)}
+          transaction={editingTransaction}
+          accounts={accounts}
+          categories={categories}
+          onSave={handleSaveEditedTransaction}
+          onDelete={handleDeleteTransaction}
+          onHaptic={hapticImpact}
+        />
+      )}
 
       {/* Category Detail Statistics Modal (matching media_1789746985465.png) */}
       <CategoryDetailModal
