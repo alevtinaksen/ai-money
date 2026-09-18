@@ -24,7 +24,7 @@ export const AccountSelectSheet: React.FC<AccountSelectSheetProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
       {/* Backdrop click */}
       <div className="absolute inset-0" onClick={onClose} />
 

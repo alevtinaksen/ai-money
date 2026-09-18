@@ -166,15 +166,16 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                           onHaptic?.('light');
                           onSelectAccount?.(acc);
                         }}
-                        className={`inline-flex items-center space-x-2.5 bg-white px-4 py-2.5 rounded-full shadow-sm border active:scale-[0.98] transition-all ${
+                        title={acc.name}
+                        className={`inline-flex items-center max-w-full space-x-2.5 bg-white px-4 py-2.5 rounded-full shadow-sm border active:scale-[0.98] transition-all ${
                           isCreditGroup ? 'border-red-100 hover:border-red-200' : 'border-gray-100/80'
                         }`}
                       >
-                        <span className="text-lg">{acc.icon}</span>
-                        <span className="text-[15px] font-semibold text-[#111827]">
+                        <span className="text-base shrink-0">{acc.icon}</span>
+                        <span className="text-[14px] font-semibold text-[#111827] truncate max-w-[170px] sm:max-w-[280px] text-left">
                           {acc.name}
                         </span>
-                        <span className={`text-[15px] font-medium ${isCreditGroup ? 'text-red-600 font-semibold' : 'text-[#6B7280]'}`}>
+                        <span className={`text-[14px] font-medium shrink-0 whitespace-nowrap ${isCreditGroup ? 'text-red-600 font-semibold' : 'text-[#6B7280]'}`}>
                           {isCreditGroup ? '-' : ''}{acc.balance.toLocaleString('ru-RU', {
                             minimumFractionDigits: 0,
                             maximumFractionDigits: 2,

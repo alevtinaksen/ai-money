@@ -66,7 +66,7 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in select-none">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in select-none">
       <div className="bg-white rounded-[32px] w-full max-w-sm p-6 shadow-2xl space-y-5 animate-slide-up">
         {/* Header */}
         <div className="flex items-center justify-between">

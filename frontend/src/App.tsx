@@ -324,6 +324,14 @@ export const App: React.FC = () => {
     });
   };
 
+  // Handle reset data
+  const handleResetData = () => {
+    hapticNotification('success');
+    localStorage.clear();
+    loadData();
+    setCurrentScreen('dashboard');
+  };
+
   return (
     <main className="w-full min-h-screen bg-[#F6F7FB] text-[#111827]">
       {/* Hidden file input for receipt scanner */}
@@ -369,6 +377,8 @@ export const App: React.FC = () => {
       ) : (
         <SettingsScreen
           onBack={() => setCurrentScreen('dashboard')}
+          onRecalculateBalances={loadData}
+          onResetData={handleResetData}
           onHaptic={hapticImpact}
         />
       )}
@@ -464,10 +474,6 @@ export const App: React.FC = () => {
         initData={initData}
         onHaptic={hapticImpact}
         onOpenAccountSelect={() => setIsAccountSheetOpen(true)}
-        onOpenSettings={() => {
-          setIsVoiceOpen(false);
-          setCurrentScreen('settings');
-        }}
       />
     </main>
   );

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   Wallet,
-  Calendar,
   RotateCw,
   Settings,
   ChevronLeft,
@@ -144,18 +143,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         <div className="flex items-center space-x-3 text-[#374151]">
           <button
             type="button"
-            onClick={() => onHaptic?.('light')}
-            className="p-1 hover:text-black transition-colors"
-          >
-            <Calendar className="w-5 h-5 text-[#4B5563]" strokeWidth={1.8} />
-          </button>
-          <button
-            type="button"
             onClick={() => {
               onHaptic?.('light');
               onRefresh?.();
             }}
             className="p-1 hover:text-black transition-colors active:rotate-180 transition-transform duration-300"
+            title="Обновить"
           >
             <RotateCw className="w-5 h-5 text-[#4B5563]" strokeWidth={1.8} />
           </button>
@@ -166,6 +159,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               onOpenSettings?.();
             }}
             className="p-1 hover:text-black transition-colors"
+            title="Настройки"
           >
             <Settings className="w-5 h-5 text-[#4B5563]" strokeWidth={1.8} />
           </button>
@@ -394,14 +388,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             </button>
           </div>
 
-          {/* Right: Plus (+) Button */}
+          {/* Right: Blue Plus (+) Button */}
           <button
             type="button"
             onClick={() => {
               onHaptic?.('medium');
               onOpenAddTransaction();
             }}
-            className="w-13 h-13 p-3 rounded-full bg-white text-[#111827] shadow-[0_4px_16px_rgba(0,0,0,0.08)] flex items-center justify-center active:scale-90 transition-all border border-gray-100"
+            className="w-13 h-13 p-3 rounded-full bg-[#2B5BFF]/15 text-[#2B5BFF] flex items-center justify-center active:scale-90 transition-all border border-[#2B5BFF]/25 shadow-sm"
           >
             <Plus className="w-6 h-6 stroke-[2.5]" />
           </button>

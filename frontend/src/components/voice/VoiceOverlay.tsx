@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Check, Settings, SlidersHorizontal } from 'lucide-react';
+import { X, Check } from 'lucide-react';
 import { Account } from '../../types';
 
 interface VoiceOverlayProps {
@@ -10,7 +10,6 @@ interface VoiceOverlayProps {
   initData: string;
   onHaptic?: (style?: 'light' | 'medium' | 'heavy') => void;
   onOpenAccountSelect?: () => void;
-  onOpenSettings?: () => void;
 }
 
 export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({
@@ -20,7 +19,6 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({
   onVoiceSuccess,
   onHaptic,
   onOpenAccountSelect,
-  onOpenSettings,
 }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [transcriptText, setTranscriptText] = useState('Говорите...');
@@ -124,32 +122,19 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({
 
       {/* Center Interactive Section: Speech Bubble & Account Pill */}
       <div className="w-full max-w-sm flex flex-col items-center space-y-4 mb-6">
-        {/* Account Pill with Sparkles and Sliders */}
-        <div className="flex items-center space-x-2">
-          <button
-            type="button"
-            onClick={() => {
-              onHaptic?.('light');
-              onOpenAccountSelect?.();
-            }}
-            className="flex items-center space-x-2 bg-white px-4 py-2 rounded-full shadow-md text-[#111827] active:scale-95 transition-all"
-          >
-            <span className="text-base">{selectedAccount.icon || '❤️'}</span>
-            <span className="text-[14px] font-semibold">{selectedAccount.name}</span>
-            <span className="text-[#2B5BFF] text-xs font-bold">✨</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              onHaptic?.('light');
-              onOpenAccountSelect?.();
-            }}
-            className="w-9 h-9 rounded-full bg-white text-[#4B5563] flex items-center justify-center shadow-md active:scale-90 transition-all"
-          >
-            <SlidersHorizontal className="w-4 h-4" />
-          </button>
-        </div>
+        {/* Account Pill with Sparkles */}
+        <button
+          type="button"
+          onClick={() => {
+            onHaptic?.('light');
+            onOpenAccountSelect?.();
+          }}
+          className="flex items-center space-x-2 bg-white px-4 py-2 rounded-full shadow-md text-[#111827] active:scale-95 transition-all"
+        >
+          <span className="text-base">{selectedAccount.icon || '❤️'}</span>
+          <span className="text-[14px] font-semibold">{selectedAccount.name}</span>
+          <span className="text-[#2B5BFF] text-xs font-bold">✨</span>
+        </button>
 
         {/* Speech Bubble («Говорите...») */}
         <div className="bg-white px-7 py-3 rounded-full shadow-lg flex items-center space-x-2">
@@ -193,17 +178,8 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({
           </button>
         </div>
 
-        {/* Settings Button (Right) */}
-        <button
-          type="button"
-          onClick={() => {
-            onHaptic?.('light');
-            onOpenSettings?.();
-          }}
-          className="w-13 h-13 p-3.5 rounded-full bg-white text-[#111827] shadow-[0_4px_16px_rgba(0,0,0,0.12)] flex items-center justify-center active:scale-90 transition-all border border-gray-100"
-        >
-          <Settings className="w-6 h-6 stroke-[2]" />
-        </button>
+        {/* Balanced spacer so center button remains perfectly centered */}
+        <div className="w-13 h-13 pointer-events-none" />
       </div>
     </div>
   );
