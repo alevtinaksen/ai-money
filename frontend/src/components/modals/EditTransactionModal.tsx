@@ -121,6 +121,22 @@ export const CATEGORIES_CATALOG: CategoryCatalogItem[] = [
   },
 ];
 
+export function evaluateMathSum(expr: string): number {
+  if (!expr) return 0;
+  const clean = expr.replace(/,/g, '.').replace(/\s+/g, '');
+  const parts = clean.split('+');
+  let sum = 0;
+  let hasValid = false;
+  for (const part of parts) {
+    const num = parseFloat(part);
+    if (!isNaN(num)) {
+      sum += num;
+      hasValid = true;
+    }
+  }
+  return hasValid ? Math.round(sum * 100) / 100 : 0;
+}
+
 export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   isOpen,
   onClose,
@@ -181,9 +197,26 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
     return c.type === 'expense';
   });
 
+  const liveSum = amountStr.includes('+') ? evaluateMathSum(amountStr) : null;
+
+  const handleAmountBlur = () => {
+    if (amountStr.includes('+')) {
+      const calculated = evaluateMathSum(amountStr);
+      if (calculated > 0) {
+        setAmountStr(calculated.toString());
+      }
+    }
+  };
+
+  const handleAmountKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleAmountBlur();
+    }
+  };
+
   const handleSave = () => {
     onHaptic?.('heavy');
-    const parsedAmount = parseFloat(amountStr.replace(',', '.')) || transaction.amount;
+    const parsedAmount = evaluateMathSum(amountStr) || transaction.amount;
     const finalNote = note.trim() || selectedSubcat || undefined;
     onSave({
       id: transaction.id,
@@ -314,24 +347,37 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
               </button>
             </div>
 
-            {/* Large Amount Input */}
-            <input
-              type="text"
-              inputMode="decimal"
-              value={amountStr}
-              onChange={(e) => setAmountStr(e.target.value)}
-              className={`text-[40px] font-extrabold bg-transparent w-36 tracking-tight focus:outline-none ${
-                type === 'expense'
-                  ? 'text-[#FF4B55]'
-                  : type === 'income'
-                  ? 'text-[#10B981]'
-                  : 'text-[#2B5BFF]'
-              }`}
-            />
+            {/* Amount Input with Live Calculation hint */}
+            <div className="flex flex-col flex-1 min-w-0">
+              <input
+                type="text"
+                value={amountStr}
+                onChange={(e) => setAmountStr(e.target.value)}
+                onBlur={handleAmountBlur}
+                onKeyDown={handleAmountKeyDown}
+                placeholder="0"
+                className={`text-[36px] font-extrabold bg-transparent w-full tracking-tight focus:outline-none truncate ${
+                  type === 'expense'
+                    ? 'text-[#FF4B55]'
+                    : type === 'income'
+                    ? 'text-[#10B981]'
+                    : 'text-[#2B5BFF]'
+                }`}
+              />
+              {liveSum !== null && liveSum > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setAmountStr(liveSum.toString())}
+                  className="text-[13px] font-bold text-[#2B5BFF] hover:underline text-left -mt-1"
+                >
+                  = {liveSum.toLocaleString('ru-RU')} ₽
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Currency Pill */}
-          <div className="w-10 h-10 rounded-full bg-white shadow-sm border border-gray-100 flex items-center justify-center text-gray-400 font-bold text-[18px]">
+          <div className="w-10 h-10 rounded-full bg-white shadow-sm border border-gray-100 flex items-center justify-center text-gray-400 font-bold text-[18px] flex-shrink-0">
             ₽
           </div>
         </div>
