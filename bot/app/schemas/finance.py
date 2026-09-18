@@ -59,6 +59,15 @@ class TransactionCreate(BaseModel):
     note: Optional[str] = None
     created_at: Optional[datetime] = None
 
+class TransactionUpdate(BaseModel):
+    account_id: Optional[str] = None
+    to_account_id: Optional[str] = None
+    category_id: Optional[str] = None
+    amount: Optional[float] = None
+    type: Optional[Literal["expense", "income", "transfer"]] = None
+    note: Optional[str] = None
+    created_at: Optional[datetime] = None
+
 class TransactionResponse(BaseModel):
     id: str
     user_id: int

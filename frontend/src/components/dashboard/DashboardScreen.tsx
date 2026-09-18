@@ -10,7 +10,7 @@ import {
   Mic,
   Plus,
 } from 'lucide-react';
-import { DashboardSummary, Account, Category } from '../../types';
+import { DashboardSummary, Account, Category, Transaction } from '../../types';
 
 interface DashboardScreenProps {
   summary: DashboardSummary;
@@ -21,6 +21,7 @@ interface DashboardScreenProps {
   onOpenVoice: () => void;
   onOpenSettings?: () => void;
   onScanReceipt?: () => void;
+  onSelectTransaction?: (tx: Transaction) => void;
   onSelectCategory?: (cat: Category) => void;
   onRefresh?: () => void;
   onHaptic?: (style?: 'light' | 'medium' | 'heavy') => void;
@@ -37,6 +38,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onOpenVoice,
   onOpenSettings,
   onScanReceipt,
+  onSelectTransaction,
   onSelectCategory,
   onRefresh,
   onHaptic
@@ -221,9 +223,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             <div className="flex items-center space-x-3 overflow-x-auto no-scrollbar pb-2">
               {summary.recent_transactions.length > 0 ? (
                 summary.recent_transactions.map((tx) => (
-                  <div
+                  <button
                     key={tx.id}
-                    className="flex-shrink-0 bg-white rounded-[22px] px-4 py-3 shadow-sm border border-gray-100 flex items-center space-x-3 min-w-[170px]"
+                    type="button"
+                    onClick={() => {
+                      onHaptic?.('light');
+                      onSelectTransaction?.(tx);
+                    }}
+                    className="flex-shrink-0 bg-white rounded-[22px] px-4 py-3 shadow-sm border border-gray-100 flex items-center space-x-3 min-w-[170px] text-left active:scale-[0.98] transition-all"
                   >
                     <div className="text-2xl">{tx.category_icon || '🍔'}</div>
                     <div>
@@ -239,7 +246,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         {tx.amount.toLocaleString('ru-RU')} ₽
                       </div>
                     </div>
-                  </div>
+                  </button>
                 ))
               ) : (
                 <div className="text-sm text-gray-400 py-4">Нет операций за период</div>

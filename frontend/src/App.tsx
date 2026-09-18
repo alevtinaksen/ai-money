@@ -5,6 +5,8 @@ import {
   fetchDashboard,
   fetchAccounts,
   createTransactionAPI,
+  updateTransactionAPI,
+  deleteTransactionAPI,
   INITIAL_ACCOUNTS,
   INITIAL_CATEGORIES,
 } from './api/client';
@@ -13,6 +15,7 @@ import { AccountsScreen } from './components/accounts/AccountsScreen';
 import { AddTransactionScreen } from './components/transaction/AddTransactionScreen';
 import { AccountSelectSheet } from './components/modals/AccountSelectSheet';
 import { EditAccountModal } from './components/modals/EditAccountModal';
+import { EditTransactionModal } from './components/modals/EditTransactionModal';
 import { VoiceOverlay } from './components/voice/VoiceOverlay';
 import { SettingsScreen } from './components/settings/SettingsScreen';
 
@@ -26,6 +29,10 @@ export const App: React.FC = () => {
   const [isEditAccountOpen, setIsEditAccountOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [isVoiceOpen, setIsVoiceOpen] = useState(false);
+
+  // Edit / View Transaction Modal State (matching media_1789730678657.png)
+  const [isEditTxOpen, setIsEditTxOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   // Hidden file input for receipt scanner
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,6 +65,7 @@ export const App: React.FC = () => {
         note: 'Самокат',
         created_at: '2026-05-07T14:30:00Z',
         category_icon: '🍔',
+        category_name: 'Еда',
       },
       {
         id: 'tx-2',
@@ -69,6 +77,7 @@ export const App: React.FC = () => {
         note: 'Подписки',
         created_at: '2026-05-07T11:15:00Z',
         category_icon: '💿',
+        category_name: 'Подписки',
       },
     ],
   });
@@ -146,6 +155,93 @@ export const App: React.FC = () => {
     await createTransactionAPI(initData, data);
   };
 
+  // Handle click on a transaction to view/edit (matching media_1789730678657.png)
+  const handleSelectTransaction = (tx: Transaction) => {
+    setEditingTransaction(tx);
+    setIsEditTxOpen(true);
+  };
+
+  // Save changes to existing transaction
+  const handleSaveEditedTransaction = async (data: {
+    id: string;
+    amount: number;
+    account_id: string;
+    category_id?: string;
+    type: 'expense' | 'income' | 'transfer';
+    note?: string;
+  }) => {
+    hapticNotification('success');
+    setIsEditTxOpen(false);
+
+    if (!editingTransaction) return;
+    const oldTx = editingTransaction;
+    const cat = categories.find((c) => c.id === data.category_id);
+
+    // Adjust balances
+    setAccounts((prev) =>
+      prev.map((acc) => {
+        let bal = acc.balance;
+        if (acc.id === oldTx.account_id) {
+          bal = oldTx.type === 'expense' ? bal + oldTx.amount : bal - oldTx.amount;
+        }
+        if (acc.id === data.account_id) {
+          bal = data.type === 'expense' ? bal - data.amount : bal + data.amount;
+        }
+        return { ...acc, balance: bal };
+      })
+    );
+
+    // Update list
+    setSummary((prev) => ({
+      ...prev,
+      recent_transactions: prev.recent_transactions.map((tx) =>
+        tx.id === data.id
+          ? {
+              ...tx,
+              amount: data.amount,
+              account_id: data.account_id,
+              category_id: data.category_id,
+              type: data.type,
+              note: data.note,
+              category_name: cat?.name,
+              category_icon: cat?.icon || '📦',
+            }
+          : tx
+      ),
+    }));
+
+    await updateTransactionAPI(initData, data.id, data);
+  };
+
+  // Delete transaction and restore balance
+  const handleDeleteTransaction = async (id: string) => {
+    hapticNotification('warning');
+    setIsEditTxOpen(false);
+
+    const txToDelete = summary.recent_transactions.find((tx) => tx.id === id);
+    if (txToDelete) {
+      setAccounts((prev) =>
+        prev.map((acc) => {
+          if (acc.id === txToDelete.account_id) {
+            const bal =
+              txToDelete.type === 'expense'
+                ? acc.balance + txToDelete.amount
+                : acc.balance - txToDelete.amount;
+            return { ...acc, balance: bal };
+          }
+          return acc;
+        })
+      );
+    }
+
+    setSummary((prev) => ({
+      ...prev,
+      recent_transactions: prev.recent_transactions.filter((tx) => tx.id !== id),
+    }));
+
+    await deleteTransactionAPI(initData, id);
+  };
+
   // Handle saving account (edit or create)
   const handleSaveAccount = (updated: Partial<Account> & { id?: string }) => {
     hapticNotification('success');
@@ -173,12 +269,18 @@ export const App: React.FC = () => {
     }
   };
 
+  // Handle deleting account
+  const handleDeleteAccount = (id: string) => {
+    hapticNotification('warning');
+    setAccounts((prev) => prev.filter((a) => a.id !== id));
+    setIsEditAccountOpen(false);
+  };
+
   // Handle receipt photo pick
   const handleReceiptFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     hapticNotification('success');
-    // Add scanned receipt
     handleAddTransaction({
       account_id: selectedAccount.id,
       category_id: categories[0].id,
@@ -208,6 +310,9 @@ export const App: React.FC = () => {
           onOpenAccounts={() => setCurrentScreen('accounts')}
           onOpenAddTransaction={() => setIsAddTxOpen(true)}
           onOpenVoice={() => setIsVoiceOpen(true)}
+          onOpenSettings={() => setCurrentScreen('settings')}
+          onScanReceipt={() => fileInputRef.current?.click()}
+          onSelectTransaction={handleSelectTransaction}
           onRefresh={loadData}
           onHaptic={hapticImpact}
         />
@@ -267,6 +372,19 @@ export const App: React.FC = () => {
         onClose={() => setIsEditAccountOpen(false)}
         account={editingAccount}
         onSave={handleSaveAccount}
+        onDelete={handleDeleteAccount}
+        onHaptic={hapticImpact}
+      />
+
+      {/* Edit Transaction Modal (Pixel-perfect matching media_1789730678657.png) */}
+      <EditTransactionModal
+        isOpen={isEditTxOpen}
+        onClose={() => setIsEditTxOpen(false)}
+        transaction={editingTransaction}
+        accounts={accounts}
+        categories={categories}
+        onSave={handleSaveEditedTransaction}
+        onDelete={handleDeleteTransaction}
         onHaptic={hapticImpact}
       />
 

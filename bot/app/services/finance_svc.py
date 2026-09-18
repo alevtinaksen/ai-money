@@ -218,6 +218,53 @@ class FinanceService:
         return True
 
     @staticmethod
+    async def update_transaction(db: AsyncSession, user_id: int, tx_id: str, data: dict) -> Optional[Transaction]:
+        stmt = select(Transaction).where(Transaction.id == tx_id, Transaction.user_id == user_id)
+        res = await db.execute(stmt)
+        tx = res.scalar_one_or_none()
+        if not tx:
+            return None
+
+        # Revert old balance
+        stmt_acc = select(Account).where(Account.id == tx.account_id)
+        res_acc = await db.execute(stmt_acc)
+        old_acc = res_acc.scalar_one_or_none()
+        if old_acc:
+            if tx.type == "expense":
+                old_acc.balance = float(old_acc.balance) + float(tx.amount)
+            elif tx.type == "income":
+                old_acc.balance = float(old_acc.balance) - float(tx.amount)
+
+        # Apply new fields
+        new_account_id = data.get("account_id") or tx.account_id
+        new_amount = float(data.get("amount") if data.get("amount") is not None else tx.amount)
+        new_type = data.get("type") or tx.type
+
+        # Apply new balance
+        stmt_new_acc = select(Account).where(Account.id == new_account_id)
+        res_new_acc = await db.execute(stmt_new_acc)
+        new_acc = res_new_acc.scalar_one_or_none()
+        if new_acc:
+            if new_type == "expense":
+                new_acc.balance = float(new_acc.balance) - new_amount
+            elif new_type == "income":
+                new_acc.balance = float(new_acc.balance) + new_amount
+
+        tx.account_id = new_account_id
+        tx.amount = new_amount
+        tx.type = new_type
+        if "category_id" in data:
+            tx.category_id = data["category_id"]
+        if "note" in data:
+            tx.note = data["note"]
+        if "created_at" in data and data["created_at"]:
+            tx.created_at = data["created_at"]
+
+        await db.commit()
+        await db.refresh(tx)
+        return tx
+
+    @staticmethod
     async def get_dashboard_summary(db: AsyncSession, user_id: int, month_offset: int = 0) -> DashboardSummary:
         accounts = await FinanceService.get_accounts(db, user_id)
         categories = await FinanceService.get_categories(db, user_id)

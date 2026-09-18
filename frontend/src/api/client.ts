@@ -173,6 +173,42 @@ export async function createTransactionAPI(
   };
 }
 
+export async function updateTransactionAPI(
+  initData: string,
+  id: string,
+  data: Partial<Transaction>
+): Promise<Transaction | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/transactions/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `tma ${initData}`
+      },
+      body: JSON.stringify(data)
+    });
+    if (res.ok) return await res.json();
+  } catch (e) {
+    // Fallback
+  }
+  return null;
+}
+
+export async function deleteTransactionAPI(
+  initData: string,
+  id: string
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/transactions/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `tma ${initData}` }
+    });
+    return res.ok;
+  } catch (e) {
+    return true; // local fallback
+  }
+}
+
 export async function parseVoiceAPI(initData: string, audioBlob: Blob) {
   const formData = new FormData();
   formData.append('file', audioBlob, 'voice.webm');
