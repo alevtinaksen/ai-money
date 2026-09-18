@@ -175,13 +175,37 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
     accounts[0]?.id;
 
   const resolveInitialCat = () => {
-    if (transaction.category_id) return transaction.category_id;
+    // 1. Check if category_name matches a category in categories
+    if (transaction.category_name) {
+      const catName = transaction.category_name.toLowerCase();
+      const byName = categories.find((c) => c.name.toLowerCase() === catName);
+      if (byName) return byName.id;
+    }
+    // 2. Check if note matches a category name directly
+    if (transaction.note) {
+      const noteStr = transaction.note.toLowerCase();
+      const byNote = categories.find((c) => c.name.toLowerCase() === noteStr);
+      if (byNote) return byNote.id;
+
+      // 3. Check if note is a subcategory in catalog
+      for (const cat of CATEGORIES_CATALOG) {
+        if (cat.subcategories.some((sc) => sc.toLowerCase() === noteStr)) {
+          const matchCat = categories.find((c) => c.name.toLowerCase() === cat.name.toLowerCase());
+          if (matchCat) return matchCat.id;
+        }
+      }
+    }
+    // 4. Check if category_id exists in categories list
+    if (transaction.category_id) {
+      const byId = categories.find((c) => c.id === transaction.category_id);
+      if (byId) return byId.id;
+    }
+    // 5. Transfer check
     if (transaction.type === 'transfer') {
       const tc = categories.find((c) => c.name === 'Переводы' || c.name.toLowerCase().includes('перевод'));
       if (tc) return tc.id;
     }
-    const found = categories.find((c) => c.name.toLowerCase() === transaction.category_name?.toLowerCase());
-    return found?.id || categories[0]?.id;
+    return categories[0]?.id;
   };
 
   const [type, setType] = useState<'expense' | 'income' | 'transfer'>(
@@ -191,7 +215,22 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
   const [accountId, setAccountId] = useState<string>(resolveInitialAcc());
   const [categoryId, setCategoryId] = useState<string | undefined>(resolveInitialCat());
   const [note, setNote] = useState<string>(transaction.note || '');
-  const [selectedSubcat, setSelectedSubcat] = useState<string>(transaction.note || '');
+  const [selectedSubcat, setSelectedSubcat] = useState<string>(() => {
+    const initCat = categories.find((c) => c.id === resolveInitialCat());
+    const catalog = CATEGORIES_CATALOG.find(
+      (c) => c.name.toLowerCase() === initCat?.name?.toLowerCase()
+    );
+    const noteVal = transaction.note;
+    if (
+      noteVal &&
+      catalog?.subcategories.some(
+        (sc) => sc.toLowerCase() === noteVal.toLowerCase()
+      )
+    ) {
+      return noteVal;
+    }
+    return '';
+  });
 
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [isAccPickerOpen, setIsAccPickerOpen] = useState(false);
@@ -199,20 +238,30 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
 
   // Sync state when transaction changes
   React.useEffect(() => {
+    const initialAccId = resolveInitialAcc();
+    const initialCatId = resolveInitialCat();
     setType(transaction.type || 'expense');
     setAmountStr(transaction.amount.toString());
-    setAccountId(
-      transaction.account_id ||
-      accounts.find((a) => a.name === transaction.account_name)?.id ||
-      accounts[0]?.id
-    );
-    setCategoryId(
-      transaction.category_id ||
-      categories.find((c) => c.name.toLowerCase() === transaction.category_name?.toLowerCase())?.id ||
-      categories[0]?.id
-    );
+    setAccountId(initialAccId);
+    setCategoryId(initialCatId);
     setNote(transaction.note || '');
-    setSelectedSubcat(transaction.note || '');
+
+    const resolvedCat = categories.find((c) => c.id === initialCatId);
+    const catCatalog = CATEGORIES_CATALOG.find(
+      (c) => c.name.toLowerCase() === resolvedCat?.name?.toLowerCase()
+    );
+    const noteVal = transaction.note;
+    if (
+      noteVal &&
+      catCatalog?.subcategories.some(
+        (sc) => sc.toLowerCase() === noteVal.toLowerCase()
+      )
+    ) {
+      setSelectedSubcat(noteVal);
+    } else {
+      setSelectedSubcat('');
+    }
+
     setIsPickerOpen(false);
     setIsAccPickerOpen(false);
     setShowDeleteConfirm(false);

@@ -296,7 +296,9 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
               >
                 <div>
                   <span className="text-[14px] font-semibold text-[#111827] dark:text-white block">
-                    {tx.note || tx.category_name || 'Расход'}
+                    {tx.category_name && tx.note && tx.note.toLowerCase() !== tx.category_name.toLowerCase()
+                      ? `${tx.category_name} · ${tx.note}`
+                      : tx.note || tx.category_name || 'Расход'}
                   </span>
                   <span className="text-[11px] text-gray-400 block mt-0.5">
                     {new Date(tx.created_at).toLocaleDateString('ru-RU', {

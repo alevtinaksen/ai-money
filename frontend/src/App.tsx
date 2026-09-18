@@ -36,10 +36,18 @@ export const App: React.FC = () => {
 
   // Category Detail Statistics Modal State (matching media_1789746985465.png)
   const [detailCategory, setDetailCategory] = useState<any | null>(null);
+  const [detailPeriodLabel, setDetailPeriodLabel] = useState<string>('Сентябрь 2026');
+  const [detailPeriodTxs, setDetailPeriodTxs] = useState<Transaction[]>([]);
 
   // Edit / View Transaction Modal State (matching media_1789730678657.png)
   const [isEditTxOpen, setIsEditTxOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+
+  const handleSelectCategory = (cat: Category, periodLabel?: string, periodTxs?: Transaction[]) => {
+    setDetailCategory(cat);
+    if (periodLabel) setDetailPeriodLabel(periodLabel);
+    if (periodTxs) setDetailPeriodTxs(periodTxs);
+  };
 
   // Hidden file input for receipt scanner
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -426,7 +434,7 @@ export const App: React.FC = () => {
           onOpenSettings={() => setCurrentScreen('settings')}
           onScanReceipt={() => fileInputRef.current?.click()}
           onSelectTransaction={handleSelectTransaction}
-          onSelectCategory={(cat) => setDetailCategory(cat)}
+          onSelectCategory={handleSelectCategory}
           onRefresh={loadData}
           onHaptic={hapticImpact}
         />
@@ -521,8 +529,8 @@ export const App: React.FC = () => {
         isOpen={!!detailCategory}
         onClose={() => setDetailCategory(null)}
         category={detailCategory}
-        periodLabel={summary.period_label || 'Май 2026 г.'}
-        transactions={summary.recent_transactions}
+        periodLabel={detailPeriodLabel}
+        transactions={detailPeriodTxs.length > 0 ? detailPeriodTxs : summary.recent_transactions}
         onOpenAddTransaction={() => {
           setDetailCategory(null);
           setIsAddTxOpen(true);

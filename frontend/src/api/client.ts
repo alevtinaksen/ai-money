@@ -270,10 +270,16 @@ export async function fetchDashboard(initData: string): Promise<DashboardSummary
     if (!accId && t.account_name) {
       accId = currentAccounts.find(a => a.name === t.account_name || a.name.includes(t.account_name))?.id || currentAccounts[0].id;
     }
-    let catId = t.category_id;
-    if (!catId && t.category_name) {
-      catId = INITIAL_CATEGORIES.find(c => c.name.toLowerCase() === t.category_name.toLowerCase())?.id || INITIAL_CATEGORIES[0].id;
-    }
+    const foundCat =
+      (t.category_name && INITIAL_CATEGORIES.find(c => c.name.toLowerCase() === t.category_name.toLowerCase())) ||
+      (t.note && INITIAL_CATEGORIES.find(c => c.name.toLowerCase() === t.note.toLowerCase())) ||
+      (t.category_id && INITIAL_CATEGORIES.find(c => c.id === t.category_id)) ||
+      (t.type === 'transfer' ? INITIAL_CATEGORIES.find(c => c.name === 'Переводы') : null);
+
+    const catId = foundCat?.id || (t.category_id ? t.category_id : INITIAL_CATEGORIES[0].id);
+    const catName = t.category_name || foundCat?.name || (t.type === 'transfer' ? 'Перевод' : 'Расход');
+    const catIcon = t.category_icon && t.category_icon !== '📦' ? t.category_icon : (foundCat?.icon || '📦');
+
     return {
       id: t.id || `tx-${Date.now()}`,
       user_id: t.user_id || 143702968,
@@ -284,8 +290,8 @@ export async function fetchDashboard(initData: string): Promise<DashboardSummary
       note: t.note || '',
       created_at: t.created_at || new Date().toISOString(),
       account_name: t.account_name,
-      category_name: t.category_name,
-      category_icon: t.category_icon || '📦',
+      category_name: catName,
+      category_icon: catIcon,
     };
   });
 

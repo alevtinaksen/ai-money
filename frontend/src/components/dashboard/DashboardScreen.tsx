@@ -23,25 +23,10 @@ interface DashboardScreenProps {
   onOpenSettings?: () => void;
   onScanReceipt?: () => void;
   onSelectTransaction?: (tx: Transaction) => void;
-  onSelectCategory?: (cat: Category) => void;
+  onSelectCategory?: (cat: Category, periodLabel?: string, periodTxs?: Transaction[]) => void;
   onRefresh?: () => void;
   onHaptic?: (style?: 'light' | 'medium' | 'heavy') => void;
 }
-
-const MONTHS = [
-  'Январь 2026',
-  'Февраль 2026',
-  'Март 2026',
-  'Апрель 2026',
-  'Май 2026',
-  'Июнь 2026',
-  'Июль 2026',
-  'Август 2026',
-  'Сентябрь 2026',
-  'Октябрь 2026',
-  'Ноябрь 2026',
-  'Декабрь 2026',
-];
 
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   summary,
@@ -58,7 +43,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onRefresh,
   onHaptic,
 }) => {
-  const [monthIdx, setMonthIdx] = useState(8); // Default to "Сентябрь 2026"
+  const [selectedDate, setSelectedDate] = useState(() => new Date(2026, 8, 1)); // Default to September 2026
   const [categoryMode, setCategoryMode] = useState<'expense' | 'income'>('expense');
 
   const totalAccountsBalance = accounts.reduce((sum, acc) => {
@@ -66,17 +51,54 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     return sum + acc.balance;
   }, 0);
 
+  const monthLabel = React.useMemo(() => {
+    const raw = selectedDate.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+    const cleaned = raw.replace(/\sг\.?$/i, '');
+    return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  }, [selectedDate]);
+
   const prevMonth = () => {
     onHaptic?.('light');
-    setMonthIdx((prev) => (prev > 0 ? prev - 1 : 11));
+    setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
   };
 
   const nextMonth = () => {
     onHaptic?.('light');
-    setMonthIdx((prev) => (prev < 11 ? prev + 1 : 0));
+    setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
   };
 
-  // Top categories sorted by real spending or income for the period dynamically calculated from transactions
+  // Filter transactions strictly for the selected month and year
+  const monthTransactions = React.useMemo(() => {
+    const targetYear = selectedDate.getFullYear();
+    const targetMonth = selectedDate.getMonth();
+
+    return summary.recent_transactions.filter((tx) => {
+      if (!tx.created_at) {
+        return targetYear === 2026 && targetMonth === 8;
+      }
+      const d = new Date(tx.created_at);
+      if (isNaN(d.getTime())) {
+        return targetYear === 2026 && targetMonth === 8;
+      }
+      return d.getFullYear() === targetYear && d.getMonth() === targetMonth;
+    });
+  }, [summary.recent_transactions, selectedDate]);
+
+  const periodExpense = React.useMemo(() => {
+    return monthTransactions
+      .filter((tx) => tx.type === 'expense')
+      .reduce((sum, tx) => sum + tx.amount, 0);
+  }, [monthTransactions]);
+
+  const periodIncome = React.useMemo(() => {
+    return monthTransactions
+      .filter((tx) => tx.type === 'income')
+      .reduce((sum, tx) => sum + tx.amount, 0);
+  }, [monthTransactions]);
+
+  const periodNet = periodIncome - periodExpense;
+
+  // Top categories sorted by real spending or income for the selected month
   const topCategories = React.useMemo(() => {
     const spendMap: Record<string, number> = {};
 
@@ -103,7 +125,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       return nameToCheck || (categoryMode === 'income' ? 'Прочее' : 'Другое');
     };
 
-    for (const tx of summary.recent_transactions) {
+    for (const tx of monthTransactions) {
       if (tx.type === categoryMode) {
         const catName = resolveMainCatName(tx);
         spendMap[catName] = (spendMap[catName] || 0) + tx.amount;
@@ -140,7 +162,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       { name: 'Транспорт', icon: '🚗', color: '#EF4444' },
       { name: 'Здоровье', icon: '💊', color: '#F59E0B' },
       { name: 'Покупки', icon: '🛍️', color: '#EC4899' },
-      { name: 'Машина', icon: '🚘', color: '#3B82F6' },
+      { name: 'Личное', icon: '✨', color: '#FEE2E2' },
     ];
 
     const defaultIncomeCategories = [
@@ -170,13 +192,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
     list.sort((a, b) => b.amount - a.amount);
 
-    const totalAmt = list.reduce((sum, c) => sum + c.amount, 0);
+    const currentTotal = categoryMode === 'expense' ? periodExpense : periodIncome;
 
     return list.map((c) => ({
       ...c,
-      percentage: totalAmt > 0 ? Math.min(100, Math.round((c.amount / totalAmt) * 100)) : 0,
+      percentage: currentTotal > 0 ? Math.min(100, Math.round((c.amount / currentTotal) * 100)) : 0,
     }));
-  }, [summary.recent_transactions, categories, categoryMode]);
+  }, [monthTransactions, categories, categoryMode, periodExpense, periodIncome]);
 
   const formatCompactAmount = (amount: number) => {
     if (amount <= 0) return '0 ₽';
@@ -250,7 +272,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             <LeftOutlined className="text-[14px]" />
           </button>
           <span className="text-[17px] font-bold text-[#111827] dark:text-white min-w-[140px] text-center">
-            {MONTHS[monthIdx]}
+            {monthLabel}
           </span>
           <button
             type="button"
@@ -264,11 +286,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         {/* Big Net Period Amount */}
         <div className="text-center my-4">
           {(() => {
-            const net = summary.period_income - summary.period_expense;
-            const sign = net > 0 ? '+' : (net < 0 ? '−' : '');
+            const sign = periodNet > 0 ? '+' : (periodNet < 0 ? '−' : '');
             return (
-              <h2 className="text-[42px] font-extrabold text-[#111827] tracking-tight">
-                {sign}{Math.abs(net).toLocaleString('ru-RU', { minimumFractionDigits: 0 })}{' '}
+              <h2 className="text-[42px] font-extrabold text-[#111827] dark:text-white tracking-tight">
+                {sign}{Math.abs(periodNet).toLocaleString('ru-RU', { minimumFractionDigits: 0 })}{' '}
                 <span className="font-bold">₽</span>
               </h2>
             );
@@ -299,7 +320,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 ↓
               </div>
               <span>
-                {summary.period_income.toLocaleString('ru-RU', {
+                {periodIncome.toLocaleString('ru-RU', {
                   minimumFractionDigits: 0,
                 })}{' '}
                 ₽
@@ -329,7 +350,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 ↑
               </div>
               <span>
-                {summary.period_expense.toLocaleString('ru-RU', {
+                {periodExpense.toLocaleString('ru-RU', {
                   minimumFractionDigits: 0,
                 })}{' '}
                 ₽
@@ -353,7 +374,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   type="button"
                   onClick={() => {
                     onHaptic?.('light');
-                    onSelectCategory?.(cat as any);
+                    onSelectCategory?.(cat as any, monthLabel, monthTransactions);
                   }}
                   className="flex flex-col items-center flex-shrink-0 group active:scale-95 transition-all min-w-[72px]"
                 >
@@ -426,8 +447,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           <div className="space-y-2">
             {/* Centered Date Header above cards */}
             <div className="text-center text-[12px] font-medium text-[#9CA3AF] dark:text-gray-400">
-              {summary.recent_transactions.length > 0 && summary.recent_transactions[0].created_at
-                ? new Date(summary.recent_transactions[0].created_at).toLocaleDateString('ru-RU', {
+              {monthTransactions.length > 0 && monthTransactions[0].created_at
+                ? new Date(monthTransactions[0].created_at).toLocaleDateString('ru-RU', {
                     day: 'numeric',
                     month: 'long',
                   })
@@ -436,8 +457,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
             {/* Horizontal / Stacked Transaction Cards */}
             <div className="flex items-center space-x-3 overflow-x-auto no-scrollbar pb-2">
-              {summary.recent_transactions.length > 0 ? (
-                summary.recent_transactions.map((tx) => (
+              {monthTransactions.length > 0 ? (
+                monthTransactions.map((tx) => (
                   <button
                     key={tx.id}
                     type="button"
@@ -449,8 +470,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   >
                     <div className="text-2xl">{tx.category_icon || (tx.type === 'transfer' ? '🔄' : '📦')}</div>
                     <div>
-                      <div className="text-[14px] font-semibold text-[#111827] dark:text-white leading-tight truncate max-w-[120px]">
-                        {tx.category_name || tx.note || (tx.type === 'transfer' ? 'Перевод' : 'Расход')}
+                      <div className="text-[14px] font-semibold text-[#111827] dark:text-white leading-tight truncate max-w-[160px]">
+                        {tx.category_name && tx.note && tx.note.toLowerCase() !== tx.category_name.toLowerCase()
+                          ? `${tx.category_name} · ${tx.note}`
+                          : tx.category_name || tx.note || (tx.type === 'transfer' ? 'Перевод' : 'Расход')}
                       </div>
                       <div
                         className={`text-[13px] font-bold mt-0.5 ${
@@ -468,7 +491,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   </button>
                 ))
               ) : (
-                <div className="text-sm text-gray-400 py-4 text-center w-full">Нет операций за период</div>
+                <div className="text-sm text-gray-400 py-4 text-center w-full">Нет операций за этот месяц</div>
               )}
             </div>
           </div>

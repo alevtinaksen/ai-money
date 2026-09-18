@@ -461,22 +461,14 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
                           ) : (
                             <div>
                               <div className="flex items-center space-x-1.5 truncate">
-                                <span className="text-[15px] font-bold text-[#111827] dark:text-white leading-tight">
-                                  {tx.category_name || 'Расход'}
+                                <span className="text-[15px] font-bold text-[#111827] dark:text-white leading-tight truncate">
+                                  {tx.category_name && tx.note && tx.note.toLowerCase() !== tx.category_name.toLowerCase()
+                                    ? `${tx.category_name} · ${tx.note}`
+                                    : tx.category_name || tx.note || 'Расход'}
                                 </span>
-                                {tx.note &&
-                                  tx.note.toLowerCase() !== (tx.category_name || '').toLowerCase() && (
-                                    <span className="text-[13px] text-gray-500 dark:text-gray-400 italic truncate font-normal">
-                                      "{tx.note}"
-                                    </span>
-                                  )}
                               </div>
 
                               <div className="flex items-center space-x-1.5 text-[12px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">
-                                {tx.note &&
-                                  tx.note.toLowerCase() === (tx.category_name || '').toLowerCase() && (
-                                    <span>{tx.note} • </span>
-                                  )}
                                 <span className="truncate">{tx.account_name || 'Карта Альфа'}</span>
                               </div>
                             </div>
