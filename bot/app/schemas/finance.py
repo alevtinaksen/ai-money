@@ -95,9 +95,19 @@ class AIParsedTransaction(BaseModel):
     to_account_name: Optional[str] = Field(default=None, description="Название счета зачисления (для перевода)")
     note: Optional[str] = Field(default=None, description="Краткое описание или комментарий, например: Кофе, Такси, Продукты")
 
+class PendingClarification(BaseModel):
+    question: str
+    suggested_amount: Optional[float] = None
+    suggested_options: List[float] = Field(default_factory=list)
+    type: str = "expense"
+    category_name: Optional[str] = None
+    account_name: Optional[str] = None
+    note: Optional[str] = None
+
 class AIParsedResult(BaseModel):
     transactions: List[AIParsedTransaction] = Field(default_factory=list, description="Список распознанных транзакций")
     clarification: Optional[str] = Field(default=None, description="Если что-то не понятно или не хватает данных")
+    pending: Optional[PendingClarification] = Field(default=None, description="Запрос на уточнение суммы или деталей")
 
 # --- Dashboard & Analytics Schemas ---
 class CategoryStat(BaseModel):

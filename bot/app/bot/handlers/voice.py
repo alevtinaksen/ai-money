@@ -2,7 +2,7 @@ import io
 from aiogram import Router, F, Bot
 from aiogram.types import Message
 from app.services.ai_parser import AIParserService
-from app.bot.handlers.common import process_and_save_transactions
+from app.bot.handlers.common import handle_user_input
 
 router = Router()
 
@@ -17,7 +17,7 @@ async def handle_voice_message(message: Message, bot: Bot):
         await bot.download_file(voice_file.file_path, voice_buffer)
         voice_bytes = voice_buffer.getvalue()
 
-        # Transcribe with Groq Whisper
+        # Transcribe with Groq Whisper or fallback
         transcribed_text = await AIParserService.transcribe_audio(voice_bytes, filename="voice.ogg")
 
         if not transcribed_text:
@@ -25,7 +25,7 @@ async def handle_voice_message(message: Message, bot: Bot):
             return
 
         await status_msg.edit_text(f"🗣️ *«{transcribed_text}»*\nОбрабатываю...", parse_mode="Markdown")
-        await process_and_save_transactions(message.from_user.id, transcribed_text, bot, message.chat.id)
+        await handle_user_input(message.from_user.id, transcribed_text, bot, message.chat.id)
         
         # Remove processing message
         try:
