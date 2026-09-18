@@ -238,9 +238,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   <span className="text-[15px] font-medium text-[#111827] dark:text-white block">
                     Управление категориями
                   </span>
-                  <span className="text-xs text-[#9CA3AF] dark:text-[#8E92A4]">
-                    Редактирование, создание и подкатегории
-                  </span>
                 </div>
               </div>
               <div className="flex items-center space-x-1.5 text-[#2B5BFF] text-xs font-semibold">

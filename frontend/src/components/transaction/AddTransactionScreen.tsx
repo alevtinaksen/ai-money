@@ -14,6 +14,8 @@ interface AddTransactionScreenProps {
   accounts: Account[];
   categories: Category[];
   selectedAccount: Account;
+  initialType?: TransactionType;
+  initialCategoryId?: string;
   onOpenAccountSelect: () => void;
   onSubmit: (tx: {
     account_id: string;
@@ -29,20 +31,33 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
   onClose,
   categories,
   selectedAccount,
+  initialType,
+  initialCategoryId,
   onOpenAccountSelect,
   onSubmit,
   onHaptic
 }) => {
   const [amountStr, setAmountStr] = useState('');
-  const [txType, setTxType] = useState<TransactionType>('expense');
-  const [selectedCategory, setSelectedCategory] = useState<Category>(categories[0] || {
-    id: 'cat-1',
-    name: 'Еда',
-    type: 'expense',
-    icon: '🍔',
-    color: '#FEE2E2',
-    sort_order: 1,
-    user_id: 999999
+  const [txType, setTxType] = useState<TransactionType>(initialType || 'expense');
+  const [selectedCategory, setSelectedCategory] = useState<Category>(() => {
+    if (initialType === 'transfer' || initialCategoryId) {
+      const match = categories.find(
+        (c) =>
+          c.id === initialCategoryId ||
+          c.name.toLowerCase().includes('перевод') ||
+          c.icon === '💸'
+      );
+      if (match) return match;
+    }
+    return categories[0] || {
+      id: 'cat-1',
+      name: 'Еда',
+      type: 'expense',
+      icon: '🍔',
+      color: '#FEE2E2',
+      sort_order: 1,
+      user_id: 143702968
+    };
   });
   const [note, setNote] = useState('');
   const [dateLabel, setDateLabel] = useState('Сегодня');
@@ -113,7 +128,14 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
           type="button"
           onClick={() => {
             onHaptic?.('light');
-            setTxType(txType === 'transfer' ? 'expense' : 'transfer');
+            const nextType = txType === 'transfer' ? 'expense' : 'transfer';
+            setTxType(nextType);
+            if (nextType === 'transfer') {
+              const transferCat = categories.find(
+                (c) => c.name.toLowerCase().includes('перевод') || c.icon === '💸'
+              );
+              if (transferCat) setSelectedCategory(transferCat);
+            }
           }}
           className={`w-10 h-10 rounded-full bg-white dark:bg-[#1A1B20] shadow-sm flex items-center justify-center text-[#4B5563] dark:text-[#A0A5B5] active:bg-[#F3F4F6] dark:active:bg-[#252730] border border-gray-100 dark:border-[#252730] ${
             txType === 'transfer' ? 'ring-2 ring-[#2B5BFF] text-[#2B5BFF]' : ''

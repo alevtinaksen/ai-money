@@ -46,10 +46,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [selectedDate, setSelectedDate] = useState(() => new Date(2026, 8, 1)); // Default to September 2026
   const [categoryMode, setCategoryMode] = useState<'expense' | 'income'>('expense');
 
-  const totalAccountsBalance = accounts.reduce((sum, acc) => {
-    if (acc.group_name === 'Кредиты') return sum - acc.balance;
-    return sum + acc.balance;
-  }, 0);
+  const totalAccountsBalance = accounts
+    .filter((acc) => acc.group_name !== 'Кредиты')
+    .reduce((sum, acc) => sum + acc.balance, 0);
 
   const monthLabel = React.useMemo(() => {
     const raw = selectedDate.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });

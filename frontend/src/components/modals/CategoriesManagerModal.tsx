@@ -6,7 +6,6 @@ import {
   EditOutlined,
   DeleteOutlined,
   RightOutlined,
-  UnorderedListOutlined,
 } from '@ant-design/icons';
 import { Category } from '../../types';
 
@@ -351,24 +350,14 @@ export const CategoriesManagerModal: React.FC<CategoriesManagerModalProps> = ({
               </h1>
             </div>
 
-            <div className="flex items-center space-x-2.5">
-              {/* Sort button */}
-              <button
-                type="button"
-                onClick={() => onHaptic?.('light')}
-                className="w-11 h-11 rounded-full bg-[#1C1D24] text-white flex items-center justify-center border border-white/5 active:scale-95 transition-transform"
-              >
-                <UnorderedListOutlined className="text-[17px]" />
-              </button>
-
-              {/* Add category button with rocket badge */}
+            <div className="flex items-center">
+              {/* Add category button - semi-blue without rocket */}
               <button
                 type="button"
                 onClick={handleOpenCreate}
-                className="w-11 h-11 rounded-full bg-[#2A2346] text-white flex items-center justify-center relative border border-purple-500/30 active:scale-95 transition-transform shadow-md"
+                className="w-11 h-11 rounded-full bg-[#DCE6FF] dark:bg-[#1E284A] text-[#2B5BFF] border border-[#B3C8FD] dark:border-[#2B5BFF]/40 shadow-sm flex items-center justify-center active:scale-95 transition-transform"
               >
-                <PlusOutlined className="text-[18px]" />
-                <span className="absolute -top-1 -right-1 text-[12px] leading-none">🚀</span>
+                <PlusOutlined className="text-[18px] text-[#2B5BFF]" />
               </button>
             </div>
           </div>

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   ArrowLeftOutlined,
-  EditOutlined,
   PlusOutlined,
   DownOutlined,
   UpOutlined,
@@ -71,29 +70,18 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
           <h1 className="text-[26px] font-bold text-[#111827] dark:text-white tracking-tight">Счета</h1>
         </div>
 
-        {/* Header Actions: Edit & Add (+) with Rocket Badge */}
-        <div className="flex items-center space-x-2.5">
+        {/* Header Actions: Add (+) semi-blue button without rocket */}
+        <div className="flex items-center">
           <button
             type="button"
-            onClick={() => onHaptic?.('light')}
-            className="w-10 h-10 rounded-full bg-white dark:bg-[#1E1F26] shadow-sm border border-gray-100 dark:border-gray-800 flex items-center justify-center text-[#111827] dark:text-white active:bg-gray-100 dark:active:bg-gray-800"
+            onClick={() => {
+              onHaptic?.('light');
+              onAddNewAccount?.();
+            }}
+            className="w-10 h-10 rounded-full bg-[#DCE6FF] dark:bg-[#1E284A] text-[#2B5BFF] border border-[#B3C8FD] dark:border-[#2B5BFF]/40 shadow-sm flex items-center justify-center active:scale-95 transition-transform"
           >
-            <EditOutlined className="text-[14px]" />
+            <PlusOutlined className="text-[18px] text-[#2B5BFF]" />
           </button>
-
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => {
-                onHaptic?.('light');
-                onAddNewAccount?.();
-              }}
-              className="w-10 h-10 rounded-full bg-[#EDE9FE] dark:bg-[#312E81]/60 text-[#7C3AED] dark:text-[#A78BFA] shadow-sm flex items-center justify-center active:scale-95"
-            >
-              <PlusOutlined className="text-[18px]" />
-            </button>
-            <span className="absolute -top-1 -right-1 text-[12px]">🚀</span>
-          </div>
         </div>
       </div>
 
@@ -115,11 +103,6 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
               <span>📑 Кредиты: -{creditBalance.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽</span>
             </div>
           )}
-
-          <p className="text-[12px] text-[#9CA3AF] dark:text-gray-400 mt-2 flex items-center justify-center space-x-1">
-            <span>ⓘ</span>
-            <span>Долгое нажатие для перевода</span>
-          </p>
         </div>
 
         {/* Grouped Account Lists */}
@@ -199,17 +182,18 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         </div>
       </div>
 
-      {/* Floating Action Button (FAB) for Transfer (⇄) */}
-      <div className="fixed bottom-8 right-6 z-20">
+      {/* Centered Transfer Button (⇄ Перевести) */}
+      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-20">
         <button
           type="button"
           onClick={() => {
             onHaptic?.('heavy');
             onOpenTransfer?.();
           }}
-          className="w-14 h-14 rounded-full bg-[#2B5BFF] text-white flex items-center justify-center shadow-[0_8px_24px_rgba(43,91,255,0.4)] active:scale-95 transition-all"
+          className="px-6 py-3.5 rounded-full bg-[#2B5BFF] hover:bg-[#1E4BEB] text-white flex items-center space-x-2 shadow-[0_8px_24px_rgba(43,91,255,0.4)] active:scale-95 transition-all font-semibold text-[15px]"
         >
-          <SwapOutlined className="text-[22px]" />
+          <SwapOutlined className="text-[18px]" />
+          <span>Перевести</span>
         </button>
       </div>
     </div>

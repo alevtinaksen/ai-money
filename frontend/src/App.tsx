@@ -31,6 +31,7 @@ export const App: React.FC = () => {
   // Navigation state
   const [currentScreen, setCurrentScreen] = useState<'dashboard' | 'accounts' | 'settings' | 'transactions'>('dashboard');
   const [isAddTxOpen, setIsAddTxOpen] = useState(false);
+  const [addTxInitialType, setAddTxInitialType] = useState<TransactionType>('expense');
   const [isAccountSheetOpen, setIsAccountSheetOpen] = useState(false);
   const [isEditAccountOpen, setIsEditAccountOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
@@ -487,7 +488,10 @@ export const App: React.FC = () => {
           categories={categories}
           onOpenAccounts={() => setCurrentScreen('accounts')}
           onOpenTransactions={() => setCurrentScreen('transactions')}
-          onOpenAddTransaction={() => setIsAddTxOpen(true)}
+          onOpenAddTransaction={() => {
+            setAddTxInitialType('expense');
+            setIsAddTxOpen(true);
+          }}
           onOpenVoice={() => setIsVoiceOpen(true)}
           onOpenSettings={() => setCurrentScreen('settings')}
           onScanReceipt={() => fileInputRef.current?.click()}
@@ -503,7 +507,10 @@ export const App: React.FC = () => {
           accounts={accounts}
           categories={categories}
           onSelectTransaction={handleSelectTransaction}
-          onOpenAddTransaction={() => setIsAddTxOpen(true)}
+          onOpenAddTransaction={() => {
+            setAddTxInitialType('expense');
+            setIsAddTxOpen(true);
+          }}
           onHaptic={hapticImpact}
         />
       ) : currentScreen === 'accounts' ? (
@@ -514,7 +521,10 @@ export const App: React.FC = () => {
             setEditingAccount(acc);
             setIsEditAccountOpen(true);
           }}
-          onOpenTransfer={() => setIsAddTxOpen(true)}
+          onOpenTransfer={() => {
+            setAddTxInitialType('transfer');
+            setIsAddTxOpen(true);
+          }}
           onAddNewAccount={() => {
             setEditingAccount(null);
             setIsEditAccountOpen(true);
@@ -540,6 +550,7 @@ export const App: React.FC = () => {
           accounts={accounts}
           categories={categories}
           selectedAccount={selectedAccount}
+          initialType={addTxInitialType}
           onOpenAccountSelect={() => setIsAccountSheetOpen(true)}
           onSubmit={handleAddTransaction}
           onHaptic={hapticImpact}
