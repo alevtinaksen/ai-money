@@ -1,0 +1,72 @@
+import React from 'react';
+import { Delete } from 'lucide-react';
+
+interface CustomNumpadProps {
+  onDigit: (digit: string) => void;
+  onDelete: () => void;
+  onComma: () => void;
+  onHaptic?: () => void;
+}
+
+const KEYS = [
+  { main: '1', sub: '' },
+  { main: '2', sub: 'А Б В Г' },
+  { main: '3', sub: 'Д Е Ж З' },
+  { main: '4', sub: 'И Й К Л' },
+  { main: '5', sub: 'М Н О П' },
+  { main: '6', sub: 'Р С Т У' },
+  { main: '7', sub: 'Ф Х Ц Ч' },
+  { main: '8', sub: 'Ш Щ Ъ Ы' },
+  { main: '9', sub: 'Ь Э Ю Я' },
+  { main: ',', sub: '', action: 'comma' },
+  { main: '0', sub: '' },
+  { main: 'del', sub: '', action: 'delete' },
+];
+
+export const CustomNumpad: React.FC<CustomNumpadProps> = ({
+  onDigit,
+  onDelete,
+  onComma,
+  onHaptic
+}) => {
+  const handleClick = (key: typeof KEYS[0]) => {
+    onHaptic?.();
+    if (key.action === 'delete') {
+      onDelete();
+    } else if (key.action === 'comma') {
+      onComma();
+    } else {
+      onDigit(key.main);
+    }
+  };
+
+  return (
+    <div className="w-full bg-[#E5E7EB] pt-3 pb-8 px-4 rounded-t-[32px] shadow-[0_-4px_20px_rgba(0,0,0,0.03)] select-none">
+      <div className="max-w-md mx-auto grid grid-cols-3 gap-2 sm:gap-3">
+        {KEYS.map((k, idx) => (
+          <button
+            key={idx}
+            type="button"
+            onClick={() => handleClick(k)}
+            className="h-[52px] sm:h-[58px] bg-white active:bg-[#F3F4F6] rounded-[16px] flex flex-col items-center justify-center shadow-[0_1px_2px_rgba(0,0,0,0.08)] transition-all active:scale-[0.98]"
+          >
+            {k.action === 'delete' ? (
+              <Delete className="w-6 h-6 text-[#1F2937]" strokeWidth={1.75} />
+            ) : (
+              <>
+                <span className="text-[24px] font-medium leading-none text-[#111827]">
+                  {k.main}
+                </span>
+                {k.sub ? (
+                  <span className="text-[9px] font-medium tracking-[0.1em] text-[#6B7280] mt-0.5">
+                    {k.sub}
+                  </span>
+                ) : null}
+              </>
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
