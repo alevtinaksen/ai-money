@@ -101,6 +101,17 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     loadData();
+
+    const handleSync = () => {
+      loadData();
+    };
+
+    window.addEventListener('hashchange', handleSync);
+    window.addEventListener('focus', handleSync);
+    return () => {
+      window.removeEventListener('hashchange', handleSync);
+      window.removeEventListener('focus', handleSync);
+    };
   }, [loadData]);
 
   // Handle adding transaction

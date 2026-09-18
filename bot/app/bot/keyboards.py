@@ -1,8 +1,25 @@
-from typing import List
+from typing import List, Dict, Any
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from app.core.config import settings
 
-def get_transaction_inline_kb(tx_id: str) -> InlineKeyboardMarkup:
+MAIN_CATEGORIES_METADATA = [
+    {"name": "Еда", "icon": "🍔", "subs": ["Кафе", "Самокат", "Кофе", "НаЛанч"]},
+    {"name": "Транспорт", "icon": "🚗", "subs": ["Такси", "Каршеринг", "Общественный", "Поезд"]},
+    {"name": "Машина", "icon": "🚘", "subs": ["Бензин", "ТО авто", "Парковка", "Кредит за авто"]},
+    {"name": "Покупки", "icon": "🛍️", "subs": ["Одежда", "Электроника", "Бытовая химия", "Товары для хобби"]},
+    {"name": "Развлечения", "icon": "🎬", "subs": ["Кино", "Игры", "Вечеринки"]},
+    {"name": "Здоровье", "icon": "💊", "subs": ["Лекарства", "Врачи", "Психотерапевт"]},
+    {"name": "Жилье", "icon": "🏠", "subs": ["Аренда", "ЖКХ", "Ремонт"]},
+    {"name": "Личное", "icon": "✨", "subs": ["Внешний вид", "Привычки", "Спорт"]},
+    {"name": "Кот", "icon": "🐱", "subs": ["Корм для кота", "Здоровье кота"]},
+    {"name": "Путешествия", "icon": "✈️", "subs": []},
+    {"name": "Подписки", "icon": "💿", "subs": []},
+    {"name": "Подарки", "icon": "🎁", "subs": []},
+    {"name": "Переводы", "icon": "💸", "subs": []},
+    {"name": "Зарплата", "icon": "💰", "subs": []},
+]
+
+def get_transaction_inline_kb(tx_id: str, sync_hash: str = "") -> InlineKeyboardMarkup:
     buttons = [
         [
             InlineKeyboardButton(text="✏️ Редактировать", callback_data=f"tx_edit:{tx_id}"),
@@ -10,8 +27,9 @@ def get_transaction_inline_kb(tx_id: str) -> InlineKeyboardMarkup:
         ]
     ]
     if settings.WEBAPP_URL and not settings.WEBAPP_URL.startswith("http://localhost"):
+        url = f"{settings.WEBAPP_URL}{sync_hash}" if sync_hash else settings.WEBAPP_URL
         buttons.append([
-            InlineKeyboardButton(text="📱 Открыть в приложении", web_app=WebAppInfo(url=settings.WEBAPP_URL))
+            InlineKeyboardButton(text="📱 Открыть в приложении", web_app=WebAppInfo(url=url))
         ])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -39,17 +57,31 @@ def get_edit_amount_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="🔙 Назад к меню", callback_data="tx_edit_menu")]
     ])
 
-def get_edit_categories_kb(categories: list) -> InlineKeyboardMarkup:
+def get_main_categories_kb() -> InlineKeyboardMarkup:
     buttons = []
     row = []
-    for cat in categories:
-        row.append(InlineKeyboardButton(text=f"{cat.icon} {cat.name}", callback_data=f"sc:{cat.id}"))
+    for cat in MAIN_CATEGORIES_METADATA:
+        row.append(InlineKeyboardButton(text=f"{cat['icon']} {cat['name']}", callback_data=f"mc:{cat['name']}"))
         if len(row) == 2:
             buttons.append(row)
             row = []
     if row:
         buttons.append(row)
     buttons.append([InlineKeyboardButton(text="🔙 Назад к меню", callback_data="tx_edit_menu")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def get_subcategories_kb(main_cat_name: str, sub_categories: list) -> InlineKeyboardMarkup:
+    buttons = []
+    row = []
+    for scat in sub_categories:
+        row.append(InlineKeyboardButton(text=f"{scat.icon} {scat.name}", callback_data=f"sc:{scat.id}"))
+        if len(row) == 2:
+            buttons.append(row)
+            row = []
+    if row:
+        buttons.append(row)
+    buttons.append([InlineKeyboardButton(text=f"✅ Оставить «{main_cat_name}»", callback_data="tx_edit_menu")])
+    buttons.append([InlineKeyboardButton(text="🔙 Назад к категориям", callback_data="tx_edit_cat")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 def get_edit_accounts_kb(accounts: list) -> InlineKeyboardMarkup:

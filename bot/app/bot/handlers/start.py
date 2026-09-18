@@ -12,17 +12,20 @@ async def cmd_start(message: Message):
     user_id = message.from_user.id
     name = message.from_user.first_name or "друг"
 
-    # Seed default accounts and categories for user
+    # Seed default accounts and categories for user and generate sync hash
+    sync_hash = ""
     async with AsyncSessionLocal() as db:
         await FinanceService.ensure_user_seeded(db, user_id)
+        sync_hash = await FinanceService.get_user_sync_hash(db, user_id)
 
     # Set Menu Button to open Mini App
     try:
+        url = f"{settings.WEBAPP_URL}{sync_hash}" if sync_hash else settings.WEBAPP_URL
         await message.bot.set_chat_menu_button(
             chat_id=message.chat.id,
             menu_button=MenuButtonWebApp(
                 text="📊 Бюджет",
-                web_app=WebAppInfo(url=settings.WEBAPP_URL)
+                web_app=WebAppInfo(url=url)
             )
         )
     except Exception:

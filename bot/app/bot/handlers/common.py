@@ -2,8 +2,10 @@ import re
 import uuid
 from typing import List, Optional
 from aiogram import Bot
+from aiogram.types import MenuButtonWebApp, WebAppInfo
 from sqlalchemy import select
 from app.core.database import AsyncSessionLocal
+from app.core.config import settings
 from app.models.models import Transaction, Account, Category
 from app.services.finance_svc import FinanceService
 from app.services.ai_parser import AIParserService
@@ -17,6 +19,22 @@ from app.bot.state import (
     clear_user_edit,
     USER_ACTIVE_PENDING
 )
+
+async def update_user_mini_app_sync(bot: Bot, chat_id: int, user_id: int, db) -> str:
+    """Updates Telegram chat menu button and returns sync hash for inline buttons."""
+    sync_hash = await FinanceService.get_user_sync_hash(db, user_id)
+    if settings.WEBAPP_URL and not settings.WEBAPP_URL.startswith("http://localhost"):
+        try:
+            await bot.set_chat_menu_button(
+                chat_id=chat_id,
+                menu_button=MenuButtonWebApp(
+                    text="📱 Бюджет",
+                    web_app=WebAppInfo(url=f"{settings.WEBAPP_URL}{sync_hash}")
+                )
+            )
+        except Exception:
+            pass
+    return sync_hash
 
 async def handle_user_input(user_id: int, text: str, bot: Bot, chat_id: int):
     """Unified entry point for both text and voice transcribed messages."""
@@ -197,6 +215,7 @@ async def process_and_save_transactions(user_id: int, text: str, bot: Bot, chat_
             )
 
             saved_tx = await FinanceService.create_transaction(db, user_id, create_payload)
+            sync_hash = await update_user_mini_app_sync(bot, chat_id, user_id, db)
 
             type_symbol = "💸 Расход" if tx_data.type == "expense" else ("💰 Доход" if tx_data.type == "income" else "🔄 Перевод")
             acc_icon = target_acc.icon if target_acc else "💳"
@@ -216,7 +235,7 @@ async def process_and_save_transactions(user_id: int, text: str, bot: Bot, chat_
             await bot.send_message(
                 chat_id=chat_id,
                 text=msg_text,
-                reply_markup=get_transaction_inline_kb(saved_tx.id),
+                reply_markup=get_transaction_inline_kb(saved_tx.id, sync_hash),
                 parse_mode="Markdown"
             )
 
@@ -237,6 +256,7 @@ async def complete_clarification(bot: Bot, chat_id: int, user_id: int, pending_i
         )
         saved_tx = await FinanceService.create_transaction(db, user_id, create_payload)
         clear_pending_clarification(pending_id)
+        sync_hash = await update_user_mini_app_sync(bot, chat_id, user_id, db)
 
         # Get fresh account balance
         accounts = await FinanceService.get_accounts(db, user_id)
@@ -261,7 +281,7 @@ async def complete_clarification(bot: Bot, chat_id: int, user_id: int, pending_i
                     chat_id=chat_id,
                     message_id=message_to_edit_id,
                     text=msg_text,
-                    reply_markup=get_transaction_inline_kb(saved_tx.id),
+                    reply_markup=get_transaction_inline_kb(saved_tx.id, sync_hash),
                     parse_mode="Markdown"
                 )
                 return
@@ -271,7 +291,7 @@ async def complete_clarification(bot: Bot, chat_id: int, user_id: int, pending_i
         await bot.send_message(
             chat_id=chat_id,
             text=msg_text,
-            reply_markup=get_transaction_inline_kb(saved_tx.id),
+            reply_markup=get_transaction_inline_kb(saved_tx.id, sync_hash),
             parse_mode="Markdown"
         )
 
@@ -284,6 +304,8 @@ async def send_updated_tx_card(bot: Bot, chat_id: int, user_id: int, tx: Transac
         stmt_cat = select(Category).where(Category.id == tx.category_id)
         res_cat = await db.execute(stmt_cat)
         cat = res_cat.scalar_one_or_none()
+
+        sync_hash = await update_user_mini_app_sync(bot, chat_id, user_id, db)
 
         type_symbol = "💸 Расход" if tx.type == "expense" else ("💰 Доход" if tx.type == "income" else "🔄 Перевод")
         acc_icon = acc.icon if acc else "💳"
@@ -308,7 +330,7 @@ async def send_updated_tx_card(bot: Bot, chat_id: int, user_id: int, tx: Transac
                     chat_id=chat_id,
                     message_id=message_to_edit_id,
                     text=msg_text,
-                    reply_markup=get_transaction_inline_kb(tx.id),
+                    reply_markup=get_transaction_inline_kb(tx.id, sync_hash),
                     parse_mode="Markdown"
                 )
                 return
@@ -318,6 +340,6 @@ async def send_updated_tx_card(bot: Bot, chat_id: int, user_id: int, tx: Transac
         await bot.send_message(
             chat_id=chat_id,
             text=msg_text,
-            reply_markup=get_transaction_inline_kb(tx.id),
+            reply_markup=get_transaction_inline_kb(tx.id, sync_hash),
             parse_mode="Markdown"
         )

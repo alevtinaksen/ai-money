@@ -1,16 +1,19 @@
-from aiogram import Router, F
-from aiogram.types import CallbackQuery
+from aiogram import Router, F, Bot
+from aiogram.types import CallbackQuery, MenuButtonWebApp, WebAppInfo
 from sqlalchemy import select
 from app.core.database import AsyncSessionLocal
+from app.core.config import settings
 from app.models.models import Transaction, Account, Category
 from app.services.finance_svc import FinanceService
 from app.bot.keyboards import (
     get_transaction_inline_kb,
     get_edit_menu_kb,
     get_edit_amount_kb,
-    get_edit_categories_kb,
+    get_main_categories_kb,
+    get_subcategories_kb,
     get_edit_accounts_kb,
-    get_back_to_edit_kb
+    get_back_to_edit_kb,
+    MAIN_CATEGORIES_METADATA
 )
 from app.bot.state import (
     set_user_edit,
@@ -23,6 +26,22 @@ from app.bot.state import (
 from app.bot.handlers.common import complete_clarification
 
 router = Router()
+
+async def update_user_mini_app_sync(bot: Bot, chat_id: int, user_id: int, db) -> str:
+    """Updates Telegram chat menu button and returns sync hash for inline buttons."""
+    sync_hash = await FinanceService.get_user_sync_hash(db, user_id)
+    if settings.WEBAPP_URL and not settings.WEBAPP_URL.startswith("http://localhost"):
+        try:
+            await bot.set_chat_menu_button(
+                chat_id=chat_id,
+                menu_button=MenuButtonWebApp(
+                    text="📱 Бюджет",
+                    web_app=WebAppInfo(url=f"{settings.WEBAPP_URL}{sync_hash}")
+                )
+            )
+        except Exception:
+            pass
+    return sync_hash
 
 async def render_tx_card_text(db, user_id: int, tx: Transaction) -> str:
     stmt_acc = select(Account).where(Account.id == tx.account_id)
@@ -84,6 +103,7 @@ async def handle_delete_transaction(callback: CallbackQuery):
     async with AsyncSessionLocal() as db:
         success = await FinanceService.delete_transaction(db, user_id, tx_id)
         if success:
+            await update_user_mini_app_sync(callback.bot, callback.message.chat.id, user_id, db)
             await callback.answer("Запись удалена, баланс возвращён!", show_alert=False)
             await callback.message.edit_text(
                 "❌ **Запись отменена и удалена**\nСумма возвращена на счёт.",
@@ -151,8 +171,9 @@ async def handle_finish_edit(callback: CallbackQuery):
             await callback.answer("Запись не найдена", show_alert=True)
             return
 
+        sync_hash = await update_user_mini_app_sync(callback.bot, callback.message.chat.id, user_id, db)
         text = await render_tx_card_text(db, user_id, tx)
-        await callback.message.edit_text(text, reply_markup=get_transaction_inline_kb(tx_id), parse_mode="Markdown")
+        await callback.message.edit_text(text, reply_markup=get_transaction_inline_kb(tx_id, sync_hash), parse_mode="Markdown")
         await callback.answer("Изменения сохранены!")
 
 @router.callback_query(F.data == "tx_e_amt")
@@ -186,18 +207,59 @@ async def handle_open_cat_menu(callback: CallbackQuery):
     user_id = callback.from_user.id
     clear_user_edit(user_id)
 
+    kb = get_main_categories_kb()
+    await callback.message.edit_text(
+        "📁 **Шаг 1: Выберите основную категорию:**",
+        reply_markup=kb,
+        parse_mode="Markdown"
+    )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("mc:"))
+async def handle_select_main_category(callback: CallbackQuery):
+    main_cat_name = callback.data.split(":", 1)[1]
+    user_id = callback.from_user.id
+    clear_user_edit(user_id)
+    tx_id = get_active_edit_tx(user_id)
+    if not tx_id:
+        await callback.answer("Сессия истекла", show_alert=True)
+        return
+
     async with AsyncSessionLocal() as db:
         categories = await FinanceService.get_categories(db, user_id)
-        kb = get_edit_categories_kb(categories)
-        await callback.message.edit_text(
-            "📁 **Выберите новую категорию:**",
-            reply_markup=kb,
-            parse_mode="Markdown"
-        )
-        await callback.answer()
+        cat_dict = {c.name.lower(): c for c in categories}
+        target_cat = cat_dict.get(main_cat_name.lower())
+
+        if target_cat:
+            await FinanceService.update_transaction(db, user_id, tx_id, {"category_id": target_cat.id})
+            await update_user_mini_app_sync(callback.bot, callback.message.chat.id, user_id, db)
+
+        # Check if this main category has subcategories
+        cat_meta = next((m for m in MAIN_CATEGORIES_METADATA if m["name"] == main_cat_name), None)
+        sub_names = cat_meta["subs"] if cat_meta else []
+
+        if sub_names:
+            sub_objs = [cat_dict[s.lower()] for s in sub_names if s.lower() in cat_dict]
+            if sub_objs:
+                kb = get_subcategories_kb(main_cat_name, sub_objs)
+                text = (
+                    f"📁 Выбрана категория: **{cat_meta['icon'] if cat_meta else '📁'} {main_cat_name}**\n\n"
+                    f"Хотите уточнить подкатегорию? *(не обязательно)*"
+                )
+                await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
+                await callback.answer(f"Выбрано: {main_cat_name}")
+                return
+
+        # If no subcategories, return to edit menu
+        stmt = select(Transaction).where(Transaction.id == tx_id, Transaction.user_id == user_id)
+        res = await db.execute(stmt)
+        tx = res.scalar_one_or_none()
+        text = await render_edit_menu_text(db, user_id, tx)
+        await callback.message.edit_text(text, reply_markup=get_edit_menu_kb(), parse_mode="Markdown")
+        await callback.answer(f"Категория: {main_cat_name}")
 
 @router.callback_query(F.data.startswith("sc:"))
-async def handle_set_category(callback: CallbackQuery):
+async def handle_set_subcategory(callback: CallbackQuery):
     cat_id = callback.data.split(":", 1)[1]
     user_id = callback.from_user.id
     clear_user_edit(user_id)
@@ -212,9 +274,10 @@ async def handle_set_category(callback: CallbackQuery):
             await callback.answer("Ошибка обновления", show_alert=True)
             return
 
+        await update_user_mini_app_sync(callback.bot, callback.message.chat.id, user_id, db)
         text = await render_edit_menu_text(db, user_id, updated)
         await callback.message.edit_text(text, reply_markup=get_edit_menu_kb(), parse_mode="Markdown")
-        await callback.answer("Категория обновлена!")
+        await callback.answer("Подкатегория выбрана!")
 
 @router.callback_query(F.data == "tx_edit_acc")
 async def handle_open_acc_menu(callback: CallbackQuery):
@@ -247,6 +310,7 @@ async def handle_set_account(callback: CallbackQuery):
             await callback.answer("Ошибка обновления", show_alert=True)
             return
 
+        await update_user_mini_app_sync(callback.bot, callback.message.chat.id, user_id, db)
         text = await render_edit_menu_text(db, user_id, updated)
         await callback.message.edit_text(text, reply_markup=get_edit_menu_kb(), parse_mode="Markdown")
         await callback.answer("Счёт обновлен!")

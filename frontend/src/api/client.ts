@@ -97,45 +97,109 @@ export const INITIAL_RECENT_TRANSACTIONS: Transaction[] = [
   { id: 'tx-2', user_id: 999999, account_id: 'acc-2', category_id: 'cat-6', amount: 645, type: 'expense', note: 'Подписки', created_at: '2026-05-07T11:15:00Z', account_name: 'Карта Альфа', category_name: 'Подписки', category_icon: '💿' },
 ];
 
+export function getStoredSyncData(): { balances?: Record<string, number>; recent_transactions?: any[] } | null {
+  try {
+    const hash = window.location.hash;
+    if (hash && hash.includes('sync=')) {
+      const syncStr = hash.split('sync=')[1]?.split('&')[0];
+      if (syncStr) {
+        const b64 = syncStr.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonStr = decodeURIComponent(escape(atob(b64)));
+        const data = JSON.parse(jsonStr);
+        localStorage.setItem('ai_money_sync_data', JSON.stringify(data));
+        return data;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to parse URL sync hash:', e);
+  }
+
+  try {
+    const cached = localStorage.getItem('ai_money_sync_data');
+    if (cached) return JSON.parse(cached);
+  } catch (e) {}
+
+  return null;
+}
+
 export async function fetchDashboard(initData: string): Promise<DashboardSummary> {
   try {
-    const res = await fetch(`${API_BASE}/api/analytics/dashboard`, {
-      headers: { Authorization: `tma ${initData}` }
-    });
-    if (res.ok) return await res.json();
+    if (API_BASE) {
+      const res = await fetch(`${API_BASE}/api/analytics/dashboard`, {
+        headers: { Authorization: `tma ${initData}` }
+      });
+      if (res.ok) return await res.json();
+    }
   } catch (e) {
     // Return mock data
   }
 
-  const total = INITIAL_ACCOUNTS.reduce((sum, a) => sum + a.balance, 0);
+  const sync = getStoredSyncData();
+  const balances = sync?.balances;
+  const currentAccounts = INITIAL_ACCOUNTS.map(acc => {
+    if (balances) {
+      const newBal = balances[acc.name] ?? balances[acc.id];
+      if (newBal !== undefined) return { ...acc, balance: Number(newBal) };
+    }
+    return acc;
+  });
+
+  const total = currentAccounts
+    .filter(a => a.group_name !== 'Кредиты')
+    .reduce((sum, a) => sum + a.balance, 0);
+
+  const recent = sync?.recent_transactions && sync.recent_transactions.length > 0
+    ? sync.recent_transactions
+    : INITIAL_RECENT_TRANSACTIONS;
+
+  const expenseTotal = recent.filter((t: any) => t.type === 'expense').reduce((sum: number, t: any) => sum + t.amount, 0);
+  const incomeTotal = recent.filter((t: any) => t.type === 'income').reduce((sum: number, t: any) => sum + t.amount, 0);
+
   return {
     total_balance: total,
     period_label: 'Сентябрь 2026',
-    period_income: 0,
-    period_expense: 0,
-    categories: INITIAL_CATEGORIES.map(c => ({
-      id: c.id,
-      name: c.name,
-      icon: c.icon,
-      color: c.color,
-      total_amount: 0,
-      percentage: 0
-    })),
-    recent_transactions: INITIAL_RECENT_TRANSACTIONS
+    period_income: incomeTotal,
+    period_expense: expenseTotal,
+    categories: INITIAL_CATEGORIES.map(c => {
+      const catSpend = recent.filter((t: any) => (t.category_name?.toLowerCase() === c.name.toLowerCase() || t.category_id === c.id) && t.type === 'expense').reduce((sum: number, t: any) => sum + t.amount, 0);
+      return {
+        id: c.id,
+        name: c.name,
+        icon: c.icon,
+        color: c.color,
+        total_amount: catSpend,
+        percentage: expenseTotal > 0 ? Math.round((catSpend / expenseTotal) * 100) : 0
+      };
+    }),
+    recent_transactions: recent
   };
 }
 
 export async function fetchAccounts(initData: string): Promise<Account[]> {
   try {
-    const res = await fetch(`${API_BASE}/api/accounts`, {
-      headers: { Authorization: `tma ${initData}` }
-    });
-    if (res.ok) return await res.json();
+    if (API_BASE) {
+      const res = await fetch(`${API_BASE}/api/accounts`, {
+        headers: { Authorization: `tma ${initData}` }
+      });
+      if (res.ok) return await res.json();
+    }
   } catch (e) {
     // Fallback
   }
+
+  const sync = getStoredSyncData();
+  if (sync && sync.balances) {
+    const balances = sync.balances;
+    return INITIAL_ACCOUNTS.map(acc => {
+      const newBal = balances[acc.name] ?? balances[acc.id];
+      return newBal !== undefined ? { ...acc, balance: Number(newBal) } : acc;
+    });
+  }
+
   return INITIAL_ACCOUNTS;
 }
+
+
 
 export async function createTransactionAPI(
   initData: string,

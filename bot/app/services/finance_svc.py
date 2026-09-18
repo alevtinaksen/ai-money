@@ -331,3 +331,42 @@ class FinanceService:
             categories=category_stats,
             recent_transactions=tx_responses
         )
+
+    @staticmethod
+    async def get_user_sync_hash(db: AsyncSession, user_id: int) -> str:
+        import json
+        import base64
+        accounts = await FinanceService.get_accounts(db, user_id)
+        balances = {a.name: float(a.balance) for a in accounts}
+
+        stmt = select(Transaction).where(Transaction.user_id == user_id).order_by(desc(Transaction.created_at)).limit(10)
+        res = await db.execute(stmt)
+        txs = res.scalars().all()
+
+        acc_dict = {a.id: a for a in accounts}
+        categories = await FinanceService.get_categories(db, user_id)
+        cat_dict = {c.id: c for c in categories}
+
+        recent = []
+        for t in txs:
+            acc = acc_dict.get(t.account_id)
+            cat = cat_dict.get(t.category_id)
+            recent.append({
+                "id": t.id,
+                "amount": float(t.amount),
+                "type": t.type,
+                "note": t.note or (cat.name if cat else "Трата"),
+                "category_name": cat.name if cat else "Без категории",
+                "category_icon": cat.icon if cat else "📦",
+                "account_name": acc.name if acc else "Счёт",
+                "created_at": t.created_at.isoformat() if t.created_at else ""
+            })
+
+        payload = {
+            "balances": balances,
+            "recent_transactions": recent
+        }
+        json_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        b64_str = base64.urlsafe_b64encode(json_bytes).decode("ascii")
+        return f"#sync={b64_str}"
+
