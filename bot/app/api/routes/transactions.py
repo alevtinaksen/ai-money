@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.api.deps import get_current_user_id
-from app.schemas.finance import TransactionCreate, TransactionResponse
+from app.schemas.finance import TransactionCreate, TransactionUpdate, TransactionResponse
 from app.services.finance_svc import FinanceService
 
 router = APIRouter()
