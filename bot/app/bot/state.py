@@ -4,13 +4,26 @@ import time
 # user_id -> {"action": "edit_amount" | "edit_note" | "edit_all", "tx_id": str, "message_id": int, "chat_id": int}
 USER_EDIT_STATE: Dict[int, Dict[str, Any]] = {}
 
+# user_id -> tx_id
+ACTIVE_EDIT_TX: Dict[int, str] = {}
+
 # pending_id -> {"user_id": int, "type": str, "category_name": str, "account_name": str, "note": str, "created_at": float}
 PENDING_CLARIFICATIONS: Dict[str, Dict[str, Any]] = {}
 
 # user_id -> pending_id
 USER_ACTIVE_PENDING: Dict[int, str] = {}
 
+def set_active_edit_tx(user_id: int, tx_id: str):
+    ACTIVE_EDIT_TX[user_id] = tx_id
+
+def get_active_edit_tx(user_id: int) -> Optional[str]:
+    return ACTIVE_EDIT_TX.get(user_id)
+
+def clear_active_edit_tx(user_id: int):
+    ACTIVE_EDIT_TX.pop(user_id, None)
+
 def set_user_edit(user_id: int, action: str, tx_id: str, message_id: int, chat_id: int):
+    ACTIVE_EDIT_TX[user_id] = tx_id
     USER_EDIT_STATE[user_id] = {
         "action": action,
         "tx_id": tx_id,

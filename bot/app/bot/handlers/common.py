@@ -41,6 +41,7 @@ async def handle_user_input(user_id: int, text: str, bot: Bot, chat_id: int):
     if edit_state:
         action = edit_state.get("action")
         tx_id = edit_state.get("tx_id")
+        msg_id = edit_state.get("message_id")
         norm = AIParserService.normalize_speech_numbers(clean_text)
 
         async with AsyncSessionLocal() as db:
@@ -51,14 +52,14 @@ async def handle_user_input(user_id: int, text: str, bot: Bot, chat_id: int):
                     updated = await FinanceService.update_transaction(db, user_id, tx_id, {"amount": amount})
                     clear_user_edit(user_id)
                     if updated:
-                        await send_updated_tx_card(bot, chat_id, user_id, updated, "Сумма изменена")
+                        await send_updated_tx_card(bot, chat_id, user_id, updated, "Сумма изменена", message_to_edit_id=msg_id)
                         return
 
             elif action == "edit_note":
                 updated = await FinanceService.update_transaction(db, user_id, tx_id, {"note": clean_text})
                 clear_user_edit(user_id)
                 if updated:
-                    await send_updated_tx_card(bot, chat_id, user_id, updated, "Заметка изменена")
+                    await send_updated_tx_card(bot, chat_id, user_id, updated, "Заметка изменена", message_to_edit_id=msg_id)
                     return
 
             elif action == "edit_all":
@@ -90,7 +91,7 @@ async def handle_user_input(user_id: int, text: str, bot: Bot, chat_id: int):
                     updated = await FinanceService.update_transaction(db, user_id, tx_id, update_dict)
                     clear_user_edit(user_id)
                     if updated:
-                        await send_updated_tx_card(bot, chat_id, user_id, updated, "Запись обновлена")
+                        await send_updated_tx_card(bot, chat_id, user_id, updated, "Запись обновлена", message_to_edit_id=msg_id)
                         return
 
         clear_user_edit(user_id)
@@ -274,7 +275,7 @@ async def complete_clarification(bot: Bot, chat_id: int, user_id: int, pending_i
             parse_mode="Markdown"
         )
 
-async def send_updated_tx_card(bot: Bot, chat_id: int, user_id: int, tx: Transaction, prefix: str = "Обновлено"):
+async def send_updated_tx_card(bot: Bot, chat_id: int, user_id: int, tx: Transaction, prefix: str = "Обновлено", message_to_edit_id: Optional[int] = None):
     async with AsyncSessionLocal() as db:
         stmt_acc = select(Account).where(Account.id == tx.account_id)
         res_acc = await db.execute(stmt_acc)
@@ -300,6 +301,19 @@ async def send_updated_tx_card(bot: Bot, chat_id: int, user_id: int, tx: Transac
             msg_text += f"📝 **Заметка:** {tx.note}\n"
         if acc:
             msg_text += f"\n*Остаток на счете: {float(acc.balance):,.2f} ₽*"
+
+        if message_to_edit_id:
+            try:
+                await bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=message_to_edit_id,
+                    text=msg_text,
+                    reply_markup=get_transaction_inline_kb(tx.id),
+                    parse_mode="Markdown"
+                )
+                return
+            except Exception:
+                pass
 
         await bot.send_message(
             chat_id=chat_id,

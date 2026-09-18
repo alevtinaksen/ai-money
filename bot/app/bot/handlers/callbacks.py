@@ -15,6 +15,9 @@ from app.bot.keyboards import (
 from app.bot.state import (
     set_user_edit,
     clear_user_edit,
+    set_active_edit_tx,
+    get_active_edit_tx,
+    clear_active_edit_tx,
     clear_pending_clarification
 )
 from app.bot.handlers.common import complete_clarification
@@ -76,6 +79,7 @@ async def handle_delete_transaction(callback: CallbackQuery):
     tx_id = callback.data.split(":", 1)[1]
     user_id = callback.from_user.id
     clear_user_edit(user_id)
+    clear_active_edit_tx(user_id)
 
     async with AsyncSessionLocal() as db:
         success = await FinanceService.delete_transaction(db, user_id, tx_id)
@@ -93,6 +97,7 @@ async def handle_open_edit_menu(callback: CallbackQuery):
     tx_id = callback.data.split(":", 1)[1]
     user_id = callback.from_user.id
     clear_user_edit(user_id)
+    set_active_edit_tx(user_id, tx_id)
 
     async with AsyncSessionLocal() as db:
         stmt = select(Transaction).where(Transaction.id == tx_id, Transaction.user_id == user_id)
@@ -103,14 +108,40 @@ async def handle_open_edit_menu(callback: CallbackQuery):
             return
 
         text = await render_edit_menu_text(db, user_id, tx)
-        await callback.message.edit_text(text, reply_markup=get_edit_menu_kb(tx_id), parse_mode="Markdown")
+        await callback.message.edit_text(text, reply_markup=get_edit_menu_kb(), parse_mode="Markdown")
         await callback.answer()
 
-@router.callback_query(F.data.startswith("tx_done:"))
-async def handle_finish_edit(callback: CallbackQuery):
-    tx_id = callback.data.split(":", 1)[1]
+@router.callback_query(F.data == "tx_edit_menu")
+async def handle_back_to_edit_menu(callback: CallbackQuery):
     user_id = callback.from_user.id
     clear_user_edit(user_id)
+    tx_id = get_active_edit_tx(user_id)
+    if not tx_id:
+        await callback.answer("Сессия редактирования истекла", show_alert=True)
+        return
+
+    async with AsyncSessionLocal() as db:
+        stmt = select(Transaction).where(Transaction.id == tx_id, Transaction.user_id == user_id)
+        res = await db.execute(stmt)
+        tx = res.scalar_one_or_none()
+        if not tx:
+            await callback.answer("Запись не найдена", show_alert=True)
+            return
+
+        text = await render_edit_menu_text(db, user_id, tx)
+        await callback.message.edit_text(text, reply_markup=get_edit_menu_kb(), parse_mode="Markdown")
+        await callback.answer()
+
+@router.callback_query(F.data == "tx_done")
+async def handle_finish_edit(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    tx_id = get_active_edit_tx(user_id)
+    clear_user_edit(user_id)
+    clear_active_edit_tx(user_id)
+
+    if not tx_id:
+        await callback.answer("Готово!")
+        return
 
     async with AsyncSessionLocal() as db:
         stmt = select(Transaction).where(Transaction.id == tx_id, Transaction.user_id == user_id)
@@ -124,10 +155,13 @@ async def handle_finish_edit(callback: CallbackQuery):
         await callback.message.edit_text(text, reply_markup=get_transaction_inline_kb(tx_id), parse_mode="Markdown")
         await callback.answer("Изменения сохранены!")
 
-@router.callback_query(F.data.startswith("tx_e_amt:"))
+@router.callback_query(F.data == "tx_e_amt")
 async def handle_open_amt_menu(callback: CallbackQuery):
-    tx_id = callback.data.split(":", 1)[1]
     user_id = callback.from_user.id
+    tx_id = get_active_edit_tx(user_id)
+    if not tx_id:
+        await callback.answer("Сессия истекла", show_alert=True)
+        return
 
     async with AsyncSessionLocal() as db:
         stmt = select(Transaction).where(Transaction.id == tx_id, Transaction.user_id == user_id)
@@ -138,49 +172,39 @@ async def handle_open_amt_menu(callback: CallbackQuery):
             return
 
         set_user_edit(user_id, "edit_amount", tx_id, callback.message.message_id, callback.message.chat.id)
-        kb = get_edit_amount_kb(tx_id, float(tx.amount))
+        kb = get_edit_amount_kb()
         text = (
             f"💵 **Изменение суммы:**\n"
             f"Текущая сумма: **{float(tx.amount):,.2f} ₽**\n\n"
-            f"👉 Нажмите быструю кнопку ниже или **напишите / скажите новую сумму в чат**:"
+            f"👉 Напишите новую сумму числом или отправьте её **голосовым сообщением в чат**:"
         )
         await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
         await callback.answer()
 
-@router.callback_query(F.data.startswith("set_amt:"))
-async def handle_set_amount(callback: CallbackQuery):
-    _, tx_id, amt_str = callback.data.split(":")
-    user_id = callback.from_user.id
-    clear_user_edit(user_id)
-    new_amount = float(amt_str)
-
-    async with AsyncSessionLocal() as db:
-        updated = await FinanceService.update_transaction(db, user_id, tx_id, {"amount": new_amount})
-        if not updated:
-            await callback.answer("Ошибка обновления", show_alert=True)
-            return
-
-        text = await render_edit_menu_text(db, user_id, updated)
-        await callback.message.edit_text(text, reply_markup=get_edit_menu_kb(tx_id), parse_mode="Markdown")
-        await callback.answer(f"Сумма изменена на {new_amount:,.0f} ₽")
-
-@router.callback_query(F.data.startswith("tx_edit_cat:"))
+@router.callback_query(F.data == "tx_edit_cat")
 async def handle_open_cat_menu(callback: CallbackQuery):
-    tx_id = callback.data.split(":", 1)[1]
     user_id = callback.from_user.id
     clear_user_edit(user_id)
 
     async with AsyncSessionLocal() as db:
         categories = await FinanceService.get_categories(db, user_id)
-        kb = get_edit_categories_kb(tx_id, categories)
-        await callback.message.edit_reply_markup(reply_markup=kb)
+        kb = get_edit_categories_kb(categories)
+        await callback.message.edit_text(
+            "📁 **Выберите новую категорию:**",
+            reply_markup=kb,
+            parse_mode="Markdown"
+        )
         await callback.answer()
 
-@router.callback_query(F.data.startswith("set_cat:"))
+@router.callback_query(F.data.startswith("sc:"))
 async def handle_set_category(callback: CallbackQuery):
-    _, tx_id, cat_id = callback.data.split(":")
+    cat_id = callback.data.split(":", 1)[1]
     user_id = callback.from_user.id
     clear_user_edit(user_id)
+    tx_id = get_active_edit_tx(user_id)
+    if not tx_id:
+        await callback.answer("Сессия истекла", show_alert=True)
+        return
 
     async with AsyncSessionLocal() as db:
         updated = await FinanceService.update_transaction(db, user_id, tx_id, {"category_id": cat_id})
@@ -189,26 +213,33 @@ async def handle_set_category(callback: CallbackQuery):
             return
 
         text = await render_edit_menu_text(db, user_id, updated)
-        await callback.message.edit_text(text, reply_markup=get_edit_menu_kb(tx_id), parse_mode="Markdown")
+        await callback.message.edit_text(text, reply_markup=get_edit_menu_kb(), parse_mode="Markdown")
         await callback.answer("Категория обновлена!")
 
-@router.callback_query(F.data.startswith("tx_edit_acc:"))
+@router.callback_query(F.data == "tx_edit_acc")
 async def handle_open_acc_menu(callback: CallbackQuery):
-    tx_id = callback.data.split(":", 1)[1]
     user_id = callback.from_user.id
     clear_user_edit(user_id)
 
     async with AsyncSessionLocal() as db:
         accounts = await FinanceService.get_accounts(db, user_id)
-        kb = get_edit_accounts_kb(tx_id, accounts)
-        await callback.message.edit_reply_markup(reply_markup=kb)
+        kb = get_edit_accounts_kb(accounts)
+        await callback.message.edit_text(
+            "💳 **Выберите счёт для списания:**",
+            reply_markup=kb,
+            parse_mode="Markdown"
+        )
         await callback.answer()
 
-@router.callback_query(F.data.startswith("set_acc:"))
+@router.callback_query(F.data.startswith("sa:"))
 async def handle_set_account(callback: CallbackQuery):
-    _, tx_id, target_acc_id = callback.data.split(":")
+    target_acc_id = callback.data.split(":", 1)[1]
     user_id = callback.from_user.id
     clear_user_edit(user_id)
+    tx_id = get_active_edit_tx(user_id)
+    if not tx_id:
+        await callback.answer("Сессия истекла", show_alert=True)
+        return
 
     async with AsyncSessionLocal() as db:
         updated = await FinanceService.update_transaction(db, user_id, tx_id, {"account_id": target_acc_id})
@@ -217,13 +248,16 @@ async def handle_set_account(callback: CallbackQuery):
             return
 
         text = await render_edit_menu_text(db, user_id, updated)
-        await callback.message.edit_text(text, reply_markup=get_edit_menu_kb(tx_id), parse_mode="Markdown")
+        await callback.message.edit_text(text, reply_markup=get_edit_menu_kb(), parse_mode="Markdown")
         await callback.answer("Счёт обновлен!")
 
-@router.callback_query(F.data.startswith("tx_e_note:"))
+@router.callback_query(F.data == "tx_e_note")
 async def handle_prompt_note(callback: CallbackQuery):
-    tx_id = callback.data.split(":", 1)[1]
     user_id = callback.from_user.id
+    tx_id = get_active_edit_tx(user_id)
+    if not tx_id:
+        await callback.answer("Сессия истекла", show_alert=True)
+        return
 
     async with AsyncSessionLocal() as db:
         stmt = select(Transaction).where(Transaction.id == tx_id, Transaction.user_id == user_id)
@@ -237,15 +271,18 @@ async def handle_prompt_note(callback: CallbackQuery):
         text = (
             f"📝 **Изменение заметки:**\n"
             f"Текущая заметка: *«{tx.note or '—'}»*\n\n"
-            f"👉 Напишите новую заметку сообщением в чат или отправьте голосовое:"
+            f"👉 Напишите новую заметку сообщением в чат или отправьте её голосовым:"
         )
-        await callback.message.edit_text(text, reply_markup=get_back_to_edit_kb(tx_id), parse_mode="Markdown")
+        await callback.message.edit_text(text, reply_markup=get_back_to_edit_kb(), parse_mode="Markdown")
         await callback.answer()
 
-@router.callback_query(F.data.startswith("tx_e_all:"))
+@router.callback_query(F.data == "tx_e_all")
 async def handle_prompt_all(callback: CallbackQuery):
-    tx_id = callback.data.split(":", 1)[1]
     user_id = callback.from_user.id
+    tx_id = get_active_edit_tx(user_id)
+    if not tx_id:
+        await callback.answer("Сессия истекла", show_alert=True)
+        return
 
     set_user_edit(user_id, "edit_all", tx_id, callback.message.message_id, callback.message.chat.id)
     text = (
@@ -253,7 +290,7 @@ async def handle_prompt_all(callback: CallbackQuery):
         f"👉 Продиктуйте голосом или напишите полностью новые данные.\n"
         f"Например: *«Маникюр 2500 с карты Т-Банк»* или *«Обед 450 наличными»*"
     )
-    await callback.message.edit_text(text, reply_markup=get_back_to_edit_kb(tx_id), parse_mode="Markdown")
+    await callback.message.edit_text(text, reply_markup=get_back_to_edit_kb(), parse_mode="Markdown")
     await callback.answer()
 
 @router.callback_query(F.data.startswith("clarify:"))
