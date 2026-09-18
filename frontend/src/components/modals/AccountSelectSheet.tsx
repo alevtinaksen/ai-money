@@ -1,5 +1,4 @@
-import React from 'react';
-import { CloseOutlined, PlusOutlined, EditOutlined, CheckOutlined } from '@ant-design/icons';
+import { CloseOutlined, PlusOutlined, CheckOutlined } from '@ant-design/icons';
 import { Account } from '../../types';
 
 interface AccountSelectSheetProps {
@@ -99,22 +98,11 @@ export const AccountSelectSheet: React.FC<AccountSelectSheetProps> = ({
                   </div>
                 </div>
 
-                {/* Right: RUB badge, Pencil, Radio */}
-                <div className="flex items-center space-x-2.5">
+                {/* Right: RUB badge, Radio */}
+                <div className="flex items-center space-x-3">
                   <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-[#EEF2FF] dark:bg-[#252B48] text-[#4338CA] dark:text-[#818CF8]">
                     {acc.currency || 'RUB'}
                   </span>
-
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onHaptic?.();
-                    }}
-                    className="text-[#9CA3AF] dark:text-[#8E92A4] hover:text-[#4B5563] p-1"
-                  >
-                    <EditOutlined className="text-[14px]" />
-                  </button>
 
                   <div
                     className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${
