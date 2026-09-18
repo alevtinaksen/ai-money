@@ -21,17 +21,105 @@ interface EditTransactionModalProps {
   onHaptic?: (style?: 'light' | 'medium' | 'heavy') => void;
 }
 
-const SUBCATEGORIES_MAP: Record<string, string[]> = {
-  'Еда': ['Самокат', 'Кафе', 'Кофе', 'НаЛанч', 'Супермаркет'],
-  'Машина': ['Бензин', 'ТО авто', 'Парковка', 'Кредит за авто'],
-  'Транспорт': ['Такси', 'Каршеринг', 'Общественный', 'Поезд'],
-  'Покупки': ['Одежда', 'Электроника', 'Бытовая химия', 'Товары для хобби'],
-  'Развлечения': ['Кино', 'Игры', 'Вечеринки'],
-  'Здоровье': ['Лекарства', 'Врачи', 'Психотерапевт'],
-  'Жилье': ['Аренда', 'ЖКХ', 'Ремонт'],
-  'Личное': ['Внешний вид', 'Привычки', 'Спорт'],
-  'Кот': ['Корм', 'Здоровье кота'],
-};
+export interface CategoryCatalogItem {
+  name: string;
+  icon: string;
+  type: 'expense' | 'income' | 'transfer';
+  subcategories: string[];
+}
+
+export const CATEGORIES_CATALOG: CategoryCatalogItem[] = [
+  {
+    name: 'Еда',
+    icon: '🍔',
+    type: 'expense',
+    subcategories: ['Самокат', 'Кафе', 'Кофе', 'НаЛанч', 'Супермаркет'],
+  },
+  {
+    name: 'Транспорт',
+    icon: '🚗',
+    type: 'expense',
+    subcategories: ['Такси', 'Каршеринг', 'Общественный', 'Поезд'],
+  },
+  {
+    name: 'Машина',
+    icon: '🚘',
+    type: 'expense',
+    subcategories: ['Бензин', 'ТО авто', 'Парковка', 'Кредит за авто'],
+  },
+  {
+    name: 'Покупки',
+    icon: '🛍️',
+    type: 'expense',
+    subcategories: ['Одежда', 'Электроника', 'Бытовая химия', 'Товары для хобби'],
+  },
+  {
+    name: 'Развлечения',
+    icon: '🎬',
+    type: 'expense',
+    subcategories: ['Кино', 'Игры', 'Вечеринки'],
+  },
+  {
+    name: 'Здоровье',
+    icon: '💊',
+    type: 'expense',
+    subcategories: ['Лекарства', 'Врачи', 'Психотерапевт'],
+  },
+  {
+    name: 'Жилье',
+    icon: '🏠',
+    type: 'expense',
+    subcategories: ['Аренда', 'ЖКХ', 'Ремонт'],
+  },
+  {
+    name: 'Личное',
+    icon: '✨',
+    type: 'expense',
+    subcategories: ['Внешний вид', 'Привычки', 'Спорт'],
+  },
+  {
+    name: 'Кот',
+    icon: '🐱',
+    type: 'expense',
+    subcategories: ['Корм для кота', 'Здоровье кота'],
+  },
+  {
+    name: 'Путешествия',
+    icon: '✈️',
+    type: 'expense',
+    subcategories: ['Отели', 'Билеты', 'Экскурсии'],
+  },
+  {
+    name: 'Подписки',
+    icon: '💿',
+    type: 'expense',
+    subcategories: ['Музыка', 'Кинотеатры', 'Облако'],
+  },
+  {
+    name: 'Подарки',
+    icon: '🎁',
+    type: 'expense',
+    subcategories: ['Друзьям', 'Семье'],
+  },
+  {
+    name: 'Накопления',
+    icon: '🏦',
+    type: 'expense',
+    subcategories: ['Вклад', 'Копилка'],
+  },
+  {
+    name: 'Переводы',
+    icon: '💸',
+    type: 'transfer',
+    subcategories: ['Владу', 'Родителям', 'Себе на карту'],
+  },
+  {
+    name: 'Зарплата',
+    icon: '💰',
+    type: 'income',
+    subcategories: ['Основная', 'Аванс', 'Премия', 'Кешбэк'],
+  },
+];
 
 export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   isOpen,
@@ -59,12 +147,8 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
     return undefined;
   });
   const [note, setNote] = useState<string>(transaction.note || '');
-  const [subcat, setSubcat] = useState<string>(() => {
-    return transaction.note || '';
-  });
 
   const [isPickerOpen, setIsPickerOpen] = useState(false);
-  const [isSubcatPickerOpen, setIsSubcatPickerOpen] = useState(false);
   const [isAccPickerOpen, setIsAccPickerOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -75,18 +159,39 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   const selectedAcc = accounts.find((a) => a.id === accountId) || accounts[0];
   const selectedCat = categories.find((c) => c.id === categoryId) || defaultCat;
 
-  const currentSubcategories = selectedCat ? SUBCATEGORIES_MAP[selectedCat.name] || [] : [];
+  // Resolve matching catalog entry for categories and subcategories
+  const activeCatalog =
+    CATEGORIES_CATALOG.find((c) => c.name.toLowerCase() === selectedCat?.name.toLowerCase()) ||
+    CATEGORIES_CATALOG.find((c) => selectedCat?.name.toLowerCase().includes(c.name.toLowerCase())) ||
+    CATEGORIES_CATALOG[0];
+
+  const currentSubcategories = activeCatalog.subcategories;
+
+  // Selected subcategory state
+  const [selectedSubcat, setSelectedSubcat] = useState<string>(() => {
+    if (transaction.note && currentSubcategories.includes(transaction.note)) {
+      return transaction.note;
+    }
+    return '';
+  });
+
+  const filteredCatalog = CATEGORIES_CATALOG.filter((c) => {
+    if (type === 'income') return c.type === 'income' || c.name === 'Подарки' || c.name === 'Переводы';
+    if (type === 'transfer') return c.type === 'transfer' || c.name === 'Накопления';
+    return c.type === 'expense';
+  });
 
   const handleSave = () => {
     onHaptic?.('heavy');
     const parsedAmount = parseFloat(amountStr.replace(',', '.')) || transaction.amount;
+    const finalNote = note.trim() || selectedSubcat || undefined;
     onSave({
       id: transaction.id,
       amount: parsedAmount,
       account_id: accountId,
       category_id: categoryId,
       type,
-      note: note.trim() || subcat || undefined,
+      note: finalNote,
     });
     onClose();
   };
@@ -231,86 +336,143 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
           </div>
         </div>
 
-        {/* Row 3: Category & Subcategory Tags */}
-        <div className="flex items-center space-x-2.5 flex-wrap gap-y-2">
-          {/* Main Category */}
+        {/* Row 3: Category & Subcategories Horizontal Strip (matching Screenshot 2) */}
+        <div className="flex items-center space-x-2.5 overflow-x-auto no-scrollbar py-1 w-full">
+          {/* Main Category Dropdown Pill */}
           <button
             type="button"
             onClick={() => {
               onHaptic?.('light');
               setIsPickerOpen(!isPickerOpen);
-              setIsSubcatPickerOpen(false);
+              setIsAccPickerOpen(false);
             }}
-            className="inline-flex items-center space-x-2 bg-[#2B5BFF] text-white px-4 py-2.5 rounded-full font-semibold text-[15px] shadow-sm active:scale-[0.98] transition-all"
+            className="inline-flex items-center space-x-2 bg-[#2B5BFF] text-white px-4 py-2.5 rounded-full font-semibold text-[15px] shadow-sm active:scale-[0.98] transition-all flex-shrink-0"
           >
-            <span>{selectedCat?.icon || '📦'}</span>
-            <span>{selectedCat?.name || 'Категория'}</span>
+            <span>{selectedCat?.icon || activeCatalog.icon || '📦'}</span>
+            <span>{selectedCat?.name || activeCatalog.name}</span>
             <ChevronDown className="w-4 h-4 ml-0.5" />
           </button>
 
-          {/* Subcategory */}
-          {currentSubcategories.length > 0 && (
-            <button
-              type="button"
-              onClick={() => {
-                onHaptic?.('light');
-                setIsSubcatPickerOpen(!isSubcatPickerOpen);
-                setIsPickerOpen(false);
-              }}
-              className="inline-flex items-center space-x-2 bg-[#EFF6FF] text-[#2B5BFF] border border-[#BFDBFE] px-4 py-2.5 rounded-full font-semibold text-[15px] active:scale-[0.98] transition-all"
-            >
-              <span className="w-2 h-2 rounded-full bg-[#2B5BFF]" />
-              <span>{subcat || currentSubcategories[0]}</span>
-            </button>
-          )}
-        </div>
-
-        {/* Category Picker Dropdown Sheet */}
-        {isPickerOpen && (
-          <div className="bg-white rounded-2xl p-3 shadow-lg border border-gray-100 max-h-48 overflow-y-auto grid grid-cols-2 gap-1.5 animate-slide-up">
-            {categories
-              .filter((c) => c.type === type)
-              .map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => {
-                    onHaptic?.('light');
-                    setCategoryId(c.id);
-                    const subList = SUBCATEGORIES_MAP[c.name] || [];
-                    if (subList.length > 0) setSubcat(subList[0]);
-                    setIsPickerOpen(false);
-                  }}
-                  className="flex items-center space-x-2 px-3 py-2 rounded-xl text-left hover:bg-gray-50 text-[14px] font-semibold text-gray-800"
-                >
-                  <span>{c.icon}</span>
-                  <span className="truncate">{c.name}</span>
-                </button>
-              ))}
-          </div>
-        )}
-
-        {/* Subcategory Picker Dropdown Sheet */}
-        {isSubcatPickerOpen && currentSubcategories.length > 0 && (
-          <div className="bg-white rounded-2xl p-3 shadow-lg border border-gray-100 flex flex-wrap gap-1.5 animate-slide-up">
-            {currentSubcategories.map((sc) => (
+          {/* Subcategories Horizontal Pills (matching Screenshot 2: • Одежда, • Электроника...) */}
+          {currentSubcategories.map((sc) => {
+            const isSelected = selectedSubcat === sc;
+            return (
               <button
                 key={sc}
                 type="button"
                 onClick={() => {
                   onHaptic?.('light');
-                  setSubcat(sc);
-                  setIsSubcatPickerOpen(false);
+                  if (isSelected) {
+                    setSelectedSubcat('');
+                  } else {
+                    setSelectedSubcat(sc);
+                    if (!note || currentSubcategories.includes(note)) {
+                      setNote(sc);
+                    }
+                  }
                 }}
-                className={`px-3.5 py-1.5 rounded-full text-[13px] font-semibold transition-all ${
-                  subcat === sc
-                    ? 'bg-[#2B5BFF] text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                className={`inline-flex items-center space-x-2 px-4 py-2.5 rounded-full font-semibold text-[14px] flex-shrink-0 transition-all active:scale-95 ${
+                  isSelected
+                    ? 'bg-[#EFF6FF] text-[#2B5BFF] border border-[#2B5BFF] shadow-sm'
+                    : 'bg-white text-[#111827] border border-gray-100 shadow-sm hover:bg-gray-50'
                 }`}
               >
-                {sc}
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    isSelected ? 'bg-[#2B5BFF]' : 'bg-[#9CA3AF]'
+                  }`}
+                />
+                <span>{sc}</span>
               </button>
-            ))}
+            );
+          })}
+        </div>
+
+        {/* Category & Subcategory Picker Popup Sheet */}
+        {isPickerOpen && (
+          <div className="bg-white rounded-3xl p-4 shadow-xl border border-gray-100 max-h-[340px] overflow-y-auto space-y-3.5 animate-slide-up">
+            <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+              <span className="text-[13px] font-bold text-gray-400 uppercase tracking-wider">
+                Категории и подкатегории
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsPickerOpen(false)}
+                className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {filteredCatalog.map((cat) => {
+                const isCatActive = selectedCat?.name.toLowerCase() === cat.name.toLowerCase();
+                const matchedDbCat = categories.find((c) => c.name.toLowerCase() === cat.name.toLowerCase());
+                return (
+                  <div key={cat.name} className="bg-[#F9FAFB] rounded-2xl p-3 border border-gray-100">
+                    {/* Category Header */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onHaptic?.('light');
+                        if (matchedDbCat) {
+                          setCategoryId(matchedDbCat.id);
+                        }
+                        setSelectedSubcat('');
+                        setIsPickerOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between py-1 px-1 rounded-xl text-left transition-all ${
+                        isCatActive ? 'text-[#2B5BFF]' : 'text-[#111827]'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2.5">
+                        <span className="text-2xl">{cat.icon}</span>
+                        <span className="text-[15px] font-bold">{cat.name}</span>
+                      </div>
+                      {isCatActive && <Check className="w-4 h-4 text-[#2B5BFF]" />}
+                    </button>
+
+                    {/* Subcategories list */}
+                    {cat.subcategories.length > 0 && (
+                      <div className="flex items-center flex-wrap gap-1.5 mt-2.5 pl-8">
+                        {cat.subcategories.map((sc) => {
+                          const isSubActive = isCatActive && selectedSubcat === sc;
+                          return (
+                            <button
+                              key={sc}
+                              type="button"
+                              onClick={() => {
+                                onHaptic?.('light');
+                                if (matchedDbCat) {
+                                  setCategoryId(matchedDbCat.id);
+                                }
+                                setSelectedSubcat(sc);
+                                if (!note || cat.subcategories.includes(note)) {
+                                  setNote(sc);
+                                }
+                                setIsPickerOpen(false);
+                              }}
+                              className={`px-3 py-1.5 rounded-full text-[13px] font-semibold flex items-center space-x-1.5 transition-all ${
+                                isSubActive
+                                  ? 'bg-[#2B5BFF] text-white shadow-xs'
+                                  : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
+                              }`}
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  isSubActive ? 'bg-white' : 'bg-gray-400'
+                                }`}
+                              />
+                              <span>{sc}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
