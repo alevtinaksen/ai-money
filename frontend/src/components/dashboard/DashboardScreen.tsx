@@ -19,6 +19,8 @@ interface DashboardScreenProps {
   onOpenAccounts: () => void;
   onOpenAddTransaction: () => void;
   onOpenVoice: () => void;
+  onOpenSettings?: () => void;
+  onScanReceipt?: () => void;
   onSelectCategory?: (cat: Category) => void;
   onRefresh?: () => void;
   onHaptic?: (style?: 'light' | 'medium' | 'heavy') => void;
@@ -33,6 +35,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onOpenAccounts,
   onOpenAddTransaction,
   onOpenVoice,
+  onOpenSettings,
+  onScanReceipt,
   onSelectCategory,
   onRefresh,
   onHaptic
@@ -95,7 +99,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => onHaptic?.('light')}
+            onClick={() => {
+              onHaptic?.('light');
+              onOpenSettings?.();
+            }}
             className="p-1 hover:text-black transition-colors"
           >
             <Settings className="w-5 h-5 text-[#4B5563]" strokeWidth={1.8} />
@@ -246,7 +253,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           {/* Left: Receipt / QR Scanner Button */}
           <button
             type="button"
-            onClick={() => onHaptic?.('medium')}
+            onClick={() => {
+              onHaptic?.('medium');
+              onScanReceipt?.();
+            }}
             className="w-13 h-13 p-3 rounded-full bg-white text-[#111827] shadow-[0_4px_16px_rgba(0,0,0,0.08)] flex items-center justify-center active:scale-90 transition-all border border-gray-100"
           >
             <ScanLine className="w-6 h-6 stroke-[2]" />

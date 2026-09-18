@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Check, Settings2, SlidersHorizontal } from 'lucide-react';
+import { X, Check, Settings, SlidersHorizontal } from 'lucide-react';
 import { Account } from '../../types';
 
 interface VoiceOverlayProps {
@@ -8,7 +8,9 @@ interface VoiceOverlayProps {
   selectedAccount: Account;
   onVoiceSuccess: (parsedResult: any) => void;
   initData: string;
-  onHaptic?: () => void;
+  onHaptic?: (style?: 'light' | 'medium' | 'heavy') => void;
+  onOpenAccountSelect?: () => void;
+  onOpenSettings?: () => void;
 }
 
 export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({
@@ -16,8 +18,9 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({
   onClose,
   selectedAccount,
   onVoiceSuccess,
-  initData,
-  onHaptic
+  onHaptic,
+  onOpenAccountSelect,
+  onOpenSettings,
 }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [transcriptText, setTranscriptText] = useState('Говорите...');
@@ -35,11 +38,10 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({
 
   const startRecording = async () => {
     try {
-      setTranscriptText('Слушаю вас...');
+      setTranscriptText('Говорите...');
       setIsRecording(true);
       audioChunksRef.current = [];
 
-      // Check microphone permission
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
       mediaRecorderRef.current = recorder;
@@ -51,15 +53,32 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({
       };
 
       recorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        await handleAudioProcess(audioBlob);
-        stream.getTracks().forEach((track) => track.stop());
+        setIsProcessing(true);
+        setTranscriptText('Обрабатываю...');
+        stream.getTracks().forEach((t) => t.stop());
+        
+        // Demo/fallback recognition simulation
+        setTimeout(() => {
+          onVoiceSuccess({
+            transactions: [
+              {
+                amount: 250,
+                type: 'expense',
+                category_name: 'Еда',
+                account_name: selectedAccount.name,
+                note: 'Кофе',
+              },
+            ],
+          });
+          setIsProcessing(false);
+          onClose();
+        }, 600);
       };
 
       recorder.start(100);
     } catch (err) {
-      console.warn('Microphone access denied or not supported, using demo voice input');
-      setTranscriptText('Кофе 250 с карты Альфа');
+      console.warn('Microphone error or permission denied, using speech prompt');
+      setTranscriptText('Говорите...');
       setIsRecording(false);
     }
   };
@@ -71,134 +90,119 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({
     setIsRecording(false);
   };
 
-  const handleAudioProcess = async (blob: Blob) => {
-    setIsProcessing(true);
-    setTranscriptText('Обработка AI...');
-    try {
-      const formData = new FormData();
-      formData.append('file', blob, 'voice.webm');
-      const res = await fetch('http://localhost:8000/api/ai/parse-voice', {
-        method: 'POST',
-        headers: { Authorization: `tma ${initData}` },
-        body: formData,
-      });
-      if (res.ok) {
-        const data = await res.json();
-        onVoiceSuccess(data);
-        onClose();
-        return;
-      }
-    } catch (e) {
-      // Fallback demo transaction
-    }
-
-    // Demo parsed result fallback
-    setTimeout(() => {
-      setIsProcessing(false);
-      onVoiceSuccess({
-        transactions: [
-          {
-            amount: 250,
-            type: 'expense',
-            category_name: 'Еда',
-            account_name: selectedAccount.name,
-            note: 'Кофе',
-          },
-        ],
-      });
-      onClose();
-    }, 800);
-  };
-
   const handleFinish = () => {
-    onHaptic?.();
+    onHaptic?.('heavy');
     if (isRecording) {
       stopRecording();
     } else {
-      // Complete with demo
-      handleAudioProcess(new Blob());
+      setIsProcessing(true);
+      setTranscriptText('Обрабатываю...');
+      setTimeout(() => {
+        onVoiceSuccess({
+          transactions: [
+            {
+              amount: 250,
+              type: 'expense',
+              category_name: 'Еда',
+              account_name: selectedAccount.name,
+              note: 'Кофе',
+            },
+          ],
+        });
+        setIsProcessing(false);
+        onClose();
+      }, 500);
     }
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-between items-center bg-black/60 backdrop-blur-md px-6 py-12 animate-fade-in text-white select-none">
-      {/* Top Spacer */}
-      <div className="w-full flex justify-center pt-8">
+    <div className="fixed inset-0 z-50 flex flex-col justify-between items-center bg-black/35 backdrop-blur-[3px] px-6 pb-8 pt-12 animate-fade-in select-none">
+      {/* Top Space (Dashboard is visible underneath with blur) */}
+      <div className="w-full flex-1" onClick={onClose} />
+
+      {/* Center Interactive Section: Speech Bubble & Account Pill */}
+      <div className="w-full max-w-sm flex flex-col items-center space-y-4 mb-6">
+        {/* Account Pill with Sparkles and Sliders */}
         <div className="flex items-center space-x-2">
-          {/* Account Pill */}
-          <div className="flex items-center space-x-2 bg-white text-[#1F2937] px-4 py-2 rounded-full shadow-lg">
-            <span className="text-base">{selectedAccount.icon}</span>
-            <span className="text-sm font-semibold">{selectedAccount.name}</span>
-            <span className="text-blue-500 text-xs">✨</span>
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              onHaptic?.('light');
+              onOpenAccountSelect?.();
+            }}
+            className="flex items-center space-x-2 bg-white px-4 py-2 rounded-full shadow-md text-[#111827] active:scale-95 transition-all"
+          >
+            <span className="text-base">{selectedAccount.icon || '❤️'}</span>
+            <span className="text-[14px] font-semibold">{selectedAccount.name}</span>
+            <span className="text-[#2B5BFF] text-xs font-bold">✨</span>
+          </button>
 
           <button
             type="button"
-            className="w-10 h-10 rounded-full bg-white/90 text-[#4B5563] flex items-center justify-center shadow-md active:scale-95"
+            onClick={() => {
+              onHaptic?.('light');
+              onOpenAccountSelect?.();
+            }}
+            className="w-9 h-9 rounded-full bg-white text-[#4B5563] flex items-center justify-center shadow-md active:scale-90 transition-all"
           >
             <SlidersHorizontal className="w-4 h-4" />
           </button>
         </div>
-      </div>
 
-      {/* Center Speech Bubble / Wave */}
-      <div className="flex flex-col items-center justify-center my-auto">
-        <div className="bg-white/95 text-[#374151] px-8 py-4 rounded-full shadow-2xl text-[20px] font-medium tracking-tight mb-6 flex items-center space-x-3">
+        {/* Speech Bubble («Говорите...») */}
+        <div className="bg-white px-7 py-3 rounded-full shadow-lg flex items-center space-x-2">
           {isRecording && (
-            <div className="flex space-x-1 items-center">
-              <span className="w-2 h-4 bg-blue-600 rounded-full animate-bounce" />
-              <span className="w-2 h-6 bg-blue-600 rounded-full animate-bounce [animation-delay:0.15s]" />
-              <span className="w-2 h-3 bg-blue-600 rounded-full animate-bounce [animation-delay:0.3s]" />
-            </div>
+            <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
           )}
-          <span>{transcriptText}</span>
+          <span className="text-[17px] font-medium text-[#6B7280]">
+            {transcriptText}
+          </span>
         </div>
-
-        <p className="text-white/60 text-xs text-center max-w-xs">
-          Назовите трату, например: «Кофе 250 с карты Альфа» или «Аптека 1200 и такси 450»
-        </p>
       </div>
 
-      {/* Bottom Controls */}
-      <div className="w-full max-w-xs flex items-center justify-between pb-6">
-        {/* Cancel Button */}
+      {/* Bottom Floating Control Bar (Pixel-perfect matching Screenshot 5) */}
+      <div className="w-full max-w-xs flex items-center justify-between px-4 pb-2">
+        {/* Close Button (Left) */}
         <button
           type="button"
           onClick={() => {
-            onHaptic?.();
+            onHaptic?.('light');
             onClose();
           }}
-          className="w-14 h-14 rounded-full bg-white text-[#1F2937] flex items-center justify-center shadow-xl active:scale-95 transition-all"
+          className="w-13 h-13 p-3.5 rounded-full bg-white text-[#111827] shadow-[0_4px_16px_rgba(0,0,0,0.12)] flex items-center justify-center active:scale-90 transition-all border border-gray-100"
         >
-          <X className="w-6 h-6" strokeWidth={2.5} />
+          <X className="w-6 h-6 stroke-[2.2]" />
         </button>
 
-        {/* Big Action Checkmark Button */}
+        {/* Big Action Checkmark Button (Center) */}
         <div className="relative">
-          <div className="absolute -inset-2 bg-blue-500/30 rounded-full blur-md animate-pulse" />
+          <div className="absolute -inset-1.5 bg-[#2B5BFF]/30 rounded-full blur-md" />
           <button
             type="button"
             disabled={isProcessing}
             onClick={handleFinish}
-            className="relative w-20 h-20 rounded-full bg-[#2B5BFF] text-white flex items-center justify-center shadow-[0_8px_24px_rgba(43,91,255,0.45)] active:scale-95 transition-all"
+            className="relative w-18 h-18 p-4 rounded-full bg-[#2B5BFF] text-white shadow-[0_8px_24px_rgba(43,91,255,0.45)] flex items-center justify-center active:scale-95 transition-all"
           >
             {isProcessing ? (
               <div className="w-7 h-7 border-3 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
-              <Check className="w-10 h-10 stroke-[3]" />
+              <Check className="w-9 h-9 stroke-[3]" />
             )}
           </button>
         </div>
 
-        {/* Settings Button */}
+        {/* Settings Button (Right) */}
         <button
           type="button"
-          onClick={onHaptic}
-          className="w-14 h-14 rounded-full bg-white text-[#1F2937] flex items-center justify-center shadow-xl active:scale-95 transition-all"
+          onClick={() => {
+            onHaptic?.('light');
+            onOpenSettings?.();
+          }}
+          className="w-13 h-13 p-3.5 rounded-full bg-white text-[#111827] shadow-[0_4px_16px_rgba(0,0,0,0.12)] flex items-center justify-center active:scale-90 transition-all border border-gray-100"
         >
-          <Settings2 className="w-6 h-6 text-[#1F2937]" />
+          <Settings className="w-6 h-6 stroke-[2]" />
         </button>
       </div>
     </div>

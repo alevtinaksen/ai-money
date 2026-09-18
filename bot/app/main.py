@@ -7,7 +7,7 @@ from aiogram import Bot, Dispatcher
 from app.core.config import settings
 from app.core.database import init_db
 from app.api.routes import accounts, categories, transactions, analytics, ai
-from app.bot.handlers import start, voice, text, callbacks
+from app.bot.handlers import start, voice, text, callbacks, receipt
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ai-money")
@@ -19,6 +19,7 @@ dp = Dispatcher()
 # Register bot handlers
 dp.include_router(start.router)
 dp.include_router(voice.router)
+dp.include_router(receipt.router)
 dp.include_router(callbacks.router)
 dp.include_router(text.router)
 

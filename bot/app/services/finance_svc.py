@@ -10,26 +10,89 @@ from app.schemas.finance import (
 )
 
 DEFAULT_ACCOUNTS = [
-    {"name": "Наличные", "group_name": "Личное", "balance": 16000.00, "icon": "💵", "color": "#E3F2FD", "sort_order": 1},
-    {"name": "Карта Альфа", "group_name": "Личное", "balance": 5522.16, "icon": "❤️", "color": "#FEE2E2", "is_default": True, "sort_order": 2},
-    {"name": "Т-Банк", "group_name": "Личное", "balance": 6753.51, "icon": "💛", "color": "#FEF3C7", "sort_order": 3},
-    {"name": "Озон Банк", "group_name": "Личное", "balance": 261.00, "icon": "💙", "color": "#E0F2FE", "sort_order": 4},
-    {"name": "Накопительный счет", "group_name": "Личное", "balance": 534342.66, "icon": "👥", "color": "#E2E8F0", "sort_order": 5},
-    {"name": "Брокерский счет", "group_name": "Личное", "balance": 43183.99, "icon": "🏺", "color": "#FDF2E9", "sort_order": 6},
-    {"name": "Карта на еду", "group_name": "Общее", "balance": 20974.64, "icon": "💛", "color": "#FEF3C7", "sort_order": 7},
-    {"name": "Подушка безопасности на еду", "group_name": "Общее", "balance": 44803.15, "icon": "🛏️", "color": "#F3F4F6", "sort_order": 8},
+    # Личное (Альфа)
+    {"name": "Карта Альфа (Основной)", "group_name": "Личное", "balance": 5851.50, "currency": "RUB", "icon": "❤️", "color": "#FEE2E2", "is_default": True, "sort_order": 1},
+    {"name": "Альфа-Счёт (накопления)", "group_name": "Личное", "balance": 173060.04, "currency": "RUB", "icon": "📈", "color": "#E0F2FE", "is_default": False, "sort_order": 2},
+    {"name": "Инвесткопилка (Альфа)", "group_name": "Личное", "balance": 66231.54, "currency": "RUB", "icon": "🪙", "color": "#FEF3C7", "is_default": False, "sort_order": 3},
+    {"name": "Брокерский счёт (Альфа)", "group_name": "Личное", "balance": 51151.13, "currency": "RUB", "icon": "🏺", "color": "#FDF2E9", "is_default": False, "sort_order": 4},
+    {"name": "Кредитная карта (Альфа)", "group_name": "Личное", "balance": 0.00, "currency": "RUB", "icon": "💳", "color": "#F3F4F6", "is_default": False, "sort_order": 5},
+
+    # Личное (Т-Банк, Озон, Наличные)
+    {"name": "Т-Банк Black", "group_name": "Личное", "balance": 0.00, "currency": "RUB", "icon": "💛", "color": "#FEF3C7", "is_default": False, "sort_order": 6},
+    {"name": "Т-Банк USD", "group_name": "Личное", "balance": 100.00, "currency": "USD", "icon": "💵", "color": "#E3F2FD", "is_default": False, "sort_order": 7},
+    {"name": "Т-Банк Инвестиции", "group_name": "Личное", "balance": 15980.39, "currency": "RUB", "icon": "📈", "color": "#EDE9FE", "is_default": False, "sort_order": 8},
+    {"name": "Озон Банк", "group_name": "Личное", "balance": 2205.99, "currency": "RUB", "icon": "💙", "color": "#E0F2FE", "is_default": False, "sort_order": 9},
+    {"name": "Наличные (Психотерапевт)", "group_name": "Личное", "balance": 10000.00, "currency": "RUB", "icon": "💵", "color": "#DCFCE7", "is_default": False, "sort_order": 10},
+
+    # Общее (с Владом)
+    {"name": "Влад и Алина - Едоки (Т-Банк)", "group_name": "Общее (с Владом)", "balance": 24759.86, "currency": "RUB", "icon": "👥", "color": "#FFEDD5", "is_default": False, "sort_order": 11},
+    {"name": "Еда (подушка безопасности)", "group_name": "Общее (с Владом)", "balance": 46145.89, "currency": "RUB", "icon": "🛏️", "color": "#FEF3C7", "is_default": False, "sort_order": 12},
+    {"name": "Совместный с Владом (Альфа)", "group_name": "Общее (с Владом)", "balance": 189.50, "currency": "RUB", "icon": "👥", "color": "#FEE2E2", "is_default": False, "sort_order": 13},
 ]
 
 DEFAULT_CATEGORIES = [
-    {"name": "Еда", "type": "expense", "icon": "🍔", "sort_order": 1},
-    {"name": "Транспорт", "type": "expense", "icon": "🚗", "sort_order": 2},
-    {"name": "Покупки", "type": "expense", "icon": "🛍️", "sort_order": 3},
-    {"name": "Развлечения", "type": "expense", "icon": "🎬", "sort_order": 4},
-    {"name": "Здоровье", "type": "expense", "icon": "💊", "sort_order": 5},
-    {"name": "Подписки", "type": "expense", "icon": "💿", "sort_order": 6},
-    {"name": "Самокат", "type": "expense", "icon": "🍔", "sort_order": 7},
-    {"name": "Зарплата", "type": "income", "icon": "💰", "sort_order": 8},
-    {"name": "Переводы", "type": "income", "icon": "💸", "sort_order": 9},
+    # Еда
+    {"name": "Еда", "type": "expense", "icon": "🍔", "color": "#FEE2E2", "sort_order": 1},
+    {"name": "Кафе", "type": "expense", "icon": "☕", "color": "#FEE2E2", "sort_order": 2},
+    {"name": "Самокат", "type": "expense", "icon": "🛴", "color": "#FEE2E2", "sort_order": 3},
+    {"name": "Кофе", "type": "expense", "icon": "☕", "color": "#FEE2E2", "sort_order": 4},
+    {"name": "НаЛанч", "type": "expense", "icon": "🍱", "color": "#FEE2E2", "sort_order": 5},
+    
+    # Транспорт & Машина
+    {"name": "Транспорт", "type": "expense", "icon": "🚗", "color": "#E0F2FE", "sort_order": 6},
+    {"name": "Такси", "type": "expense", "icon": "🚕", "color": "#E0F2FE", "sort_order": 7},
+    {"name": "Каршеринг", "type": "expense", "icon": "🚙", "color": "#E0F2FE", "sort_order": 8},
+    {"name": "Общественный транспорт", "type": "expense", "icon": "🚌", "color": "#E0F2FE", "sort_order": 9},
+    {"name": "Поезд", "type": "expense", "icon": "🚆", "color": "#E0F2FE", "sort_order": 10},
+    {"name": "Машина", "type": "expense", "icon": "🚘", "color": "#DBEAFE", "sort_order": 11},
+    {"name": "Бензин", "type": "expense", "icon": "⛽", "color": "#DBEAFE", "sort_order": 12},
+    {"name": "ТО авто", "type": "expense", "icon": "🔧", "color": "#DBEAFE", "sort_order": 13},
+    {"name": "Парковка", "type": "expense", "icon": "🅿️", "color": "#DBEAFE", "sort_order": 14},
+    {"name": "Кредит за авто", "type": "expense", "icon": "📑", "color": "#DBEAFE", "sort_order": 15},
+
+    # Покупки
+    {"name": "Покупки", "type": "expense", "icon": "🛍️", "color": "#FCE7F3", "sort_order": 16},
+    {"name": "Одежда", "type": "expense", "icon": "👗", "color": "#FCE7F3", "sort_order": 17},
+    {"name": "Электроника", "type": "expense", "icon": "💻", "color": "#FCE7F3", "sort_order": 18},
+    {"name": "Бытовая химия", "type": "expense", "icon": "🧼", "color": "#FCE7F3", "sort_order": 19},
+    {"name": "Товары для хобби", "type": "expense", "icon": "🎨", "color": "#FCE7F3", "sort_order": 20},
+
+    # Развлечения
+    {"name": "Развлечения", "type": "expense", "icon": "🎬", "color": "#EDE9FE", "sort_order": 21},
+    {"name": "Кино", "type": "expense", "icon": "🍿", "color": "#EDE9FE", "sort_order": 22},
+    {"name": "Игры", "type": "expense", "icon": "🎮", "color": "#EDE9FE", "sort_order": 23},
+    {"name": "Вечеринки", "type": "expense", "icon": "🎉", "color": "#EDE9FE", "sort_order": 24},
+
+    # Здоровье
+    {"name": "Здоровье", "type": "expense", "icon": "💊", "color": "#FEF3C7", "sort_order": 25},
+    {"name": "Лекарства", "type": "expense", "icon": "💊", "color": "#FEF3C7", "sort_order": 26},
+    {"name": "Врачи", "type": "expense", "icon": "🩺", "color": "#FEF3C7", "sort_order": 27},
+    {"name": "Психотерапевт", "type": "expense", "icon": "🧠", "color": "#DCFCE7", "sort_order": 28},
+
+    # Жилье
+    {"name": "Жилье", "type": "expense", "icon": "🏠", "color": "#E0E7FF", "sort_order": 29},
+    {"name": "Аренда", "type": "expense", "icon": "🔑", "color": "#E0E7FF", "sort_order": 30},
+    {"name": "ЖКХ", "type": "expense", "icon": "💡", "color": "#E0E7FF", "sort_order": 31},
+    {"name": "Ремонт", "type": "expense", "icon": "🔨", "color": "#E0E7FF", "sort_order": 32},
+
+    # Личное & Кот
+    {"name": "Личное", "type": "expense", "icon": "✨", "color": "#FEE2E2", "sort_order": 33},
+    {"name": "Внешний вид", "type": "expense", "icon": "💄", "color": "#FEE2E2", "sort_order": 34},
+    {"name": "Привычки", "type": "expense", "icon": "☕", "color": "#FEE2E2", "sort_order": 35},
+    {"name": "Спорт", "type": "expense", "icon": "🏃", "color": "#FEE2E2", "sort_order": 36},
+    {"name": "Кот", "type": "expense", "icon": "🐱", "color": "#FFEDD5", "sort_order": 37},
+    {"name": "Корм для кота", "type": "expense", "icon": "🐟", "color": "#FFEDD5", "sort_order": 38},
+    {"name": "Здоровье кота", "type": "expense", "icon": "🐾", "color": "#FFEDD5", "sort_order": 39},
+    {"name": "Путешествия", "type": "expense", "icon": "✈️", "color": "#E0F2FE", "sort_order": 40},
+    {"name": "Подписки", "type": "expense", "icon": "💿", "color": "#F3F4F6", "sort_order": 41},
+
+    # Двусторонние / Доходы
+    {"name": "Подарки", "type": "expense", "icon": "🎁", "color": "#FCE7F3", "sort_order": 42},
+    {"name": "Подарки (получено)", "type": "income", "icon": "🎁", "color": "#DCFCE7", "sort_order": 43},
+    {"name": "Переводы", "type": "expense", "icon": "💸", "color": "#E0F2FE", "sort_order": 44},
+    {"name": "Переводы (получено)", "type": "income", "icon": "💸", "color": "#DCFCE7", "sort_order": 45},
+    {"name": "Накопления", "type": "expense", "icon": "🏦", "color": "#FEF3C7", "sort_order": 46},
+    {"name": "Зарплата", "type": "income", "icon": "💰", "color": "#DCFCE7", "sort_order": 47},
 ]
 
 class FinanceService:
