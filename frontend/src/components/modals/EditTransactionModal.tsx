@@ -45,14 +45,19 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
 }) => {
   if (!isOpen || !transaction) return null;
 
-  const [type, setType] = useState<'expense' | 'income'>(
-    transaction.type === 'income' ? 'income' : 'expense'
+  const [type, setType] = useState<'expense' | 'income' | 'transfer'>(
+    transaction.type || 'expense'
   );
   const [amountStr, setAmountStr] = useState<string>(transaction.amount.toString());
   const [accountId, setAccountId] = useState<string>(transaction.account_id);
-  const [categoryId, setCategoryId] = useState<string | undefined>(
-    transaction.category_id || undefined
-  );
+  const [categoryId, setCategoryId] = useState<string | undefined>(() => {
+    if (transaction.category_id) return transaction.category_id;
+    if (transaction.type === 'transfer') {
+      const tc = categories.find((c) => c.name === 'Переводы' || c.name.toLowerCase().includes('перевод'));
+      return tc?.id;
+    }
+    return undefined;
+  });
   const [note, setNote] = useState<string>(transaction.note || '');
   const [subcat, setSubcat] = useState<string>(() => {
     return transaction.note || '';
@@ -63,8 +68,12 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   const [isAccPickerOpen, setIsAccPickerOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  const transferCat = categories.find((c) => c.name === 'Переводы' || c.name.toLowerCase().includes('перевод'));
+  const defaultCat = (type === 'transfer' || transaction.type === 'transfer')
+    ? (transferCat || categories[0])
+    : categories[0];
   const selectedAcc = accounts.find((a) => a.id === accountId) || accounts[0];
-  const selectedCat = categories.find((c) => c.id === categoryId) || categories[0];
+  const selectedCat = categories.find((c) => c.id === categoryId) || defaultCat;
 
   const currentSubcategories = selectedCat ? SUBCATEGORIES_MAP[selectedCat.name] || [] : [];
 
@@ -153,7 +162,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
         {/* Row 2: Amount & Type Toggle */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            {/* [- +] Toggle button matching Screenshot */}
+            {/* [- + ⇄] Toggle button */}
             <div className="bg-white rounded-full p-1 shadow-sm border border-gray-100 flex items-center space-x-1">
               <button
                 type="button"
@@ -161,7 +170,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                   onHaptic?.('light');
                   setType('expense');
                 }}
-                className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-lg transition-all ${
+                className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-lg transition-all ${
                   type === 'expense'
                     ? 'bg-[#FF4B55] text-white shadow-sm'
                     : 'text-gray-400 hover:text-gray-600'
@@ -175,13 +184,28 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                   onHaptic?.('light');
                   setType('income');
                 }}
-                className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-lg transition-all ${
+                className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-lg transition-all ${
                   type === 'income'
                     ? 'bg-[#10B981] text-white shadow-sm'
                     : 'text-gray-400 hover:text-gray-600'
                 }`}
               >
                 +
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onHaptic?.('light');
+                  setType('transfer');
+                  if (transferCat) setCategoryId(transferCat.id);
+                }}
+                className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
+                  type === 'transfer'
+                    ? 'bg-[#2B5BFF] text-white shadow-sm'
+                    : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                ⇄
               </button>
             </div>
 
@@ -191,8 +215,12 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
               inputMode="decimal"
               value={amountStr}
               onChange={(e) => setAmountStr(e.target.value)}
-              className={`text-[40px] font-extrabold bg-transparent w-40 tracking-tight focus:outline-none ${
-                type === 'expense' ? 'text-[#FF4B55]' : 'text-[#10B981]'
+              className={`text-[40px] font-extrabold bg-transparent w-36 tracking-tight focus:outline-none ${
+                type === 'expense'
+                  ? 'text-[#FF4B55]'
+                  : type === 'income'
+                  ? 'text-[#10B981]'
+                  : 'text-[#2B5BFF]'
               }`}
             />
           </div>

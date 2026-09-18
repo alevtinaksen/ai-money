@@ -28,7 +28,7 @@ async def update_user_mini_app_sync(bot: Bot, chat_id: int, user_id: int, db) ->
             await bot.set_chat_menu_button(
                 chat_id=chat_id,
                 menu_button=MenuButtonWebApp(
-                    text="📱 Бюджет",
+                    text="📊 Бюджет",
                     web_app=WebAppInfo(url=f"{settings.WEBAPP_URL}{sync_hash}")
                 )
             )
@@ -182,15 +182,36 @@ async def process_and_save_transactions(user_id: int, text: str, bot: Bot, chat_
 
         # 3. Save each transaction and send confirmation card
         for tx_data in parsed.transactions:
-            target_acc = default_acc
+            target_acc = None
+            # Match account by parsed account_name
             if tx_data.account_name:
-                for k, a in acc_dict.items():
-                    if k in tx_data.account_name.lower() or tx_data.account_name.lower() in k:
-                        target_acc = a
-                        break
+                matched_name = AIParserService.match_account_name(tx_data.account_name, acc_names)
+                if matched_name and matched_name.lower() in acc_dict:
+                    target_acc = acc_dict[matched_name.lower()]
+                else:
+                    for k, a in acc_dict.items():
+                        if k in tx_data.account_name.lower() or tx_data.account_name.lower() in k:
+                            target_acc = a
+                            break
+
+            # Fallback to checking raw input text for account mention (e.g. 'Озон')
+            if not target_acc:
+                matched_name = AIParserService.match_account_name(text, acc_names)
+                if matched_name and matched_name.lower() in acc_dict:
+                    target_acc = acc_dict[matched_name.lower()]
+
+            if not target_acc:
+                target_acc = default_acc
 
             target_cat = None
-            if tx_data.category_name:
+            # For transfers, default to 'Переводы' category
+            if tx_data.type == "transfer":
+                for k, c in cat_dict.items():
+                    if "перевод" in k:
+                        target_cat = c
+                        break
+
+            if not target_cat and tx_data.category_name:
                 for k, c in cat_dict.items():
                     if k in tx_data.category_name.lower() or tx_data.category_name.lower() in k:
                         target_cat = c
@@ -200,10 +221,14 @@ async def process_and_save_transactions(user_id: int, text: str, bot: Bot, chat_
 
             target_to_acc = None
             if tx_data.type == "transfer" and tx_data.to_account_name:
-                for k, a in acc_dict.items():
-                    if k in tx_data.to_account_name.lower():
-                        target_to_acc = a
-                        break
+                matched_to = AIParserService.match_account_name(tx_data.to_account_name, acc_names)
+                if matched_to and matched_to.lower() in acc_dict:
+                    target_to_acc = acc_dict[matched_to.lower()]
+                else:
+                    for k, a in acc_dict.items():
+                        if k in tx_data.to_account_name.lower() or tx_data.to_account_name.lower() in k:
+                            target_to_acc = a
+                            break
 
             create_payload = TransactionCreate(
                 account_id=target_acc.id,

@@ -139,10 +139,16 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
         {/* Big Net Period Amount */}
         <div className="text-center my-4">
-          <h2 className="text-[42px] font-extrabold text-[#111827] tracking-tight">
-            +{summary.period_income - summary.period_expense}{' '}
-            <span className="font-bold">₽</span>
-          </h2>
+          {(() => {
+            const net = summary.period_income - summary.period_expense;
+            const sign = net > 0 ? '+' : (net < 0 ? '−' : '');
+            return (
+              <h2 className="text-[42px] font-extrabold text-[#111827] tracking-tight">
+                {sign}{Math.abs(net).toLocaleString('ru-RU', { minimumFractionDigits: 0 })}{' '}
+                <span className="font-bold">₽</span>
+              </h2>
+            );
+          })()}
 
           {/* Stat Badges: Income ↓ and Expense ↑ */}
           <div className="flex items-center justify-center space-x-3 mt-3">
@@ -213,10 +219,15 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </div>
 
           {/* Transactions List */}
-          <div className="relative pl-7 space-y-3">
-            {/* Vertical Date Stamp on Left */}
-            <div className="absolute left-0 top-3 text-[11px] font-medium text-[#9CA3AF] -rotate-90 origin-left whitespace-nowrap">
-              7 мая
+          <div className="space-y-2">
+            {/* Centered Date Header above cards */}
+            <div className="text-center text-[12px] font-medium text-[#9CA3AF]">
+              {summary.recent_transactions.length > 0 && summary.recent_transactions[0].created_at
+                ? new Date(summary.recent_transactions[0].created_at).toLocaleDateString('ru-RU', {
+                    day: 'numeric',
+                    month: 'long',
+                  })
+                : new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
             </div>
 
             {/* Horizontal / Stacked Transaction Cards */}
@@ -232,24 +243,28 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     }}
                     className="flex-shrink-0 bg-white rounded-[22px] px-4 py-3 shadow-sm border border-gray-100 flex items-center space-x-3 min-w-[170px] text-left active:scale-[0.98] transition-all"
                   >
-                    <div className="text-2xl">{tx.category_icon || '🍔'}</div>
+                    <div className="text-2xl">{tx.category_icon || (tx.type === 'transfer' ? '🔄' : '📦')}</div>
                     <div>
-                      <div className="text-[14px] font-semibold text-[#111827] leading-tight">
-                        {tx.note || tx.category_name || 'Расход'}
+                      <div className="text-[14px] font-semibold text-[#111827] leading-tight truncate max-w-[120px]">
+                        {tx.category_name || tx.note || (tx.type === 'transfer' ? 'Перевод' : 'Расход')}
                       </div>
                       <div
                         className={`text-[13px] font-bold mt-0.5 ${
-                          tx.type === 'expense' ? 'text-[#FF4B55]' : 'text-[#10B981]'
+                          tx.type === 'expense'
+                            ? 'text-[#FF4B55]'
+                            : tx.type === 'income'
+                            ? 'text-[#10B981]'
+                            : 'text-[#6B7280]'
                         }`}
                       >
-                        {tx.type === 'expense' ? '−' : '+'}
+                        {tx.type === 'expense' ? '−' : tx.type === 'income' ? '+' : ''}
                         {tx.amount.toLocaleString('ru-RU')} ₽
                       </div>
                     </div>
                   </button>
                 ))
               ) : (
-                <div className="text-sm text-gray-400 py-4">Нет операций за период</div>
+                <div className="text-sm text-gray-400 py-4 text-center w-full">Нет операций за период</div>
               )}
             </div>
           </div>

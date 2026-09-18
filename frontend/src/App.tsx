@@ -106,11 +106,30 @@ export const App: React.FC = () => {
       loadData();
     };
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadData();
+      }
+    };
+
     window.addEventListener('hashchange', handleSync);
     window.addEventListener('focus', handleSync);
+    window.addEventListener('pageshow', handleSync);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Heartbeat sync every 8 seconds when app is active/visible
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        loadData();
+      }
+    }, 8000);
+
     return () => {
       window.removeEventListener('hashchange', handleSync);
       window.removeEventListener('focus', handleSync);
+      window.removeEventListener('pageshow', handleSync);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(interval);
     };
   }, [loadData]);
 

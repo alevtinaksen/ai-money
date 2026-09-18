@@ -99,9 +99,9 @@ export const INITIAL_RECENT_TRANSACTIONS: Transaction[] = [
 
 export function getStoredSyncData(): { balances?: Record<string, number>; recent_transactions?: any[] } | null {
   try {
-    const hash = window.location.hash;
-    if (hash && hash.includes('sync=')) {
-      const syncStr = hash.split('sync=')[1]?.split('&')[0];
+    const fullUrl = window.location.href;
+    if (fullUrl.includes('sync=')) {
+      const syncStr = fullUrl.split('sync=')[1]?.split('&')[0]?.split('#')[0];
       if (syncStr) {
         const b64 = syncStr.replace(/-/g, '+').replace(/_/g, '/');
         const jsonStr = decodeURIComponent(escape(atob(b64)));
@@ -113,6 +113,17 @@ export function getStoredSyncData(): { balances?: Record<string, number>; recent
   } catch (e) {
     console.error('Failed to parse URL sync hash:', e);
   }
+
+  try {
+    const startParam = (window as any).Telegram?.WebApp?.initDataUnsafe?.start_param;
+    if (startParam && startParam.startsWith('sync_')) {
+      const b64 = startParam.replace('sync_', '').replace(/-/g, '+').replace(/_/g, '/');
+      const jsonStr = decodeURIComponent(escape(atob(b64)));
+      const data = JSON.parse(jsonStr);
+      localStorage.setItem('ai_money_sync_data', JSON.stringify(data));
+      return data;
+    }
+  } catch (e) {}
 
   try {
     const cached = localStorage.getItem('ai_money_sync_data');

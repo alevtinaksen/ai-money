@@ -20,13 +20,13 @@ SYSTEM_PROMPT_TEMPLATE = """Ты — интеллектуальный финан
 Правила:
 1. Выдели все упомянутые финансовые операции. Если пользователь назвал несколько трат («Кофе 200 и аптека 1500»), верни массив объектов transactions.
 2. Для каждой операции определи:
-   - amount: число (float), сумма операции.
+   - amount: число (float), сумма операции. ВАЖНО: если сумма записана через математическое выражение со знаком плюс (например: «1104+1104+137» или «500+250»), ОБЯЗАТЕЛЬНО сложи эти числа и запиши в amount единую итоговую сумму сложения (например: 2345.0)!
    - type: 'expense' (расход), 'income' (доход), или 'transfer' (перевод между счетами).
-   - category_name: выбери наиболее подходящую категорию из списка доступных категорий.
-   - account_name: если упомянут счёт («с Альфы», «по Т-Банку», «наличкой»), сопоставь с доступными счетами. Если не упомянут, укажи основной счёт.
+   - category_name: выбери наиболее подходящую категорию из списка доступных категорий. Для переводов используй категорию «Переводы».
+   - account_name: если упомянут счёт или сервис («Озон» -> «Озон Банк», «Альфа» -> «Карта Альфа (Основной)», «Т-Банк» / «Тинькофф» -> «Т-Банк Black», «наличные» -> «Наличные (Психотерапевт)», «с Владом» -> «Влад и Алина - Едоки (Т-Банк)»), сопоставь с доступными счетами.
    - to_account_name: если это перевод, укажи счет зачисления.
-   - note: краткое описание покупки или действия («Кофе», «Аптека», «Зарплата», «Такси»).
-3. ВАЖНО: Если пользователь не назвал сумму операции (например: «Запиши маникюр», «Такси», «Обед с коллегами») или сумма неразборчива:
+   - note: краткое описание покупки или действия («Озон», «Кофе», «Аптека», «Зарплата», «Такси»).
+3. Если пользователь не назвал сумму операции (например: «Запиши маникюр», «Такси», «Обед с коллегами») или сумма неразборчива:
    - transactions оставь пустым: []
    - заполни поле "pending":
      {{
@@ -44,7 +44,7 @@ SYSTEM_PROMPT_TEMPLATE = """Ты — интеллектуальный финан
       "amount": 250.0,
       "type": "expense",
       "category_name": "Еда",
-      "account_name": "Карта Альфа",
+      "account_name": "Карта Альфа (Основной)",
       "to_account_name": null,
       "note": "Кофе"
     }}
@@ -56,12 +56,49 @@ SYSTEM_PROMPT_TEMPLATE = """Ты — интеллектуальный финан
 
 class AIParserService:
     @staticmethod
+    def evaluate_plus_expressions(text: str) -> str:
+        """
+        Evaluates mathematical addition expressions like '1104+1104+137' -> '2345'
+        or '500 + 250' -> '750'
+        """
+        def repl(m):
+            expr = m.group(0)
+            parts = [float(p.strip()) for p in expr.split("+") if p.strip()]
+            total = sum(parts)
+            return str(int(total) if total.is_integer() else total)
+        return re.sub(r"(\b\d+(?:\.\d+)?(?:\s*\+\s*\d+(?:\.\d+)?)+\b)", repl, text)
+
+    @staticmethod
+    def match_account_name(text: str, account_names: List[str]) -> Optional[str]:
+        cleaned = text.lower()
+        if "озон" in cleaned or "ozon" in cleaned:
+            for a in account_names:
+                if "озон" in a.lower() or "ozon" in a.lower():
+                    return a
+        if "влад" in cleaned or "едок" in cleaned or "совместн" in cleaned:
+            for a in account_names:
+                if "влад" in a.lower() or "едок" in a.lower() or "совместн" in a.lower():
+                    return a
+        if "т-банк" in cleaned or "тбанк" in cleaned or "тиньк" in cleaned or "tinkoff" in cleaned:
+            for a in account_names:
+                if "т-банк" in a.lower() or "black" in a.lower():
+                    return a
+        if "налич" in cleaned or "налом" in cleaned or "нал " in cleaned:
+            for a in account_names:
+                if "налич" in a.lower():
+                    return a
+        if "альф" in cleaned or "alfa" in cleaned:
+            for a in account_names:
+                if "альф" in a.lower() and "накоп" not in a.lower() and "инвест" not in a.lower() and "кредит" not in a.lower() and "влад" not in a.lower():
+                    return a
+        for a in account_names:
+            a_clean = a.lower().replace("карта", "").replace("банк", "").replace("счёт", "").strip()
+            if a_clean and a_clean in cleaned:
+                return a
+        return None
+
+    @staticmethod
     async def transcribe_audio(audio_bytes: bytes, filename: str = "voice.ogg") -> str:
-        """
-        Transcribes audio using Groq Whisper Large v3 if key is present,
-        or falls back to zero-config speech recognition.
-        """
-        # 1. Try Groq Whisper if API key is provided
         if settings.GROQ_API_KEY:
             try:
                 from groq import AsyncGroq
@@ -79,9 +116,7 @@ class AIParserService:
             except Exception as e:
                 logger.error(f"Groq Whisper transcription failed: {e}. Falling back...")
 
-        # 2. Fallback: Free SpeechRecognition via pydub & ffmpeg (requires NO API KEY)
         try:
-            import io
             import speech_recognition as sr
             from pydub import AudioSegment
 
@@ -108,21 +143,22 @@ class AIParserService:
         account_names: List[str],
         category_names: List[str]
     ) -> AIParsedResult:
-        """Parses raw text into structured transactions using Groq Llama 3.3 70B or fallback."""
         if not text.strip():
             return AIParsedResult(transactions=[])
 
-        # Normalize speech numbers first (e.g. 2/100 -> 2100, две сто -> 2100)
-        norm_text = AIParserService.normalize_speech_numbers(text)
+        # 1. First evaluate math additions (e.g. 1104+1104+137 -> 2345)
+        eval_text = AIParserService.evaluate_plus_expressions(text)
 
-        # If Groq API key is present, use Llama 3.3 70B
+        # 2. Normalize speech numbers (e.g. 2/100 -> 2100, две сто -> 2100)
+        norm_text = AIParserService.normalize_speech_numbers(eval_text)
+
         if settings.GROQ_API_KEY:
             try:
                 from groq import AsyncGroq
                 client = AsyncGroq(api_key=settings.GROQ_API_KEY)
 
                 system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
-                    accounts_list=", ".join(account_names) if account_names else "Карта Альфа, Т-Банк, Наличные",
+                    accounts_list=", ".join(account_names) if account_names else "Карта Альфа (Основной), Озон Банк, Т-Банк Black, Наличные",
                     categories_list=", ".join(category_names) if category_names else "Еда, Транспорт, Покупки, Развлечения, Здоровье"
                 )
 
@@ -142,19 +178,10 @@ class AIParserService:
             except Exception as e:
                 logger.error(f"Error in Groq LLM parsing: {e}. Falling back to rule-based parser.")
 
-        # Fallback intelligent regex/heuristic parser (ensures 100% uptime even offline/no-key)
         return AIParserService._fallback_rule_parser(norm_text, account_names, category_names)
 
     @staticmethod
     def normalize_speech_numbers(text: str) -> str:
-        """
-        Normalizes Russian spoken numbers and speech-to-text artifacts:
-        - '2/100' -> '2100'
-        - 'две сто' -> '2100'
-        - 'полторы' -> '1500'
-        - 'две с половиной' -> '2500'
-        """
-        # 1. Handle X/YYY e.g. 2/100 -> 2100, 3/500 -> 3500
         def repl_slash(m):
             k = int(m.group(1))
             h = int(m.group(2))
@@ -162,7 +189,6 @@ class AIParserService:
         
         res = re.sub(r'(\b\d{1,2})\s*/\s*(\d{2,3}\b)', repl_slash, text)
 
-        # 2. Spoken phrases
         patterns = [
             (r'\bполторы\s+тысяч[иея]?\b', '1500'),
             (r'\bполторы\b', '1500'),
@@ -202,7 +228,6 @@ class AIParserService:
         account_names: List[str],
         category_names: List[str]
     ) -> AIParsedResult:
-        """Deterministic rule-based parser with smart clarification support."""
         cleaned = text.replace(",", ".").lower()
 
         # Check for transfer keyword
@@ -216,15 +241,18 @@ class AIParserService:
                             amount=amount,
                             type="transfer",
                             category_name="Переводы",
-                            account_name=account_names[0] if account_names else "Основной",
+                            account_name=AIParserService.match_account_name(cleaned, account_names) or (account_names[0] if account_names else "Основной"),
                             to_account_name=account_names[1] if len(account_names) > 1 else None,
                             note="Перевод между счетами"
                         )
                     ]
                 )
 
-        # Split multi-transactions by "и" or comma or "а также"
-        clauses = re.split(r"\s+(?:и|\+|,|а\s+также)\s+", cleaned)
+        # Check global account mention in the whole sentence
+        global_account = AIParserService.match_account_name(cleaned, account_names)
+
+        # Split multi-transactions by "и" or comma or "а также" (avoiding splitting on numbers)
+        clauses = re.split(r"\s+(?:и|,|а\s+также)\s+", cleaned)
         results: List[AIParsedTransaction] = []
 
         for clause in clauses:
@@ -232,18 +260,9 @@ class AIParserService:
             if not clause:
                 continue
 
-            # Detect account
-            matched_acc = None
-            for acc in account_names:
-                acc_clean = acc.lower().replace("карта", "").strip()
-                if acc_clean and acc_clean in clause:
-                    matched_acc = acc
-                    break
-
-            # Detect income
+            matched_acc = AIParserService.match_account_name(clause, account_names) or global_account
             is_income = any(w in clause for w in ["зарплата", "доход", "аванс", "кешбэк", "пришло", "пополнил", "перевели"])
 
-            # Detect category
             matched_cat = "Покупки"
             suggested_amounts = [500.0, 1000.0, 1500.0, 2000.0, 2500.0, 3000.0]
 
@@ -266,15 +285,12 @@ class AIParserService:
                 matched_cat = "Зарплата"
                 suggested_amounts = [20000.0, 40000.0, 60000.0, 80000.0]
 
-            # Clean note
-            stopwords = ["р", "руб", "рублей", "с", "на", "карты", "карта", "запиши", "записать", "добавь", "пожалуйста"]
+            stopwords = ["р", "руб", "рублей", "с", "на", "карты", "карта", "запиши", "записать", "добавь", "пожалуйста", "еще", "списал", "списали"]
             note_words = [w for w in clause.split() if not w.replace(".", "").isdigit() and w not in stopwords]
             note = " ".join(note_words).capitalize() if note_words else matched_cat
 
-            # Extract amount
             amt_match = re.search(r"(\d+(?:\.\d+)?)", clause)
             if not amt_match:
-                # No amount found at all -> Request clarification from user!
                 return AIParsedResult(
                     transactions=[],
                     pending=PendingClarification(
@@ -288,7 +304,6 @@ class AIParserService:
 
             amount = float(amt_match.group(1))
 
-            # Sanity check: if amount is suspicious (e.g. <= 10.0 for things like маникюр / стрижка / такси without explicit 'рублей')
             if amount <= 10.0 and matched_cat in ["Личное", "Здоровье", "Одежда"] and "рубл" not in clause:
                 return AIParsedResult(
                     transactions=[],
