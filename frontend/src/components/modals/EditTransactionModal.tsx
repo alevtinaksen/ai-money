@@ -39,19 +39,13 @@ export const CATEGORIES_CATALOG: CategoryCatalogItem[] = [
     name: 'Еда',
     icon: '🍔',
     type: 'expense',
-    subcategories: ['Самокат', 'Кафе', 'Кофе', 'НаЛанч', 'Супермаркет'],
+    subcategories: ['Кафе', 'Самокат', 'Кофе', 'НаЛанч'],
   },
   {
     name: 'Транспорт',
     icon: '🚗',
     type: 'expense',
-    subcategories: ['Такси', 'Каршеринг', 'Общественный', 'Поезд'],
-  },
-  {
-    name: 'Машина',
-    icon: '🚘',
-    type: 'expense',
-    subcategories: ['Бензин', 'ТО авто', 'Парковка', 'Кредит за авто'],
+    subcategories: ['Такси', 'Каршеринг', 'Общественный', 'Поезд', 'Метро'],
   },
   {
     name: 'Покупки',
@@ -69,7 +63,7 @@ export const CATEGORIES_CATALOG: CategoryCatalogItem[] = [
     name: 'Здоровье',
     icon: '💊',
     type: 'expense',
-    subcategories: ['Лекарства', 'Врачи', 'Психотерапевт'],
+    subcategories: ['Лекарства', 'Врачи'],
   },
   {
     name: 'Жилье',
@@ -79,9 +73,15 @@ export const CATEGORIES_CATALOG: CategoryCatalogItem[] = [
   },
   {
     name: 'Личное',
-    icon: '✨',
+    icon: '👤',
     type: 'expense',
     subcategories: ['Внешний вид', 'Привычки', 'Спорт'],
+  },
+  {
+    name: 'Путешествия',
+    icon: '✈️',
+    type: 'expense',
+    subcategories: [],
   },
   {
     name: 'Кот',
@@ -90,10 +90,10 @@ export const CATEGORIES_CATALOG: CategoryCatalogItem[] = [
     subcategories: ['Корм для кота', 'Здоровье кота'],
   },
   {
-    name: 'Путешествия',
-    icon: '✈️',
+    name: 'Машина',
+    icon: '🚘',
     type: 'expense',
-    subcategories: ['Отели', 'Билеты', 'Экскурсии'],
+    subcategories: ['Бензин', 'ТО авто', 'Парковка', 'Кредит за авто'],
   },
   {
     name: 'Подписки',
@@ -124,6 +124,12 @@ export const CATEGORIES_CATALOG: CategoryCatalogItem[] = [
     icon: '💰',
     type: 'income',
     subcategories: ['Основная', 'Аванс', 'Премия', 'Кешбэк'],
+  },
+  {
+    name: 'Инвестиции',
+    icon: '📈',
+    type: 'income',
+    subcategories: ['Дивиденды', 'Купоны', 'Проценты'],
   },
 ];
 

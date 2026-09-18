@@ -17,7 +17,7 @@ export interface Category {
   id: string;
   user_id?: number;
   name: string;
-  type: 'expense' | 'income';
+  type: 'expense' | 'income' | 'both';
   icon: string;
   color: string;
   budget_limit?: number | null;

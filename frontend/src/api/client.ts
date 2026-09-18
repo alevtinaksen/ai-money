@@ -28,68 +28,182 @@ export const INITIAL_ACCOUNTS: Account[] = [
 ];
 
 export const INITIAL_CATEGORIES: Category[] = [
-  // Еда
-  { id: 'cat-1', user_id: 999999, name: 'Еда', type: 'expense', icon: '🍔', color: '#FEE2E2', sort_order: 1 },
-  { id: 'cat-2', user_id: 999999, name: 'Кафе', type: 'expense', icon: '🍽️', color: '#FEE2E2', sort_order: 2 },
-  { id: 'cat-3', user_id: 999999, name: 'Самокат', type: 'expense', icon: '🛴', color: '#FEE2E2', sort_order: 3 },
-  { id: 'cat-4', user_id: 999999, name: 'Кофе', type: 'expense', icon: '☕', color: '#FEE2E2', sort_order: 4 },
-  { id: 'cat-5', user_id: 999999, name: 'НаЛанч', type: 'expense', icon: '🍱', color: '#FEE2E2', sort_order: 5 },
-  
-  // Транспорт & Машина
-  { id: 'cat-6', user_id: 999999, name: 'Транспорт', type: 'expense', icon: '🚗', color: '#E0F2FE', sort_order: 6 },
-  { id: 'cat-7', user_id: 999999, name: 'Такси', type: 'expense', icon: '🚕', color: '#E0F2FE', sort_order: 7 },
-  { id: 'cat-8', user_id: 999999, name: 'Каршеринг', type: 'expense', icon: '🚙', color: '#E0F2FE', sort_order: 8 },
-  { id: 'cat-9', user_id: 999999, name: 'Общественный', type: 'expense', icon: '🚌', color: '#E0F2FE', sort_order: 9 },
-  { id: 'cat-10', user_id: 999999, name: 'Поезд', type: 'expense', icon: '🚆', color: '#E0F2FE', sort_order: 10 },
-  { id: 'cat-11', user_id: 999999, name: 'Машина', type: 'expense', icon: '🚘', color: '#DBEAFE', sort_order: 11 },
-  { id: 'cat-12', user_id: 999999, name: 'Бензин', type: 'expense', icon: '⛽', color: '#DBEAFE', sort_order: 12 },
-  { id: 'cat-13', user_id: 999999, name: 'ТО авто', type: 'expense', icon: '🔧', color: '#DBEAFE', sort_order: 13 },
-  { id: 'cat-14', user_id: 999999, name: 'Парковка', type: 'expense', icon: '🅿️', color: '#DBEAFE', sort_order: 14 },
-  { id: 'cat-15', user_id: 999999, name: 'Кредит за авто', type: 'expense', icon: '📑', color: '#DBEAFE', sort_order: 15 },
-
-  // Покупки
-  { id: 'cat-16', user_id: 999999, name: 'Покупки', type: 'expense', icon: '🛍️', color: '#FCE7F3', sort_order: 16 },
-  { id: 'cat-17', user_id: 999999, name: 'Одежда', type: 'expense', icon: '👗', color: '#FCE7F3', sort_order: 17 },
-  { id: 'cat-18', user_id: 999999, name: 'Электроника', type: 'expense', icon: '💻', color: '#FCE7F3', sort_order: 18 },
-  { id: 'cat-19', user_id: 999999, name: 'Бытовая химия', type: 'expense', icon: '🧼', color: '#FCE7F3', sort_order: 19 },
-  { id: 'cat-20', user_id: 999999, name: 'Товары для хобби', type: 'expense', icon: '🎨', color: '#FCE7F3', sort_order: 20 },
-
-  // Развлечения
-  { id: 'cat-21', user_id: 999999, name: 'Развлечения', type: 'expense', icon: '🎬', color: '#EDE9FE', sort_order: 21 },
-  { id: 'cat-22', user_id: 999999, name: 'Кино', type: 'expense', icon: '🍿', color: '#EDE9FE', sort_order: 22 },
-  { id: 'cat-23', user_id: 999999, name: 'Игры', type: 'expense', icon: '🎮', color: '#EDE9FE', sort_order: 23 },
-  { id: 'cat-24', user_id: 999999, name: 'Вечеринки', type: 'expense', icon: '🎉', color: '#EDE9FE', sort_order: 24 },
-
-  // Здоровье
-  { id: 'cat-25', user_id: 999999, name: 'Здоровье', type: 'expense', icon: '💊', color: '#FEF3C7', sort_order: 25 },
-  { id: 'cat-26', user_id: 999999, name: 'Лекарства', type: 'expense', icon: '💊', color: '#FEF3C7', sort_order: 26 },
-  { id: 'cat-27', user_id: 999999, name: 'Врачи', type: 'expense', icon: '🩺', color: '#FEF3C7', sort_order: 27 },
-  { id: 'cat-28', user_id: 999999, name: 'Психотерапевт', type: 'expense', icon: '🧠', color: '#DCFCE7', sort_order: 28 },
-
-  // Жилье
-  { id: 'cat-29', user_id: 999999, name: 'Жилье', type: 'expense', icon: '🏠', color: '#E0E7FF', sort_order: 29 },
-  { id: 'cat-30', user_id: 999999, name: 'Аренда', type: 'expense', icon: '🔑', color: '#E0E7FF', sort_order: 30 },
-  { id: 'cat-31', user_id: 999999, name: 'ЖКХ', type: 'expense', icon: '💡', color: '#E0E7FF', sort_order: 31 },
-  { id: 'cat-32', user_id: 999999, name: 'Ремонт', type: 'expense', icon: '🔨', color: '#E0E7FF', sort_order: 32 },
-
-  // Личное & Кот
-  { id: 'cat-33', user_id: 999999, name: 'Личное', type: 'expense', icon: '✨', color: '#FEE2E2', sort_order: 33 },
-  { id: 'cat-34', user_id: 999999, name: 'Внешний вид', type: 'expense', icon: '💄', color: '#FEE2E2', sort_order: 34 },
-  { id: 'cat-35', user_id: 999999, name: 'Привычки', type: 'expense', icon: '☕', color: '#FEE2E2', sort_order: 35 },
-  { id: 'cat-36', user_id: 999999, name: 'Спорт', type: 'expense', icon: '🏃', color: '#FEE2E2', sort_order: 36 },
-  { id: 'cat-37', user_id: 999999, name: 'Кот', type: 'expense', icon: '🐱', color: '#FFEDD5', sort_order: 37 },
-  { id: 'cat-38', user_id: 999999, name: 'Корм для кота', type: 'expense', icon: '🐟', color: '#FFEDD5', sort_order: 38 },
-  { id: 'cat-39', user_id: 999999, name: 'Здоровье кота', type: 'expense', icon: '🐾', color: '#FFEDD5', sort_order: 39 },
-  { id: 'cat-40', user_id: 999999, name: 'Путешествия', type: 'expense', icon: '✈️', color: '#E0F2FE', sort_order: 40 },
-  { id: 'cat-41', user_id: 999999, name: 'Подписки', type: 'expense', icon: '💿', color: '#F3F4F6', sort_order: 41 },
-
-  // Двусторонние & Доходы
-  { id: 'cat-42', user_id: 999999, name: 'Подарки', type: 'expense', icon: '🎁', color: '#FCE7F3', sort_order: 42 },
-  { id: 'cat-43', user_id: 999999, name: 'Подарки (получено)', type: 'income', icon: '🎁', color: '#DCFCE7', sort_order: 43 },
-  { id: 'cat-44', user_id: 999999, name: 'Переводы', type: 'expense', icon: '💸', color: '#E0F2FE', sort_order: 44 },
-  { id: 'cat-45', user_id: 999999, name: 'Переводы (получено)', type: 'income', icon: '💸', color: '#DCFCE7', sort_order: 45 },
-  { id: 'cat-46', user_id: 999999, name: 'Накопления', type: 'expense', icon: '🏦', color: '#FEF3C7', sort_order: 46 },
-  { id: 'cat-47', user_id: 999999, name: 'Зарплата', type: 'income', icon: '💰', color: '#DCFCE7', sort_order: 47 },
+  // 1. Еда (4 подкатегорий)
+  {
+    id: 'cat-1',
+    user_id: 143702968,
+    name: 'Еда',
+    type: 'expense',
+    icon: '🍔',
+    color: '#FEE2E2',
+    sort_order: 1,
+    subcategories: ['Кафе', 'Самокат', 'Кофе', 'НаЛанч'],
+  },
+  // 2. Транспорт (5 подкатегорий)
+  {
+    id: 'cat-2',
+    user_id: 143702968,
+    name: 'Транспорт',
+    type: 'expense',
+    icon: '🚗',
+    color: '#E0F2FE',
+    sort_order: 2,
+    subcategories: ['Такси', 'Каршеринг', 'Общественный', 'Поезд', 'Метро'],
+  },
+  // 3. Покупки (4 подкатегорий)
+  {
+    id: 'cat-3',
+    user_id: 143702968,
+    name: 'Покупки',
+    type: 'expense',
+    icon: '🛍️',
+    color: '#FCE7F3',
+    sort_order: 3,
+    subcategories: ['Одежда', 'Электроника', 'Бытовая химия', 'Товары для хобби'],
+  },
+  // 4. Развлечения (3 подкатегорий)
+  {
+    id: 'cat-4',
+    user_id: 143702968,
+    name: 'Развлечения',
+    type: 'expense',
+    icon: '🎬',
+    color: '#EDE9FE',
+    sort_order: 4,
+    subcategories: ['Кино', 'Игры', 'Вечеринки'],
+  },
+  // 5. Здоровье (2 подкатегорий)
+  {
+    id: 'cat-5',
+    user_id: 143702968,
+    name: 'Здоровье',
+    type: 'expense',
+    icon: '💊',
+    color: '#FEF3C7',
+    sort_order: 5,
+    subcategories: ['Лекарства', 'Врачи'],
+  },
+  // 6. Жилье (3 подкатегорий)
+  {
+    id: 'cat-6',
+    user_id: 143702968,
+    name: 'Жилье',
+    type: 'expense',
+    icon: '🏠',
+    color: '#E0E7FF',
+    sort_order: 6,
+    subcategories: ['Аренда', 'ЖКХ', 'Ремонт'],
+  },
+  // 7. Личное (3 подкатегорий)
+  {
+    id: 'cat-7',
+    user_id: 143702968,
+    name: 'Личное',
+    type: 'expense',
+    icon: '👤',
+    color: '#FEE2E2',
+    sort_order: 7,
+    subcategories: ['Внешний вид', 'Привычки', 'Спорт'],
+  },
+  // 8. Путешествия (0 подкатегорий)
+  {
+    id: 'cat-8',
+    user_id: 143702968,
+    name: 'Путешествия',
+    type: 'expense',
+    icon: '✈️',
+    color: '#E0F2FE',
+    sort_order: 8,
+    subcategories: [],
+  },
+  // 9. Кот (2 подкатегорий)
+  {
+    id: 'cat-9',
+    user_id: 143702968,
+    name: 'Кот',
+    type: 'expense',
+    icon: '🐱',
+    color: '#FFEDD5',
+    sort_order: 9,
+    subcategories: ['Корм для кота', 'Здоровье кота'],
+  },
+  // 10. Машина (4 подкатегорий)
+  {
+    id: 'cat-10',
+    user_id: 143702968,
+    name: 'Машина',
+    type: 'expense',
+    icon: '🚘',
+    color: '#DBEAFE',
+    sort_order: 10,
+    subcategories: ['Бензин', 'ТО авто', 'Парковка', 'Кредит за авто'],
+  },
+  // 11. Подписки (3 подкатегорий)
+  {
+    id: 'cat-11',
+    user_id: 143702968,
+    name: 'Подписки',
+    type: 'expense',
+    icon: '💿',
+    color: '#F3F4F6',
+    sort_order: 11,
+    subcategories: ['Музыка', 'Кинотеатры', 'Облако'],
+  },
+  // 12. Подарки (2 подкатегорий)
+  {
+    id: 'cat-12',
+    user_id: 143702968,
+    name: 'Подарки',
+    type: 'both',
+    icon: '🎁',
+    color: '#FCE7F3',
+    sort_order: 12,
+    subcategories: ['Друзьям', 'Семье'],
+  },
+  // 13. Накопления (2 подкатегорий)
+  {
+    id: 'cat-13',
+    user_id: 143702968,
+    name: 'Накопления',
+    type: 'expense',
+    icon: '🏦',
+    color: '#FEF3C7',
+    sort_order: 13,
+    subcategories: ['Вклад', 'Копилка'],
+  },
+  // 14. Переводы (3 подкатегорий)
+  {
+    id: 'cat-14',
+    user_id: 143702968,
+    name: 'Переводы',
+    type: 'both',
+    icon: '💸',
+    color: '#E0F2FE',
+    sort_order: 14,
+    subcategories: ['Владу', 'Родителям', 'Себе на карту'],
+  },
+  // 15. Зарплата (4 подкатегорий)
+  {
+    id: 'cat-15',
+    user_id: 143702968,
+    name: 'Зарплата',
+    type: 'income',
+    icon: '💰',
+    color: '#DCFCE7',
+    sort_order: 15,
+    subcategories: ['Основная', 'Аванс', 'Премия', 'Кешбэк'],
+  },
+  // 16. Инвестиции (3 подкатегорий)
+  {
+    id: 'cat-16',
+    user_id: 143702968,
+    name: 'Инвестиции',
+    type: 'income',
+    icon: '📈',
+    color: '#DCFCE7',
+    sort_order: 16,
+    subcategories: ['Дивиденды', 'Купоны', 'Проценты'],
+  },
 ];
 
 export const INITIAL_RECENT_TRANSACTIONS: Transaction[] = [
@@ -356,10 +470,12 @@ export async function fetchAccounts(initData: string): Promise<Account[]> {
 }
 
 export const STORAGE_CATEGORIES_KEY = 'ai_money_categories';
+export const STORAGE_CATEGORIES_VER_KEY = 'ai_money_categories_v2';
 
 export function saveStoredCategories(categories: Category[]) {
   try {
     localStorage.setItem(STORAGE_CATEGORIES_KEY, JSON.stringify(categories));
+    localStorage.setItem(STORAGE_CATEGORIES_VER_KEY, '2');
   } catch (e) {
     console.error('Failed to saveStoredCategories:', e);
   }
@@ -367,12 +483,14 @@ export function saveStoredCategories(categories: Category[]) {
 
 export async function fetchCategories(_initData?: string): Promise<Category[]> {
   try {
+    const ver = localStorage.getItem(STORAGE_CATEGORIES_VER_KEY);
     const cached = localStorage.getItem(STORAGE_CATEGORIES_KEY);
-    if (cached) {
+    if (ver === '2' && cached) {
       const parsed = JSON.parse(cached);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0 && parsed.length < 35) return parsed;
     }
   } catch {}
+  saveStoredCategories(INITIAL_CATEGORIES);
   return INITIAL_CATEGORIES;
 }
 

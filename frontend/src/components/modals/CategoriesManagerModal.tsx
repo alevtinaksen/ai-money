@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import {
+  ArrowLeftOutlined,
   CloseOutlined,
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
-  SearchOutlined,
+  RightOutlined,
+  UnorderedListOutlined,
 } from '@ant-design/icons';
 import { Category } from '../../types';
 
@@ -17,16 +19,19 @@ interface CategoriesManagerModalProps {
   onHaptic?: (style?: 'light' | 'medium' | 'heavy') => void;
 }
 
-const POPULAR_EMOJIS = [
-  '🍔', '🍽️', '☕', '🛴', '🚗', '🚕', '🚘', '⛽',
-  '🛍️', '👗', '💻', '🎬', '🍿', '🎮', '💊', '🩺',
-  '🏠', '💡', '✨', '💄', '🏃', '🐱', '✈️', '💿',
-  '🎁', '🏦', '💸', '💰', '📦', '📱', '🎨', '🍕',
-];
-
-const PASTEL_COLORS = [
-  '#FEE2E2', '#FEF3C7', '#DCFCE7', '#E0F2FE', '#EDE9FE',
-  '#FCE7F3', '#FFEDD5', '#DBEAFE', '#F3F4F6', '#CFFAFE',
+const EMOJI_PALETTE = [
+  '🍔', '🍽️', '☕', '🛴', '🍕', '🍣', '🍰', '🍏',
+  '🚗', '🚕', '🚙', '🚘', '🚌', '🚆', '⛽', '🔧',
+  '🛍️', '👗', '👟', '💻', '📱', '🎧', '🧼', '🎨',
+  '🎬', '🍿', '🎮', '🎉', '🎟️', '🎳', '🎪', '⚽',
+  '💊', '🩺', '🧠', '🦷', '🧴', '💉', '🌿', '🏋️',
+  '🏠', '🔑', '💡', '🔨', '🛋️', '📦', '🧹', '🪴',
+  '👤', '✨', '💄', '💅', '💇', '🧖', '🏃', '🕶️',
+  '✈️', '🏖️', '🏨', '🗺️', '🚆', '🧳', '🚢', '🗽',
+  '🐱', '🐶', '🐟', '🐾', '🦜', '🐹', '🐰', '🦴',
+  '💿', '🎵', '📺', '☁️', '📰', '📚', '🎙️', '🔔',
+  '🎁', '🎈', '💐', '🎂', '💌', '🧸', '🍫', '🍷',
+  '🏦', '💰', '💸', '📈', '🪙', '💳', '💵', '💎',
 ];
 
 export const CategoriesManagerModal: React.FC<CategoriesManagerModalProps> = ({
@@ -38,61 +43,58 @@ export const CategoriesManagerModal: React.FC<CategoriesManagerModalProps> = ({
   onHaptic,
 }) => {
   const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense');
-  const [searchQuery, setSearchQuery] = useState('');
 
-  // Editing / Creating category state
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  // Navigation: null = list screen, Category / 'new' = editor screen
+  const [editingCategory, setEditingCategory] = useState<Category | 'new' | null>(null);
 
   // Editor form state
   const [formName, setFormName] = useState('');
-  const [formType, setFormType] = useState<'expense' | 'income'>('expense');
-  const [formIcon, setFormIcon] = useState('📦');
-  const [formColor, setFormColor] = useState('#FEE2E2');
+  const [formType, setFormType] = useState<'expense' | 'income' | 'both'>('expense');
+  const [formIcon, setFormIcon] = useState('🍔');
   const [formSubcategories, setFormSubcategories] = useState<string[]>([]);
   const [newSubcatInput, setNewSubcatInput] = useState('');
-  const [showEmojiGrid, setShowEmojiGrid] = useState(false);
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
 
-  // Confirmation for delete
-  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
+  // Delete confirmation modal state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   if (!isOpen) return null;
 
-  const filteredCategories = categories.filter((c) => {
-    if (c.type !== activeTab) return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const matchName = c.name.toLowerCase().includes(q);
-      const matchSub = c.subcategories?.some((s) => s.toLowerCase().includes(q));
-      if (!matchName && !matchSub) return false;
+  // Filter categories for the current tab
+  const displayCategories = categories.filter((c) => {
+    if (activeTab === 'expense') {
+      return c.type === 'expense' || c.type === 'both';
     }
-    return true;
+    return c.type === 'income' || c.type === 'both';
   });
 
   const handleOpenCreate = () => {
     onHaptic?.('light');
-    setEditingCategory(null);
+    setEditingCategory('new');
     setFormName('');
     setFormType(activeTab);
     setFormIcon(activeTab === 'income' ? '💰' : '🛍️');
-    setFormColor(activeTab === 'income' ? '#DCFCE7' : '#FEE2E2');
     setFormSubcategories([]);
     setNewSubcatInput('');
-    setShowEmojiGrid(false);
-    setIsEditorOpen(true);
+    setIsEmojiPickerOpen(false);
   };
 
   const handleOpenEdit = (cat: Category) => {
     onHaptic?.('light');
     setEditingCategory(cat);
     setFormName(cat.name);
-    setFormType(cat.type);
-    setFormIcon(cat.icon || '📦');
-    setFormColor(cat.color || '#FEE2E2');
+    setFormType(cat.type || 'expense');
+    setFormIcon(cat.icon || '🍔');
     setFormSubcategories(cat.subcategories ? [...cat.subcategories] : []);
     setNewSubcatInput('');
-    setShowEmojiGrid(false);
-    setIsEditorOpen(true);
+    setIsEmojiPickerOpen(false);
+  };
+
+  const handleCloseEditor = () => {
+    onHaptic?.('light');
+    setEditingCategory(null);
+    setIsEmojiPickerOpen(false);
+    setShowDeleteConfirm(false);
   };
 
   const handleAddSubcategory = () => {
@@ -109,318 +111,149 @@ export const CategoriesManagerModal: React.FC<CategoriesManagerModalProps> = ({
     setFormSubcategories((prev) => prev.filter((s) => s !== sub));
   };
 
-  const handleSaveForm = () => {
+  const handleSave = () => {
     if (!formName.trim()) return;
     onHaptic?.('heavy');
     onSaveCategory({
-      id: editingCategory?.id,
+      id: editingCategory !== 'new' && editingCategory ? editingCategory.id : undefined,
       name: formName.trim(),
       type: formType,
       icon: formIcon,
-      color: formColor,
       subcategories: formSubcategories,
     });
-    setIsEditorOpen(false);
+    handleCloseEditor();
   };
 
   const handleConfirmDelete = () => {
-    if (!categoryToDelete) return;
+    if (editingCategory === 'new' || !editingCategory) return;
     onHaptic?.('heavy');
-    onDeleteCategory(categoryToDelete.id);
-    setCategoryToDelete(null);
+    onDeleteCategory(editingCategory.id);
+    setShowDeleteConfirm(false);
+    handleCloseEditor();
   };
 
   return (
-    <div className="fixed inset-0 z-[85] flex items-end justify-center bg-black/50 backdrop-blur-sm animate-fade-in select-none transition-colors">
-      <div className="relative w-full max-w-lg bg-[#F6F7FB] dark:bg-[#121318] rounded-t-[32px] pt-3 pb-8 px-5 shadow-2xl z-10 h-[90vh] flex flex-col animate-slide-up border-t border-gray-100 dark:border-[#252730]">
-        {/* Handle Bar */}
-        <div className="w-10 h-1 bg-[#D1D5DB] dark:bg-[#343744] rounded-full mx-auto mb-3 shrink-0" />
+    <div className="fixed inset-0 z-[85] bg-[#121318] text-white flex flex-col animate-fade-in select-none overflow-hidden">
+      {/* ===================== VIEW 2: EDIT / CREATE CATEGORY SCREEN ===================== */}
+      {editingCategory ? (
+        <div className="flex-1 flex flex-col justify-between h-full overflow-y-auto px-5 pt-12 pb-8 max-w-lg mx-auto w-full animate-slide-up">
+          <div>
+            {/* Top Bar */}
+            <div className="flex items-center space-x-3 mb-4">
+              <button
+                type="button"
+                onClick={handleCloseEditor}
+                className="w-11 h-11 rounded-full bg-[#1C1D24] text-white flex items-center justify-center border border-white/5 shadow-sm active:scale-95 transition-transform"
+              >
+                <CloseOutlined className="text-[17px]" />
+              </button>
+              <h1 className="text-[22px] font-bold text-white tracking-tight">
+                {editingCategory === 'new' ? 'Новая категория' : 'Редактировать категорию'}
+              </h1>
+            </div>
 
-        {/* Header */}
-        <div className="flex items-center justify-between pb-3 shrink-0">
-          <button
-            type="button"
-            onClick={() => {
-              onHaptic?.('light');
-              onClose();
-            }}
-            className="w-9 h-9 rounded-full bg-white dark:bg-[#1E1F26] flex items-center justify-center text-[#4B5563] dark:text-[#A0A5B5] shadow-xs active:scale-95"
-          >
-            <CloseOutlined className="text-[16px]" />
-          </button>
-
-          <h2 className="text-[18px] font-bold text-[#111827] dark:text-white">
-            Управление категориями
-          </h2>
-
-          <button
-            type="button"
-            onClick={handleOpenCreate}
-            className="w-9 h-9 rounded-full bg-[#2B5BFF] text-white flex items-center justify-center shadow-sm active:scale-95 transition-transform"
-          >
-            <PlusOutlined className="text-[16px]" />
-          </button>
-        </div>
-
-        {/* Tab Switcher: Расход / Доход */}
-        <div className="bg-gray-200/70 dark:bg-[#1E1F26] p-1 rounded-2xl flex items-center mb-3 shrink-0">
-          <button
-            type="button"
-            onClick={() => {
-              onHaptic?.('light');
-              setActiveTab('expense');
-            }}
-            className={`flex-1 py-2 rounded-xl text-[14px] font-bold transition-all ${
-              activeTab === 'expense'
-                ? 'bg-white dark:bg-[#2B2D38] text-[#111827] dark:text-white shadow-xs'
-                : 'text-gray-500 dark:text-gray-400'
-            }`}
-          >
-            💸 Расходы
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              onHaptic?.('light');
-              setActiveTab('income');
-            }}
-            className={`flex-1 py-2 rounded-xl text-[14px] font-bold transition-all ${
-              activeTab === 'income'
-                ? 'bg-white dark:bg-[#2B2D38] text-[#111827] dark:text-white shadow-xs'
-                : 'text-gray-500 dark:text-gray-400'
-            }`}
-          >
-            💰 Доходы
-          </button>
-        </div>
-
-        {/* Search Bar */}
-        <div className="relative mb-3 shrink-0">
-          <SearchOutlined className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-[14px]" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Поиск по категориям и подкатегориям..."
-            className="w-full bg-white dark:bg-[#1E1F26] pl-9 pr-3.5 py-2.5 rounded-2xl text-[14px] text-[#111827] dark:text-white placeholder-gray-400 focus:outline-none border border-gray-100 dark:border-gray-800 shadow-xs"
-          />
-        </div>
-
-        {/* Categories List */}
-        <div className="flex-1 overflow-y-auto space-y-2.5 pr-0.5">
-          {filteredCategories.length > 0 ? (
-            filteredCategories.map((cat) => (
+            {/* Avatar with Edit Badge */}
+            <div className="flex justify-center my-4">
               <div
-                key={cat.id}
-                className="bg-white dark:bg-[#1E1F26] p-3.5 rounded-[22px] border border-gray-100 dark:border-gray-800 shadow-xs flex items-center justify-between space-x-3 transition-all"
+                onClick={() => {
+                  onHaptic?.('light');
+                  setIsEmojiPickerOpen(true);
+                }}
+                className={`w-24 h-24 rounded-full bg-[#261E23] relative flex items-center justify-center cursor-pointer shadow-lg active:scale-95 transition-all border-2 ${
+                  formType === 'income'
+                    ? 'border-emerald-500/50'
+                    : formType === 'both'
+                    ? 'border-blue-500/50'
+                    : 'border-[#FF5757]/50'
+                }`}
               >
-                {/* Left Icon + Names */}
-                <div className="flex items-center space-x-3 min-w-0 flex-1">
-                  <div
-                    className="w-12 h-12 rounded-[16px] flex items-center justify-center text-2xl shrink-0 shadow-xs"
-                    style={{ backgroundColor: cat.color || '#FEE2E2' }}
-                  >
-                    {cat.icon || '📦'}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h4 className="text-[15px] font-bold text-[#111827] dark:text-white leading-tight truncate">
-                      {cat.name}
-                    </h4>
-                    {/* Subcategories list or count */}
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {cat.subcategories && cat.subcategories.length > 0 ? (
-                        cat.subcategories.map((sub) => (
-                          <span
-                            key={sub}
-                            className="inline-block text-[11px] font-medium px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300"
-                          >
-                            {sub}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-[12px] text-gray-400 italic">Без подкатегорий</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Action Buttons */}
-                <div className="flex items-center space-x-1 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => handleOpenEdit(cat)}
-                    className="w-8 h-8 rounded-full bg-gray-50 dark:bg-gray-800/80 text-gray-500 dark:text-gray-300 hover:text-[#2B5BFF] flex items-center justify-center active:scale-90 transition-all"
-                  >
-                    <EditOutlined className="text-[14px]" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onHaptic?.('medium');
-                      setCategoryToDelete(cat);
-                    }}
-                    className="w-8 h-8 rounded-full bg-gray-50 dark:bg-gray-800/80 text-gray-500 dark:text-gray-300 hover:text-red-500 active:scale-90 transition-all"
-                  >
-                    <DeleteOutlined className="text-[14px]" />
-                  </button>
+                <span className="text-[44px]">{formIcon}</span>
+                <div
+                  className={`w-7 h-7 rounded-full text-white flex items-center justify-center absolute bottom-0 right-0 shadow-md border-2 border-[#121318] ${
+                    formType === 'income'
+                      ? 'bg-[#10B981]'
+                      : formType === 'both'
+                      ? 'bg-[#2B5BFF]'
+                      : 'bg-[#FF5757]'
+                  }`}
+                >
+                  <EditOutlined className="text-[12px]" />
                 </div>
               </div>
-            ))
-          ) : (
-            <div className="text-center py-10 text-gray-400 text-sm">
-              Категории не найдены
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Editor Modal: Add or Edit Category */}
-      {isEditorOpen && (
-        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in select-none">
-          <div className="bg-white dark:bg-[#1A1B20] rounded-[32px] w-full max-w-sm p-6 shadow-2xl space-y-4 animate-slide-up border border-gray-100 dark:border-[#252730] max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-              <h3 className="text-[18px] font-bold text-[#111827] dark:text-white">
-                {editingCategory ? 'Редактировать категорию' : 'Новая категория'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setIsEditorOpen(false)}
-                className="w-8 h-8 rounded-full bg-gray-100 dark:bg-[#252730] flex items-center justify-center text-gray-500 dark:text-gray-400"
-              >
-                <CloseOutlined className="text-[14px]" />
-              </button>
             </div>
 
-            {/* Big Emoji Circle + Color selector */}
-            <div className="flex flex-col items-center justify-center space-y-3 py-2">
+            {/* 3-Way Segmented Switch: [ ↓ Расход ] [ ↑ Доход ] [ ⇅ Оба ] */}
+            <div className="flex items-center justify-center space-x-2.5 my-5">
               <button
                 type="button"
-                onClick={() => setShowEmojiGrid(!showEmojiGrid)}
-                className="w-20 h-20 rounded-[24px] flex items-center justify-center text-4xl shadow-sm border border-black/5 active:scale-95 transition-all relative"
-                style={{ backgroundColor: formColor }}
+                onClick={() => {
+                  onHaptic?.('light');
+                  setFormType('expense');
+                }}
+                className={`py-2.5 px-4 rounded-full text-sm font-semibold flex items-center space-x-1.5 transition-all active:scale-95 ${
+                  formType === 'expense'
+                    ? 'bg-[#FF5757] text-white shadow-md'
+                    : 'bg-[#1C1D24] border border-white/5 text-[#8E92A4]'
+                }`}
               >
-                {formIcon}
-                <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#2B5BFF] text-white flex items-center justify-center shadow-xs">
-                  <EditOutlined className="text-[11px]" />
-                </div>
+                <span className={formType === 'expense' ? 'text-white' : 'text-[#FF5757]'}>↓</span>
+                <span>Расход</span>
               </button>
 
-              {/* Emoji Grid Selector */}
-              {showEmojiGrid && (
-                <div className="w-full bg-gray-50 dark:bg-[#20222A] p-2.5 rounded-2xl border border-gray-100 dark:border-gray-800 grid grid-cols-8 gap-1 max-h-36 overflow-y-auto animate-fade-in">
-                  {POPULAR_EMOJIS.map((em) => (
-                    <button
-                      key={em}
-                      type="button"
-                      onClick={() => {
-                        onHaptic?.('light');
-                        setFormIcon(em);
-                        setShowEmojiGrid(false);
-                      }}
-                      className="w-8 h-8 flex items-center justify-center text-xl hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg active:scale-95 transition-all"
-                    >
-                      {em}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={() => {
+                  onHaptic?.('light');
+                  setFormType('income');
+                }}
+                className={`py-2.5 px-4 rounded-full text-sm font-semibold flex items-center space-x-1.5 transition-all active:scale-95 ${
+                  formType === 'income'
+                    ? 'bg-[#10B981] text-white shadow-md'
+                    : 'bg-[#1C1D24] border border-white/5 text-[#8E92A4]'
+                }`}
+              >
+                <span className={formType === 'income' ? 'text-white' : 'text-[#10B981]'}>↑</span>
+                <span>Доход</span>
+              </button>
 
-              {/* Pastel Color Palette */}
-              <div className="flex items-center space-x-2 overflow-x-auto no-scrollbar py-1">
-                {PASTEL_COLORS.map((col) => (
-                  <button
-                    key={col}
-                    type="button"
-                    onClick={() => {
-                      onHaptic?.('light');
-                      setFormColor(col);
-                    }}
-                    className={`w-6 h-6 rounded-full transition-transform active:scale-90 ${
-                      formColor === col ? 'ring-2 ring-[#2B5BFF] ring-offset-2 scale-110' : ''
-                    }`}
-                    style={{ backgroundColor: col }}
-                  />
-                ))}
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  onHaptic?.('light');
+                  setFormType('both');
+                }}
+                className={`py-2.5 px-4 rounded-full text-sm font-semibold flex items-center space-x-1.5 transition-all active:scale-95 ${
+                  formType === 'both'
+                    ? 'bg-[#2B5BFF] text-white shadow-md'
+                    : 'bg-[#1C1D24] border border-white/5 text-[#8E92A4]'
+                }`}
+              >
+                <span className={formType === 'both' ? 'text-white' : 'text-[#2B5BFF]'}>⇅</span>
+                <span>Оба</span>
+              </button>
             </div>
 
             {/* Name Input */}
-            <div>
-              <label className="text-[12px] font-bold text-gray-500 uppercase tracking-wider block mb-1">
-                Название категории
-              </label>
+            <div className="bg-[#1C1D24] border border-white/5 rounded-[18px] px-4 py-3.5 flex items-center space-x-3 mb-5">
+              <EditOutlined className="text-gray-400 text-[16px]" />
               <input
                 type="text"
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
-                placeholder="Например: Еда, Развлечения"
-                className="w-full bg-gray-50 dark:bg-[#20222A] px-4 py-3 rounded-xl text-[15px] font-semibold text-[#111827] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2B5BFF]"
+                placeholder="Название категории"
+                className="bg-transparent text-white font-semibold text-[16px] outline-none flex-1 placeholder:text-gray-600"
               />
             </div>
 
-            {/* Type Selector (Расход / Доход) */}
-            <div>
-              <label className="text-[12px] font-bold text-gray-500 uppercase tracking-wider block mb-1">
-                Тип
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setFormType('expense')}
-                  className={`py-2.5 rounded-xl font-bold text-[13px] border transition-all ${
-                    formType === 'expense'
-                      ? 'bg-red-50 dark:bg-red-950/40 text-[#FF4B55] border-red-300 dark:border-red-800'
-                      : 'bg-gray-50 dark:bg-[#20222A] text-gray-500 border-transparent'
-                  }`}
-                >
-                  Расход
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormType('income')}
-                  className={`py-2.5 rounded-xl font-bold text-[13px] border transition-all ${
-                    formType === 'income'
-                      ? 'bg-emerald-50 dark:bg-emerald-950/40 text-[#10B981] border-emerald-300 dark:border-emerald-800'
-                      : 'bg-gray-50 dark:bg-[#20222A] text-gray-500 border-transparent'
-                  }`}
-                >
-                  Доход
-                </button>
-              </div>
-            </div>
-
-            {/* Subcategories Editor */}
-            <div className="space-y-2 pt-1">
-              <label className="text-[12px] font-bold text-gray-500 uppercase tracking-wider block">
-                Подкатегории
-              </label>
-
-              {/* Subcategories Chips */}
-              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
-                {formSubcategories.length > 0 ? (
-                  formSubcategories.map((sub) => (
-                    <span
-                      key={sub}
-                      className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/50 text-[#2B5BFF] text-xs font-semibold"
-                    >
-                      <span>{sub}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveSubcategory(sub)}
-                        className="hover:text-red-500 text-[10px] ml-0.5"
-                      >
-                        ✕
-                      </button>
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-xs text-gray-400">Нет подкатегорий</span>
-                )}
+            {/* Subcategories Section */}
+            <div className="mb-4">
+              <div className="flex items-center space-x-2 mb-2 px-1">
+                <span className="text-[15px] font-semibold text-gray-200">Подкатегории</span>
+                <span className="text-sm text-gray-500 font-medium">({formSubcategories.length})</span>
               </div>
 
-              {/* Add Subcategory Input */}
-              <div className="flex items-center space-x-2 pt-1">
+              {/* Add Subcategory Bar */}
+              <div className="bg-[#1C1D24] border border-white/5 rounded-[18px] p-1.5 pl-4 flex items-center justify-between mb-3">
                 <input
                   type="text"
                   value={newSubcatInput}
@@ -432,67 +265,240 @@ export const CategoriesManagerModal: React.FC<CategoriesManagerModalProps> = ({
                     }
                   }}
                   placeholder="Добавить подкатегорию..."
-                  className="flex-1 bg-gray-50 dark:bg-[#20222A] px-3 py-2 rounded-xl text-xs text-[#111827] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#2B5BFF]"
+                  className="bg-transparent text-white text-[15px] outline-none flex-1 placeholder:text-gray-500"
                 />
                 <button
                   type="button"
                   onClick={handleAddSubcategory}
-                  className="px-3 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold rounded-xl text-xs hover:bg-gray-200 active:scale-95 transition-all"
+                  className="w-9 h-9 rounded-xl bg-[#2C242E] text-[#FF5757] flex items-center justify-center active:scale-95 transition-transform"
                 >
-                  +
+                  <PlusOutlined className="text-[15px]" />
                 </button>
+              </div>
+
+              {/* Subcategories Chips */}
+              <div className="flex flex-wrap gap-2 pt-1">
+                {formSubcategories.map((sub) => (
+                  <div
+                    key={sub}
+                    className="bg-[#1E212D] text-white px-3.5 py-2 rounded-2xl flex items-center space-x-2 text-sm font-medium border border-white/5 shadow-sm"
+                  >
+                    <span>{sub}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSubcategory(sub)}
+                      className="text-gray-400 hover:text-white transition-colors"
+                    >
+                      <CloseOutlined className="text-[11px]" />
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* Actions: Cancel & Save */}
-            <div className="grid grid-cols-2 gap-3 pt-3">
+            {/* Delete Category Button (when editing existing category) */}
+            {editingCategory !== 'new' && (
               <button
                 type="button"
-                onClick={() => setIsEditorOpen(false)}
-                className="py-3 px-4 rounded-xl bg-gray-100 dark:bg-[#252730] text-[#374151] dark:text-white font-semibold text-sm active:bg-gray-200"
+                onClick={() => {
+                  onHaptic?.('heavy');
+                  setShowDeleteConfirm(true);
+                }}
+                className="w-full py-3.5 rounded-[18px] bg-[#2E1A22] border border-red-500/20 text-[#FF5757] font-semibold text-[15px] flex items-center justify-center space-x-2 active:bg-[#381E28] transition-colors mt-6"
               >
-                Отмена
+                <DeleteOutlined className="text-[16px]" />
+                <span>Удалить категорию</span>
               </button>
+            )}
+          </div>
+
+          {/* Bottom Save Button */}
+          <div className="pt-6">
+            <button
+              type="button"
+              disabled={!formName.trim()}
+              onClick={handleSave}
+              className={`w-full py-4 rounded-[22px] font-bold text-[17px] shadow-lg transition-all active:scale-[0.99] ${
+                formType === 'income'
+                  ? 'bg-[#10B981] hover:bg-[#059669] text-white shadow-emerald-500/25'
+                  : formType === 'both'
+                  ? 'bg-[#2B5BFF] hover:bg-[#1E4BEB] text-white shadow-blue-500/25'
+                  : 'bg-[#FF5757] hover:bg-[#FF4545] text-white shadow-red-500/25'
+              }`}
+            >
+              Сохранить
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* ===================== VIEW 1: CATEGORIES LIST SCREEN ===================== */
+        <div className="flex-1 flex flex-col h-full overflow-hidden px-5 pt-12 pb-6 max-w-lg mx-auto w-full">
+          {/* Top Bar */}
+          <div className="flex items-center justify-between mb-4 shrink-0">
+            <div className="flex items-center space-x-3">
               <button
                 type="button"
-                onClick={handleSaveForm}
-                disabled={!formName.trim()}
-                className="py-3 px-4 rounded-xl bg-[#2B5BFF] disabled:opacity-50 text-white font-semibold text-sm active:scale-98 shadow-sm"
+                onClick={() => {
+                  onHaptic?.('light');
+                  onClose();
+                }}
+                className="w-11 h-11 rounded-full bg-[#1C1D24] text-white flex items-center justify-center border border-white/5 shadow-sm active:scale-95 transition-transform"
               >
-                Сохранить
+                <ArrowLeftOutlined className="text-[18px]" />
               </button>
+              <h1 className="text-[24px] font-bold text-white tracking-tight">
+                Категории
+              </h1>
+            </div>
+
+            <div className="flex items-center space-x-2.5">
+              {/* Sort button */}
+              <button
+                type="button"
+                onClick={() => onHaptic?.('light')}
+                className="w-11 h-11 rounded-full bg-[#1C1D24] text-white flex items-center justify-center border border-white/5 active:scale-95 transition-transform"
+              >
+                <UnorderedListOutlined className="text-[17px]" />
+              </button>
+
+              {/* Add category button with rocket badge */}
+              <button
+                type="button"
+                onClick={handleOpenCreate}
+                className="w-11 h-11 rounded-full bg-[#2A2346] text-white flex items-center justify-center relative border border-purple-500/30 active:scale-95 transition-transform shadow-md"
+              >
+                <PlusOutlined className="text-[18px]" />
+                <span className="absolute -top-1 -right-1 text-[12px] leading-none">🚀</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Tab Switch: Расход / Доход */}
+          <div className="bg-[#181920] p-1.5 rounded-[22px] flex border border-white/5 mb-4 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                onHaptic?.('light');
+                setActiveTab('expense');
+              }}
+              className={`flex-1 py-2.5 rounded-[18px] text-[15px] font-bold transition-all ${
+                activeTab === 'expense'
+                  ? 'bg-[#2B5BFF] text-white shadow-md'
+                  : 'text-[#8E92A4] hover:text-white'
+              }`}
+            >
+              Расход
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onHaptic?.('light');
+                setActiveTab('income');
+              }}
+              className={`flex-1 py-2.5 rounded-[18px] text-[15px] font-bold transition-all ${
+                activeTab === 'income'
+                  ? 'bg-[#2B5BFF] text-white shadow-md'
+                  : 'text-[#8E92A4] hover:text-white'
+              }`}
+            >
+              Доход
+            </button>
+          </div>
+
+          {/* List of Categories */}
+          <div className="flex-1 overflow-y-auto space-y-3 pb-8 pr-0.5">
+            {displayCategories.map((cat) => (
+              <div
+                key={cat.id}
+                onClick={() => handleOpenEdit(cat)}
+                className="w-full bg-[#1C1D24] hover:bg-[#23252E] rounded-[22px] p-4 flex items-center justify-between border border-white/5 active:scale-[0.99] transition-all cursor-pointer"
+              >
+                {/* Left Icon + Text */}
+                <div className="flex items-center space-x-3.5 min-w-0 flex-1">
+                  <div className="w-12 h-12 rounded-[18px] bg-[#14151C] flex items-center justify-center text-[24px] shrink-0 shadow-inner">
+                    {cat.icon || '📦'}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-[17px] font-bold text-white tracking-tight leading-tight truncate">
+                      {cat.name}
+                    </h4>
+                    {cat.subcategories && cat.subcategories.length > 0 && (
+                      <span className="text-[13px] text-[#8E92A4] block mt-0.5 font-medium">
+                        {cat.subcategories.length} подкатегорий
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right Arrow */}
+                <RightOutlined className="text-[13px] text-gray-500 shrink-0 ml-2" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ===================== EMOJI PICKER SHEET ===================== */}
+      {isEmojiPickerOpen && (
+        <div className="fixed inset-0 z-[95] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-lg bg-[#181920] rounded-t-[32px] pt-4 pb-8 px-5 shadow-2xl border-t border-white/10 animate-slide-up max-h-[60vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-white/5 mb-3">
+              <h3 className="text-[17px] font-bold text-white">Выберите иконку</h3>
+              <button
+                type="button"
+                onClick={() => setIsEmojiPickerOpen(false)}
+                className="w-8 h-8 rounded-full bg-[#242630] text-gray-300 flex items-center justify-center active:scale-95"
+              >
+                <CloseOutlined className="text-[14px]" />
+              </button>
+            </div>
+            <div className="grid grid-cols-8 gap-2 overflow-y-auto py-2">
+              {EMOJI_PALETTE.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => {
+                    onHaptic?.('light');
+                    setFormIcon(emoji);
+                    setIsEmojiPickerOpen(false);
+                  }}
+                  className={`w-11 h-11 rounded-2xl flex items-center justify-center text-[24px] active:scale-90 transition-all ${
+                    formIcon === emoji ? 'bg-[#2B5BFF]/30 border border-[#2B5BFF]' : 'hover:bg-white/5'
+                  }`}
+                >
+                  {emoji}
+                </button>
+              ))}
             </div>
           </div>
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {categoryToDelete && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in select-none">
-          <div className="bg-white dark:bg-[#1A1B20] rounded-[28px] w-full max-w-sm p-6 shadow-2xl space-y-4 animate-slide-up text-center border border-gray-100 dark:border-[#252730]">
-            <div className="w-12 h-12 rounded-full bg-red-50 dark:bg-red-900/30 text-red-600 flex items-center justify-center mx-auto text-xl">
+      {/* ===================== DELETE CONFIRMATION MODAL ===================== */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[96] flex items-center justify-center bg-black/60 backdrop-blur-sm p-5 animate-fade-in">
+          <div className="bg-[#1C1D24] rounded-[28px] max-w-sm w-full p-6 shadow-2xl space-y-4 text-center border border-white/10 animate-slide-up">
+            <div className="w-12 h-12 rounded-full bg-red-500/20 text-[#FF5757] flex items-center justify-center mx-auto text-xl">
               <DeleteOutlined />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-[#111827] dark:text-white">
-                Удалить категорию?
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Категория «{categoryToDelete.name}» будет удалена из списка.
+              <h3 className="text-lg font-bold text-white">Удалить категорию?</h3>
+              <p className="text-sm text-gray-400 mt-1.5">
+                Категория «{formName}» и все её подкатегории будут удалены.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3 pt-2">
               <button
                 type="button"
-                onClick={() => setCategoryToDelete(null)}
-                className="py-2.5 rounded-xl bg-gray-100 dark:bg-[#252730] text-gray-700 dark:text-gray-300 font-semibold text-sm"
+                onClick={() => setShowDeleteConfirm(false)}
+                className="py-3 px-4 rounded-xl bg-[#252834] text-white font-semibold text-sm active:bg-[#2F3240]"
               >
                 Отмена
               </button>
               <button
                 type="button"
                 onClick={handleConfirmDelete}
-                className="py-2.5 rounded-xl bg-red-600 text-white font-semibold text-sm shadow-sm"
+                className="py-3 px-4 rounded-xl bg-[#FF5757] text-white font-semibold text-sm active:bg-red-600 shadow-sm"
               >
                 Удалить
               </button>

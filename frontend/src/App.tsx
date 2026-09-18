@@ -59,12 +59,14 @@ export const App: React.FC = () => {
   const [selectedAccount, setSelectedAccount] = useState<Account>(INITIAL_ACCOUNTS[0]);
   const [categories, setCategories] = useState<Category[]>(() => {
     try {
+      const ver = localStorage.getItem('ai_money_categories_v2');
       const cached = localStorage.getItem('ai_money_categories');
-      if (cached) {
+      if (ver === '2' && cached) {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0 && parsed.length < 35) return parsed;
       }
     } catch {}
+    saveStoredCategories(INITIAL_CATEGORIES);
     return INITIAL_CATEGORIES;
   });
   const [summary, setSummary] = useState<DashboardSummary>({
