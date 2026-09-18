@@ -5,7 +5,6 @@ import {
   CreditCardOutlined,
   FileTextOutlined,
   RightOutlined,
-  PlusOutlined,
   CloseOutlined,
 } from '@ant-design/icons';
 import { Transaction, CategoryStat, Category } from '../../types';
@@ -471,7 +470,7 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
         </div>
       </div>
 
-      {/* Floating Plus Button at Bottom-Right matching Screenshot */}
+      {/* Floating Action Button (+) matching media_1789747991545.png */}
       <div className="fixed bottom-6 right-6 z-30">
         <button
           type="button"
@@ -479,9 +478,20 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
             onHaptic?.('medium');
             onOpenAddTransaction?.(category.id);
           }}
-          className="w-14 h-14 rounded-full bg-[#2B5BFF] text-white flex items-center justify-center shadow-[0_8px_24px_rgba(43,91,255,0.4)] active:scale-90 transition-all"
+          className="w-14 h-14 rounded-full bg-[#DCE6FF] dark:bg-[#1E284A] text-[#2B5BFF] dark:text-[#5B82FF] flex items-center justify-center active:scale-90 transition-all border border-[#B3C8FD] dark:border-[#2B5BFF]/40 shadow-[0_4px_16px_rgba(43,91,255,0.2)]"
         >
-          <PlusOutlined className="text-[26px]" />
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="w-7 h-7"
+          >
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
         </button>
       </div>
     </div>

@@ -7,7 +7,6 @@ import {
   RightOutlined,
   ScanOutlined,
   AudioOutlined,
-  PlusOutlined,
 } from '@ant-design/icons';
 import { DashboardSummary, Account, Category, Transaction } from '../../types';
 
@@ -455,16 +454,27 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             </button>
           </div>
 
-          {/* Right: Blue Plus (+) Button */}
+          {/* Right: Blue Plus (+) Button (matching media_1789747991545.png) */}
           <button
             type="button"
             onClick={() => {
               onHaptic?.('medium');
               onOpenAddTransaction();
             }}
-            className="w-13 h-13 p-3 rounded-full bg-[#2B5BFF]/15 dark:bg-[#2B5BFF]/25 text-[#2B5BFF] dark:text-[#5B82FF] flex items-center justify-center active:scale-90 transition-all border border-[#2B5BFF]/25 dark:border-[#2B5BFF]/40 shadow-sm"
+            className="w-13 h-13 p-3 rounded-full bg-[#DCE6FF] dark:bg-[#1E284A] text-[#2B5BFF] dark:text-[#5B82FF] flex items-center justify-center active:scale-90 transition-all border border-[#B3C8FD] dark:border-[#2B5BFF]/40 shadow-sm"
           >
-            <PlusOutlined className="text-[22px]" />
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="w-6 h-6"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
           </button>
         </div>
       </div>
