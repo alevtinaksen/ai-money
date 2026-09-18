@@ -14,11 +14,17 @@ import {
   ThunderboltOutlined,
   CheckOutlined,
   WarningOutlined,
+  AppstoreOutlined,
 } from '@ant-design/icons';
 import { useTheme } from '../../context/ThemeContext';
+import { Category } from '../../types';
+import { CategoriesManagerModal } from '../modals/CategoriesManagerModal';
 
 interface SettingsScreenProps {
   onBack: () => void;
+  categories: Category[];
+  onSaveCategory: (category: Partial<Category> & { id?: string }) => void;
+  onDeleteCategory: (id: string) => void;
   onRecalculateBalances?: () => void;
   onResetData?: () => void;
   onHaptic?: (style?: 'light' | 'medium' | 'heavy') => void;
@@ -30,11 +36,15 @@ const VOICE_ENGINES = ['Whisper Cloud (Groq)', 'Web Speech API (Browser)'];
 
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onBack,
+  categories,
+  onSaveCategory,
+  onDeleteCategory,
   onRecalculateBalances,
   onResetData,
   onHaptic,
 }) => {
   const { mode, setMode } = useTheme();
+  const [isCategoriesModalOpen, setIsCategoriesModalOpen] = useState(false);
   const [currencyIdx, setCurrencyIdx] = useState<number>(() => {
     const saved = localStorage.getItem('app_currency');
     const idx = CURRENCIES.findIndex((c) => c.startsWith(saved || 'RUB'));
@@ -200,6 +210,41 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </div>
               <div className="flex items-center space-x-1.5 text-[#6B7280] dark:text-[#8E92A4] text-sm font-medium">
                 <span>{lang}</span>
+                <RightOutlined className="text-[12px] text-gray-400" />
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Group: Категории */}
+        <div>
+          <h3 className="text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wider mb-2 ml-2">
+            Категории
+          </h3>
+          <div className="bg-white dark:bg-[#1A1B20] rounded-[22px] shadow-sm divide-y divide-gray-100 dark:divide-[#252730] overflow-hidden border border-gray-100/80 dark:border-[#252730]">
+            <button
+              type="button"
+              onClick={() => {
+                onHaptic?.('light');
+                setIsCategoriesModalOpen(true);
+              }}
+              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-[#20222A] active:bg-gray-100 dark:active:bg-[#252730] transition-colors text-left"
+            >
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                  <AppstoreOutlined className="text-[14px]" />
+                </div>
+                <div>
+                  <span className="text-[15px] font-medium text-[#111827] dark:text-white block">
+                    Управление категориями
+                  </span>
+                  <span className="text-xs text-[#9CA3AF] dark:text-[#8E92A4]">
+                    Редактирование, создание и подкатегории
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center space-x-1.5 text-[#2B5BFF] text-xs font-semibold">
+                <span>{categories.length} шт.</span>
                 <RightOutlined className="text-[12px] text-gray-400" />
               </div>
             </button>
@@ -383,6 +428,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </div>
         </div>
       )}
+
+      {/* Categories Manager Modal */}
+      <CategoriesManagerModal
+        isOpen={isCategoriesModalOpen}
+        onClose={() => setIsCategoriesModalOpen(false)}
+        categories={categories}
+        onSaveCategory={onSaveCategory}
+        onDeleteCategory={onDeleteCategory}
+        onHaptic={onHaptic}
+      />
     </div>
   );
 };

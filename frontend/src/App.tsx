@@ -9,6 +9,8 @@ import {
   deleteTransactionAPI,
   saveStoredSyncData,
   saveStoredAccounts,
+  saveStoredCategories,
+  fetchCategories,
   INITIAL_ACCOUNTS,
   INITIAL_CATEGORIES,
 } from './api/client';
@@ -55,7 +57,16 @@ export const App: React.FC = () => {
   // Core financial state
   const [accounts, setAccounts] = useState<Account[]>(INITIAL_ACCOUNTS);
   const [selectedAccount, setSelectedAccount] = useState<Account>(INITIAL_ACCOUNTS[0]);
-  const [categories] = useState<Category[]>(INITIAL_CATEGORIES);
+  const [categories, setCategories] = useState<Category[]>(() => {
+    try {
+      const cached = localStorage.getItem('ai_money_categories');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return INITIAL_CATEGORIES;
+  });
   const [summary, setSummary] = useState<DashboardSummary>({
     total_balance: 297771.53,
     period_label: 'Сентябрь 2026',
@@ -90,15 +101,19 @@ export const App: React.FC = () => {
 
   const loadData = useCallback(async () => {
     try {
-      const [dash, accs] = await Promise.all([
+      const [dash, accs, cats] = await Promise.all([
         fetchDashboard(initData),
         fetchAccounts(initData),
+        fetchCategories(initData),
       ]);
       setSummary(dash);
       if (accs && accs.length > 0) {
         setAccounts(accs);
         const defAcc = accs.find((a) => a.is_default) || accs[0];
         if (defAcc) setSelectedAccount(defAcc);
+      }
+      if (cats && cats.length > 0) {
+        setCategories(cats);
       }
     } catch (e) {
       console.warn('Using local state');
@@ -406,8 +421,49 @@ export const App: React.FC = () => {
   const handleResetData = () => {
     hapticNotification('success');
     localStorage.clear();
+    setCategories(INITIAL_CATEGORIES);
     loadData();
     setCurrentScreen('dashboard');
+  };
+
+  // Category management handlers
+  const handleSaveCategory = (categoryData: Partial<Category> & { id?: string }) => {
+    hapticNotification('success');
+    setCategories((prev) => {
+      let updated: Category[];
+      if (categoryData.id) {
+        // Edit existing category
+        updated = prev.map((cat) =>
+          cat.id === categoryData.id
+            ? ({ ...cat, ...categoryData } as Category)
+            : cat
+        );
+      } else {
+        // Create new category
+        const newCat: Category = {
+          id: `cat-${Date.now()}`,
+          user_id: 143702968,
+          name: categoryData.name || 'Новая категория',
+          type: (categoryData.type as 'expense' | 'income') || 'expense',
+          icon: categoryData.icon || '🏷️',
+          color: categoryData.color || '#EDE9FE',
+          sort_order: prev.length + 1,
+          subcategories: categoryData.subcategories || [],
+        };
+        updated = [...prev, newCat];
+      }
+      saveStoredCategories(updated);
+      return updated;
+    });
+  };
+
+  const handleDeleteCategory = (categoryId: string) => {
+    hapticNotification('warning');
+    setCategories((prev) => {
+      const updated = prev.filter((cat) => cat.id !== categoryId);
+      saveStoredCategories(updated);
+      return updated;
+    });
   };
 
   return (
@@ -466,6 +522,9 @@ export const App: React.FC = () => {
       ) : (
         <SettingsScreen
           onBack={() => setCurrentScreen('dashboard')}
+          categories={categories}
+          onSaveCategory={handleSaveCategory}
+          onDeleteCategory={handleDeleteCategory}
           onRecalculateBalances={loadData}
           onResetData={handleResetData}
           onHaptic={hapticImpact}

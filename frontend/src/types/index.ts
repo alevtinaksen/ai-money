@@ -15,13 +15,14 @@ export interface Account {
 
 export interface Category {
   id: string;
-  user_id: number;
+  user_id?: number;
   name: string;
   type: 'expense' | 'income';
   icon: string;
   color: string;
   budget_limit?: number | null;
-  sort_order: number;
+  sort_order?: number;
+  subcategories?: string[];
 }
 
 export interface Transaction {

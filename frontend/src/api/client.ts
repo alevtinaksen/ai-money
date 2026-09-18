@@ -355,7 +355,26 @@ export async function fetchAccounts(initData: string): Promise<Account[]> {
   return INITIAL_ACCOUNTS;
 }
 
+export const STORAGE_CATEGORIES_KEY = 'ai_money_categories';
 
+export function saveStoredCategories(categories: Category[]) {
+  try {
+    localStorage.setItem(STORAGE_CATEGORIES_KEY, JSON.stringify(categories));
+  } catch (e) {
+    console.error('Failed to saveStoredCategories:', e);
+  }
+}
+
+export async function fetchCategories(_initData?: string): Promise<Category[]> {
+  try {
+    const cached = localStorage.getItem(STORAGE_CATEGORIES_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return INITIAL_CATEGORIES;
+}
 
 export async function createTransactionAPI(
   initData: string,
