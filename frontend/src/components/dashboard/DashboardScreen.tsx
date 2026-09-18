@@ -20,6 +20,7 @@ interface DashboardScreenProps {
   onOpenAccounts: () => void;
   onOpenAddTransaction: () => void;
   onOpenVoice: () => void;
+  onOpenTransactions?: () => void;
   onOpenSettings?: () => void;
   onScanReceipt?: () => void;
   onSelectTransaction?: (tx: Transaction) => void;
@@ -50,6 +51,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onOpenAccounts,
   onOpenAddTransaction,
   onOpenVoice,
+  onOpenTransactions,
   onOpenSettings,
   onScanReceipt,
   onSelectTransaction,
@@ -177,7 +179,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#F6F7FB] flex flex-col justify-between pb-24 select-none animate-fade-in relative">
+    <div className="min-h-screen bg-[#F6F7FB] dark:bg-[#121318] text-[#111827] dark:text-white flex flex-col justify-between pb-24 select-none animate-fade-in relative transition-colors duration-200">
       {/* Top Header Bar */}
       <div className="px-5 pt-12 pb-3 flex items-center justify-between">
         {/* Total Balance Wallet Button */}
@@ -187,9 +189,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             onHaptic?.('light');
             onOpenAccounts();
           }}
-          className="flex items-center space-x-2 text-[#111827] active:opacity-75 transition-opacity"
+          className="flex items-center space-x-2 text-[#111827] dark:text-white active:opacity-75 transition-opacity"
         >
-          <WalletOutlined className="text-[22px] text-[#111827]" />
+          <WalletOutlined className="text-[22px] text-[#111827] dark:text-white" />
           <span className="text-[17px] font-bold tracking-tight">
             {totalAccountsBalance.toLocaleString('ru-RU', {
               minimumFractionDigits: 2,
@@ -200,17 +202,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </button>
 
         {/* Right Header Action Icons */}
-        <div className="flex items-center space-x-3 text-[#374151]">
+        <div className="flex items-center space-x-3 text-[#374151] dark:text-gray-300">
           <button
             type="button"
             onClick={() => {
               onHaptic?.('light');
               onRefresh?.();
             }}
-            className="p-1 hover:text-black transition-colors active:rotate-180 transition-transform duration-300"
+            className="p-1 hover:text-black dark:hover:text-white transition-colors active:rotate-180 transition-transform duration-300"
             title="Обновить"
           >
-            <ReloadOutlined className="text-[18px] text-[#4B5563]" />
+            <ReloadOutlined className="text-[18px] text-[#4B5563] dark:text-gray-300" />
           </button>
           <button
             type="button"
@@ -218,10 +220,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               onHaptic?.('light');
               onOpenSettings?.();
             }}
-            className="p-1 hover:text-black transition-colors"
+            className="p-1 hover:text-black dark:hover:text-white transition-colors"
             title="Настройки"
           >
-            <SettingOutlined className="text-[18px] text-[#4B5563]" />
+            <SettingOutlined className="text-[18px] text-[#4B5563] dark:text-gray-300" />
           </button>
         </div>
       </div>
@@ -233,17 +235,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           <button
             type="button"
             onClick={prevMonth}
-            className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-[#6B7280] active:scale-90"
+            className="w-8 h-8 rounded-full bg-white dark:bg-[#1E1F26] border border-gray-100 dark:border-gray-800 shadow-sm flex items-center justify-center text-[#6B7280] dark:text-gray-300 active:scale-90"
           >
             <LeftOutlined className="text-[14px]" />
           </button>
-          <span className="text-[17px] font-bold text-[#111827] min-w-[140px] text-center">
+          <span className="text-[17px] font-bold text-[#111827] dark:text-white min-w-[140px] text-center">
             {MONTHS[monthIdx]}
           </span>
           <button
             type="button"
             onClick={nextMonth}
-            className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-[#6B7280] active:scale-90"
+            className="w-8 h-8 rounded-full bg-white dark:bg-[#1E1F26] border border-gray-100 dark:border-gray-800 shadow-sm flex items-center justify-center text-[#6B7280] dark:text-gray-300 active:scale-90"
           >
             <RightOutlined className="text-[14px]" />
           </button>
@@ -333,18 +335,18 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     </svg>
 
                     {/* Centered Emoji Circle */}
-                    <div className="w-[52px] h-[52px] rounded-full bg-white shadow-sm flex items-center justify-center text-[26px] z-10 border border-gray-100 group-hover:scale-105 transition-transform select-none">
+                    <div className="w-[52px] h-[52px] rounded-full bg-white dark:bg-[#1E1F26] shadow-sm flex items-center justify-center text-[26px] z-10 border border-gray-100 dark:border-gray-800 group-hover:scale-105 transition-transform select-none">
                       {cat.icon}
                     </div>
                   </div>
 
                   {/* Category Name */}
-                  <span className="text-[13px] font-semibold text-[#111827] text-center truncate max-w-[76px] block leading-tight">
+                  <span className="text-[13px] font-semibold text-[#111827] dark:text-gray-200 text-center truncate max-w-[76px] block leading-tight">
                     {cat.name}
                   </span>
 
                   {/* Formatted Amount (e.g. 11,7 тыс. ₽) */}
-                  <span className="text-[11px] font-medium text-[#6B7280] text-center mt-1 block whitespace-nowrap leading-none">
+                  <span className="text-[11px] font-medium text-[#6B7280] dark:text-gray-400 text-center mt-1 block whitespace-nowrap leading-none">
                     {formatCompactAmount(cat.amount)}
                   </span>
                 </button>
@@ -356,11 +358,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         {/* Recent Transactions Section («Недавние») */}
         <div className="mt-8">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[18px] font-bold text-[#111827]">Недавние</h3>
+            <h3 className="text-[18px] font-bold text-[#111827] dark:text-white">Недавние</h3>
             <button
               type="button"
-              onClick={() => onHaptic?.('light')}
-              className="text-[13px] font-semibold text-[#2B5BFF] flex items-center space-x-1"
+              onClick={() => {
+                onHaptic?.('light');
+                onOpenTransactions?.();
+              }}
+              className="text-[13px] font-semibold text-[#2B5BFF] dark:text-[#5B82FF] flex items-center space-x-1 hover:underline active:opacity-75"
             >
               <span>Все транзакции</span>
               <RightOutlined className="text-[12px]" />
@@ -370,7 +375,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           {/* Transactions List */}
           <div className="space-y-2">
             {/* Centered Date Header above cards */}
-            <div className="text-center text-[12px] font-medium text-[#9CA3AF]">
+            <div className="text-center text-[12px] font-medium text-[#9CA3AF] dark:text-gray-400">
               {summary.recent_transactions.length > 0 && summary.recent_transactions[0].created_at
                 ? new Date(summary.recent_transactions[0].created_at).toLocaleDateString('ru-RU', {
                     day: 'numeric',
@@ -390,11 +395,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       onHaptic?.('light');
                       onSelectTransaction?.(tx);
                     }}
-                    className="flex-shrink-0 bg-white rounded-[22px] px-4 py-3 shadow-sm border border-gray-100 flex items-center space-x-3 min-w-[170px] text-left active:scale-[0.98] transition-all"
+                    className="flex-shrink-0 bg-white dark:bg-[#1E1F26] rounded-[22px] px-4 py-3 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center space-x-3 min-w-[170px] text-left active:scale-[0.98] transition-all"
                   >
                     <div className="text-2xl">{tx.category_icon || (tx.type === 'transfer' ? '🔄' : '📦')}</div>
                     <div>
-                      <div className="text-[14px] font-semibold text-[#111827] leading-tight truncate max-w-[120px]">
+                      <div className="text-[14px] font-semibold text-[#111827] dark:text-white leading-tight truncate max-w-[120px]">
                         {tx.category_name || tx.note || (tx.type === 'transfer' ? 'Перевод' : 'Расход')}
                       </div>
                       <div
@@ -403,7 +408,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                             ? 'text-[#FF4B55]'
                             : tx.type === 'income'
                             ? 'text-[#10B981]'
-                            : 'text-[#6B7280]'
+                            : 'text-[#6B7280] dark:text-gray-400'
                         }`}
                       >
                         {tx.type === 'expense' ? '−' : tx.type === 'income' ? '+' : ''}
@@ -430,7 +435,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               onHaptic?.('medium');
               onScanReceipt?.();
             }}
-            className="w-13 h-13 p-3 rounded-full bg-white text-[#111827] shadow-[0_4px_16px_rgba(0,0,0,0.08)] flex items-center justify-center active:scale-90 transition-all border border-gray-100"
+            className="w-13 h-13 p-3 rounded-full bg-white dark:bg-[#1E1F26] text-[#111827] dark:text-white shadow-[0_4px_16px_rgba(0,0,0,0.08)] flex items-center justify-center active:scale-90 transition-all border border-gray-100 dark:border-gray-800"
           >
             <ScanOutlined className="text-[22px]" />
           </button>
@@ -457,7 +462,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               onHaptic?.('medium');
               onOpenAddTransaction();
             }}
-            className="w-13 h-13 p-3 rounded-full bg-[#2B5BFF]/15 text-[#2B5BFF] flex items-center justify-center active:scale-90 transition-all border border-[#2B5BFF]/25 shadow-sm"
+            className="w-13 h-13 p-3 rounded-full bg-[#2B5BFF]/15 dark:bg-[#2B5BFF]/25 text-[#2B5BFF] dark:text-[#5B82FF] flex items-center justify-center active:scale-90 transition-all border border-[#2B5BFF]/25 dark:border-[#2B5BFF]/40 shadow-sm"
           >
             <PlusOutlined className="text-[22px]" />
           </button>

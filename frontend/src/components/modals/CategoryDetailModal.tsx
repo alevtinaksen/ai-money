@@ -157,27 +157,27 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#121318] text-white flex flex-col overflow-y-auto no-scrollbar animate-fade-in select-none">
+    <div className="fixed inset-0 z-50 bg-[#F6F7FB] dark:bg-[#121318] text-[#111827] dark:text-white flex flex-col overflow-y-auto no-scrollbar animate-fade-in select-none transition-colors duration-200">
       {/* Top Bar */}
-      <div className="px-5 pt-12 pb-3 flex items-center justify-between sticky top-0 bg-[#121318]/90 backdrop-blur-md z-20 border-b border-gray-800/40">
+      <div className="px-5 pt-12 pb-3 flex items-center justify-between sticky top-0 bg-[#F6F7FB]/90 dark:bg-[#121318]/90 backdrop-blur-md z-20 border-b border-gray-200 dark:border-gray-800/40">
         <button
           type="button"
           onClick={() => {
             onHaptic?.('light');
             onClose();
           }}
-          className="w-10 h-10 rounded-full bg-[#1F2026] flex items-center justify-center text-gray-300 active:scale-90 transition-all border border-gray-700/40"
+          className="w-10 h-10 rounded-full bg-white dark:bg-[#1F2026] flex items-center justify-center text-[#111827] dark:text-gray-300 active:scale-90 transition-all border border-gray-200 dark:border-gray-700/40 shadow-xs"
         >
           <ArrowLeftOutlined className="text-[18px]" />
         </button>
 
         <div className="flex items-center space-x-2.5">
-          <div className="w-9 h-9 rounded-full bg-[#1F2026] flex items-center justify-center text-xl border border-gray-700/40">
+          <div className="w-9 h-9 rounded-full bg-white dark:bg-[#1F2026] flex items-center justify-center text-xl border border-gray-200 dark:border-gray-700/40 shadow-xs">
             {category.icon}
           </div>
           <div className="text-left">
-            <h2 className="text-[17px] font-bold text-white leading-tight">{category.name}</h2>
-            <span className="text-[12px] text-gray-400 font-medium block leading-none mt-0.5">
+            <h2 className="text-[17px] font-bold text-[#111827] dark:text-white leading-tight">{category.name}</h2>
+            <span className="text-[12px] text-gray-500 dark:text-gray-400 font-medium block leading-none mt-0.5">
               {periodLabel}
             </span>
           </div>
@@ -190,7 +190,7 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
             setIsEditingBudget(true);
             setBudgetInput(budget ? budget.toString() : '');
           }}
-          className="w-10 h-10 rounded-full bg-[#1F2026] flex items-center justify-center text-gray-300 active:scale-90 transition-all border border-gray-700/40"
+          className="w-10 h-10 rounded-full bg-white dark:bg-[#1F2026] flex items-center justify-center text-[#111827] dark:text-gray-300 active:scale-90 transition-all border border-gray-200 dark:border-gray-700/40 shadow-xs"
         >
           <EditOutlined className="text-[14px]" />
         </button>
@@ -198,15 +198,15 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
 
       <div className="p-5 space-y-4 max-w-md mx-auto w-full pb-24">
         {/* Card 1: Бюджет на месяц */}
-        <div className="bg-[#1A1B20] rounded-[22px] p-4 border border-gray-800/60 shadow-sm">
+        <div className="bg-white dark:bg-[#1A1B20] rounded-[22px] p-4 border border-gray-100 dark:border-gray-800/60 shadow-xs">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-[#25262C] flex items-center justify-center text-gray-400 border border-gray-700/40">
+              <div className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-[#25262C] flex items-center justify-center text-gray-400 border border-gray-100 dark:border-gray-700/40">
                 <CreditCardOutlined className="text-[18px]" />
               </div>
               <div>
-                <span className="text-[13px] font-semibold text-gray-400 block">Бюджет на месяц</span>
-                <span className="text-[20px] font-black text-white block tracking-tight mt-0.5">
+                <span className="text-[13px] font-semibold text-gray-500 dark:text-gray-400 block">Бюджет на месяц</span>
+                <span className="text-[20px] font-black text-[#111827] dark:text-white block tracking-tight mt-0.5">
                   {budget ? `${budget.toLocaleString('ru-RU')} ₽` : 'Не установлен'}
                 </span>
               </div>
@@ -219,7 +219,7 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
                 setIsEditingBudget(!isEditingBudget);
                 setBudgetInput(budget ? budget.toString() : '');
               }}
-              className="text-[13px] font-bold text-[#4F75FF] bg-[#25262C] px-3 py-1.5 rounded-full hover:bg-gray-800 transition-colors"
+              className="text-[13px] font-bold text-[#2B5BFF] dark:text-[#4F75FF] bg-blue-50 dark:bg-[#25262C] px-3 py-1.5 rounded-full hover:opacity-90 transition-colors"
             >
               {budget ? 'Изменить' : 'Установить'}
             </button>
@@ -227,13 +227,13 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
 
           {/* Quick budget inline edit input */}
           {isEditingBudget && (
-            <div className="mt-3 pt-3 border-t border-gray-800/60 flex items-center space-x-2 animate-fade-in">
+            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800/60 flex items-center space-x-2 animate-fade-in">
               <input
                 type="number"
                 placeholder="Сумма лимита (₽)"
                 value={budgetInput}
                 onChange={(e) => setBudgetInput(e.target.value)}
-                className="flex-1 bg-[#25262C] rounded-xl px-3.5 py-2 text-white text-sm outline-none border border-gray-700 focus:border-[#4F75FF]"
+                className="flex-1 bg-gray-50 dark:bg-[#25262C] rounded-xl px-3.5 py-2 text-[#111827] dark:text-white text-sm outline-none border border-gray-200 dark:border-gray-700 focus:border-[#2B5BFF]"
                 autoFocus
               />
               <button
@@ -246,7 +246,7 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
               <button
                 type="button"
                 onClick={() => setIsEditingBudget(false)}
-                className="p-2 text-gray-400 hover:text-white"
+                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-white"
               >
                 <CloseOutlined className="text-[14px]" />
               </button>
@@ -261,14 +261,14 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
             onHaptic?.('light');
             setShowTxList(!showTxList);
           }}
-          className="w-full bg-[#1A1B20] rounded-[22px] p-4 border border-gray-800/60 shadow-sm flex items-center justify-between text-left active:scale-[0.99] transition-all"
+          className="w-full bg-white dark:bg-[#1A1B20] rounded-[22px] p-4 border border-gray-100 dark:border-gray-800/60 shadow-xs flex items-center justify-between text-left active:scale-[0.99] transition-all"
         >
           <div className="flex items-center space-x-3.5">
-            <div className="w-10 h-10 rounded-xl bg-[#25262C] flex items-center justify-center text-gray-400 border border-gray-700/40">
+            <div className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-[#25262C] flex items-center justify-center text-gray-400 border border-gray-100 dark:border-gray-700/40">
               <FileTextOutlined className="text-[18px]" />
             </div>
             <div>
-              <span className="text-[13px] font-semibold text-gray-400 block">Транзакции</span>
+              <span className="text-[13px] font-semibold text-gray-500 dark:text-gray-400 block">Транзакции</span>
               <span className="text-[20px] font-black text-[#FF4B55] block tracking-tight mt-0.5">
                 {totalAmount.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
                 ₽
@@ -276,7 +276,7 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-[#25262C] text-[#4F75FF] font-bold text-[13px]">
+          <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-[#25262C] text-[#2B5BFF] dark:text-[#4F75FF] font-bold text-[13px]">
             <span>{txCount}</span>
             <RightOutlined className="text-[12px]" />
           </div>
@@ -284,7 +284,7 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
 
         {/* Expanded Transaction List */}
         {showTxList && catTxs.length > 0 && (
-          <div className="bg-[#1A1B20] rounded-[22px] p-3 border border-gray-800/60 space-y-2 animate-slide-up">
+          <div className="bg-white dark:bg-[#1A1B20] rounded-[22px] p-3 border border-gray-100 dark:border-gray-800/60 space-y-2 animate-slide-up shadow-xs">
             {catTxs.map((tx) => (
               <button
                 key={tx.id}
@@ -293,10 +293,10 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
                   onHaptic?.('light');
                   onSelectTransaction?.(tx);
                 }}
-                className="w-full flex items-center justify-between p-2.5 rounded-xl bg-[#25262C]/60 hover:bg-[#25262C] text-left transition-all"
+                className="w-full flex items-center justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-[#25262C]/60 hover:bg-gray-100 dark:hover:bg-[#25262C] text-left transition-all"
               >
                 <div>
-                  <span className="text-[14px] font-semibold text-white block">
+                  <span className="text-[14px] font-semibold text-[#111827] dark:text-white block">
                     {tx.note || tx.category_name || 'Расход'}
                   </span>
                   <span className="text-[11px] text-gray-400 block mt-0.5">
@@ -315,7 +315,7 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
         )}
 
         {/* Segmented Period Control: [ Дни | Недели ] */}
-        <div className="bg-[#1A1B20] p-1 rounded-2xl border border-gray-800/60 flex items-center">
+        <div className="bg-gray-100 dark:bg-[#1A1B20] p-1 rounded-2xl border border-gray-200 dark:border-gray-800/60 flex items-center">
           <button
             type="button"
             onClick={() => {
@@ -324,8 +324,8 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
             }}
             className={`flex-1 py-2 rounded-xl text-[14px] font-bold transition-all text-center ${
               periodTab === 'days'
-                ? 'bg-[#2B5BFF] text-white shadow-sm'
-                : 'text-gray-400 hover:text-gray-300'
+                ? 'bg-white dark:bg-[#2B5BFF] text-[#111827] dark:text-white shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
             Дни
@@ -338,8 +338,8 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
             }}
             className={`flex-1 py-2 rounded-xl text-[14px] font-bold transition-all text-center ${
               periodTab === 'weeks'
-                ? 'bg-[#2B5BFF] text-white shadow-sm'
-                : 'text-gray-400 hover:text-gray-300'
+                ? 'bg-white dark:bg-[#2B5BFF] text-[#111827] dark:text-white shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
             Недели
@@ -347,13 +347,13 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
         </div>
 
         {/* Chart Card */}
-        <div className="bg-[#1A1B20] rounded-[22px] p-4 border border-gray-800/60 shadow-sm relative">
+        <div className="bg-white dark:bg-[#1A1B20] rounded-[22px] p-4 border border-gray-100 dark:border-gray-800/60 shadow-xs relative">
           <div className="flex">
             {/* Y-Axis Labels */}
             <div className="w-16 flex flex-col justify-between text-[11px] font-medium text-gray-400 pr-2 h-[120px] text-right leading-none select-none">
-              <span>3 269 ₽</span>
-              <span>2 179 ₽</span>
-              <span>1 089 ₽</span>
+              <span>{Math.round(maxVal).toLocaleString('ru-RU')} ₽</span>
+              <span>{Math.round(maxVal * 0.66).toLocaleString('ru-RU')} ₽</span>
+              <span>{Math.round(maxVal * 0.33).toLocaleString('ru-RU')} ₽</span>
               <span>0 ₽</span>
             </div>
 
@@ -361,10 +361,10 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
             <div className="flex-1 relative h-[120px]">
               {/* Horizontal Grid lines */}
               <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
-                <div className="border-b border-gray-600 w-full" />
-                <div className="border-b border-gray-600 w-full" />
-                <div className="border-b border-gray-600 w-full" />
-                <div className="border-b border-gray-600 w-full" />
+                <div className="border-b border-gray-300 dark:border-gray-600 w-full" />
+                <div className="border-b border-gray-300 dark:border-gray-600 w-full" />
+                <div className="border-b border-gray-300 dark:border-gray-600 w-full" />
+                <div className="border-b border-gray-300 dark:border-gray-600 w-full" />
               </div>
 
               <svg
@@ -391,10 +391,10 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
                     key={p.day}
                     cx={p.x}
                     cy={p.y}
-                    r={p.val > 0 ? (p.day === 6 ? 4.5 : 3) : 2}
-                    fill={p.val > 0 ? '#C084FC' : '#6B7280'}
+                    r={p.val > 0 ? 3.5 : 2}
+                    fill={p.val > 0 ? '#C084FC' : '#9CA3AF'}
                     stroke={p.val > 0 ? '#FFFFFF' : 'none'}
-                    strokeWidth={p.day === 6 ? 1.5 : 0}
+                    strokeWidth={p.val > 0 ? 1.5 : 0}
                   />
                 ))}
               </svg>
@@ -424,20 +424,20 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
 
         {/* Section: Подкатегории */}
         <div className="space-y-3 pt-2">
-          <h3 className="text-[18px] font-bold text-white">Подкатегории</h3>
+          <h3 className="text-[18px] font-bold text-[#111827] dark:text-white">Подкатегории</h3>
 
           <div className="space-y-2.5">
             {subcategories.map((sub) => (
               <div
                 key={sub.name}
-                className="bg-[#1A1B20] rounded-[20px] p-3.5 border border-gray-800/60 shadow-sm"
+                className="bg-white dark:bg-[#1A1B20] rounded-[20px] p-3.5 border border-gray-100 dark:border-gray-800/60 shadow-xs"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className="w-9 h-9 rounded-full bg-[#25262C] flex items-center justify-center text-lg border border-gray-700/40">
+                    <div className="w-9 h-9 rounded-full bg-gray-50 dark:bg-[#25262C] flex items-center justify-center text-lg border border-gray-100 dark:border-gray-700/40">
                       {sub.icon || '📁'}
                     </div>
-                    <span className="text-[15px] font-semibold text-white">{sub.name}</span>
+                    <span className="text-[15px] font-semibold text-[#111827] dark:text-white">{sub.name}</span>
                   </div>
 
                   <div className="flex items-center space-x-2 text-right">
@@ -449,13 +449,13 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
                         ₽
                       </span>
                     </div>
-                    <RightOutlined className="text-[12px] text-gray-500" />
+                    <RightOutlined className="text-[12px] text-gray-400" />
                   </div>
                 </div>
 
                 {/* Subcategory Progress Bar & Percentage */}
                 <div className="flex items-center space-x-3 mt-2.5 pl-12">
-                  <div className="flex-1 h-1.5 bg-[#25262C] rounded-full overflow-hidden">
+                  <div className="flex-1 h-1.5 bg-gray-100 dark:bg-[#25262C] rounded-full overflow-hidden">
                     <div
                       className="h-full bg-[#2B5BFF] rounded-full"
                       style={{ width: `${Math.max(4, sub.percentage)}%` }}

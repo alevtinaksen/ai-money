@@ -15,6 +15,7 @@ import {
   CheckOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
+import { useTheme } from '../../context/ThemeContext';
 
 interface SettingsScreenProps {
   onBack: () => void;
@@ -33,9 +34,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onResetData,
   onHaptic,
 }) => {
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    return (localStorage.getItem('app_theme') as 'light' | 'dark') || 'light';
-  });
+  const { mode, setMode } = useTheme();
   const [currencyIdx, setCurrencyIdx] = useState<number>(() => {
     const saved = localStorage.getItem('app_currency');
     const idx = CURRENCIES.findIndex((c) => c.startsWith(saved || 'RUB'));
@@ -56,13 +55,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
   const handleToggleTheme = () => {
     onHaptic?.('medium');
-    const nextTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(nextTheme);
-    localStorage.setItem('app_theme', nextTheme);
-    if (nextTheme === 'dark') {
-      document.documentElement.classList.add('dark');
+    // cycle: light -> dark -> auto -> light
+    if (mode === 'light') {
+      setMode('dark');
+    } else if (mode === 'dark') {
+      setMode('auto');
     } else {
-      document.documentElement.classList.remove('dark');
+      setMode('light');
     }
   };
 
@@ -116,7 +115,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#F6F7FB] flex flex-col justify-between pb-12 select-none animate-fade-in relative">
+    <div className="min-h-screen bg-[#F6F7FB] dark:bg-[#121318] flex flex-col justify-between pb-12 select-none animate-fade-in relative transition-colors">
       {/* Top Header */}
       <div className="px-5 pt-12 pb-4 flex items-center justify-between">
         <div className="flex items-center space-x-3">
@@ -126,16 +125,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               onHaptic?.('light');
               onBack();
             }}
-            className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-[#111827] active:bg-[#F3F4F6]"
+            className="w-10 h-10 rounded-full bg-white dark:bg-[#1A1B20] shadow-sm flex items-center justify-center text-[#111827] dark:text-white active:bg-[#F3F4F6] dark:active:bg-[#252730] border border-gray-100 dark:border-[#252730]"
           >
             <ArrowLeftOutlined className="text-[18px]" />
           </button>
-          <h1 className="text-[24px] font-bold text-[#111827] tracking-tight">
+          <h1 className="text-[24px] font-bold text-[#111827] dark:text-white tracking-tight">
             Настройки
           </h1>
         </div>
 
-        <div className="flex items-center space-x-1 px-3 py-1 rounded-full bg-[#EDE9FE] text-[#7C3AED] text-xs font-bold shadow-sm">
+        <div className="flex items-center space-x-1 px-3 py-1 rounded-full bg-[#EDE9FE] dark:bg-[#2D1B69] text-[#7C3AED] dark:text-[#A78BFA] text-xs font-bold shadow-sm">
           <ThunderboltOutlined className="text-[12px]" />
           <span>AI Pro</span>
         </div>
@@ -148,21 +147,21 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <h3 className="text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wider mb-2 ml-2">
             Общие
           </h3>
-          <div className="bg-white rounded-[22px] shadow-sm divide-y divide-gray-100 overflow-hidden border border-gray-100/80">
+          <div className="bg-white dark:bg-[#1A1B20] rounded-[22px] shadow-sm divide-y divide-gray-100 dark:divide-[#252730] overflow-hidden border border-gray-100/80 dark:border-[#252730]">
             {/* Тема */}
             <button
               type="button"
               onClick={handleToggleTheme}
-              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left"
+              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-[#20222A] active:bg-gray-100 dark:active:bg-[#252730] transition-colors text-left"
             >
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
                   <BgColorsOutlined className="text-[14px]" />
                 </div>
-                <span className="text-[15px] font-medium text-[#111827]">Тема</span>
+                <span className="text-[15px] font-medium text-[#111827] dark:text-white">Тема</span>
               </div>
               <div className="flex items-center space-x-1.5 text-[#2B5BFF] text-sm font-semibold">
-                <span>{theme === 'light' ? '☀️ Светлая' : '🌙 Тёмная'}</span>
+                <span>{mode === 'light' ? '☀️ Светлая' : mode === 'dark' ? '🌙 Тёмная' : '🤖 Авто'}</span>
                 <RightOutlined className="text-[12px] text-gray-400" />
               </div>
             </button>
@@ -171,16 +170,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <button
               type="button"
               onClick={handleNextCurrency}
-              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left"
+              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-[#20222A] active:bg-gray-100 dark:active:bg-[#252730] transition-colors text-left"
             >
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
                   <DollarOutlined className="text-[14px]" />
                 </div>
-                <span className="text-[15px] font-medium text-[#111827]">Основная валюта</span>
+                <span className="text-[15px] font-medium text-[#111827] dark:text-white">Основная валюта</span>
               </div>
-              <div className="flex items-center space-x-1.5 text-[#111827] text-sm font-semibold">
-                <span className="bg-[#EEF2FF] text-[#4338CA] px-2.5 py-0.5 rounded-full text-xs font-bold">
+              <div className="flex items-center space-x-1.5 text-[#111827] dark:text-white text-sm font-semibold">
+                <span className="bg-[#EEF2FF] dark:bg-[#252B48] text-[#4338CA] dark:text-[#818CF8] px-2.5 py-0.5 rounded-full text-xs font-bold">
                   {CURRENCIES[currencyIdx]}
                 </span>
                 <RightOutlined className="text-[12px] text-gray-400" />
@@ -191,15 +190,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <button
               type="button"
               onClick={handleToggleLang}
-              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left"
+              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-[#20222A] active:bg-gray-100 dark:active:bg-[#252730] transition-colors text-left"
             >
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center">
                   <GlobalOutlined className="text-[14px]" />
                 </div>
-                <span className="text-[15px] font-medium text-[#111827]">Язык</span>
+                <span className="text-[15px] font-medium text-[#111827] dark:text-white">Язык</span>
               </div>
-              <div className="flex items-center space-x-1.5 text-[#6B7280] text-sm font-medium">
+              <div className="flex items-center space-x-1.5 text-[#6B7280] dark:text-[#8E92A4] text-sm font-medium">
                 <span>{lang}</span>
                 <RightOutlined className="text-[12px] text-gray-400" />
               </div>
@@ -212,20 +211,20 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <h3 className="text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wider mb-2 ml-2">
             ИИ и Распознавание
           </h3>
-          <div className="bg-white rounded-[22px] shadow-sm divide-y divide-gray-100 overflow-hidden border border-gray-100/80">
+          <div className="bg-white dark:bg-[#1A1B20] rounded-[22px] shadow-sm divide-y divide-gray-100 dark:divide-[#252730] overflow-hidden border border-gray-100/80 dark:border-[#252730]">
             {/* Голосовой ввод */}
             <button
               type="button"
               onClick={handleNextVoiceEngine}
-              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left"
+              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-[#20222A] active:bg-gray-100 dark:active:bg-[#252730] transition-colors text-left"
             >
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
                   <AudioOutlined className="text-[14px]" />
                 </div>
                 <div>
-                  <span className="text-[15px] font-medium text-[#111827] block">Голосовой ввод</span>
-                  <span className="text-xs text-[#9CA3AF]">Whisper STT / Web API</span>
+                  <span className="text-[15px] font-medium text-[#111827] dark:text-white block">Голосовой ввод</span>
+                  <span className="text-xs text-[#9CA3AF] dark:text-[#8E92A4]">Whisper STT / Web API</span>
                 </div>
               </div>
               <div className="flex items-center space-x-1 text-[#2B5BFF] text-xs font-semibold max-w-[140px] text-right truncate">
@@ -237,19 +236,19 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             {/* Сканер чеков и QR */}
             <div className="flex items-center justify-between p-4">
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
                   <ScanOutlined className="text-[14px]" />
                 </div>
                 <div>
-                  <span className="text-[15px] font-medium text-[#111827] block">Сканер чеков и QR</span>
-                  <span className="text-xs text-[#9CA3AF]">Распознавание чеков с ФНС</span>
+                  <span className="text-[15px] font-medium text-[#111827] dark:text-white block">Сканер чеков и QR</span>
+                  <span className="text-xs text-[#9CA3AF] dark:text-[#8E92A4]">Распознавание чеков с ФНС</span>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={handleToggleScanner}
                 className={`w-12 h-7 flex items-center rounded-full p-1 transition-colors duration-200 ease-in-out ${
-                  scannerEnabled ? 'bg-[#2B5BFF]' : 'bg-gray-200'
+                  scannerEnabled ? 'bg-[#2B5BFF]' : 'bg-gray-200 dark:bg-[#252730]'
                 }`}
               >
                 <div
@@ -264,19 +263,19 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <button
               type="button"
               onClick={handleNextAiModel}
-              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left"
+              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-[#20222A] active:bg-gray-100 dark:active:bg-[#252730] transition-colors text-left"
             >
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center justify-center">
                   <ApiOutlined className="text-[14px]" />
                 </div>
                 <div>
-                  <span className="text-[15px] font-medium text-[#111827] block">AI-движок</span>
-                  <span className="text-xs text-[#9CA3AF]">Семантический разбор фраз</span>
+                  <span className="text-[15px] font-medium text-[#111827] dark:text-white block">AI-движок</span>
+                  <span className="text-xs text-[#9CA3AF] dark:text-[#8E92A4]">Семантический разбор фраз</span>
                 </div>
               </div>
-              <div className="flex items-center space-x-1 text-[#111827] text-xs font-semibold">
-                <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md font-bold">
+              <div className="flex items-center space-x-1 text-[#111827] dark:text-white text-xs font-semibold">
+                <span className="bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-md font-bold">
                   {AI_MODELS[aiModelIdx]}
                 </span>
                 <RightOutlined className="text-[12px] text-gray-400 shrink-0" />
@@ -290,28 +289,28 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <h3 className="text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wider mb-2 ml-2">
             Данные и Синхронизация
           </h3>
-          <div className="bg-white rounded-[22px] shadow-sm divide-y divide-gray-100 overflow-hidden border border-gray-100/80">
+          <div className="bg-white dark:bg-[#1A1B20] rounded-[22px] shadow-sm divide-y divide-gray-100 dark:divide-[#252730] overflow-hidden border border-gray-100/80 dark:border-[#252730]">
             <button
               type="button"
               disabled={isSyncing}
               onClick={handleSync}
-              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left"
+              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-[#20222A] active:bg-gray-100 dark:active:bg-[#252730] transition-colors text-left"
             >
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
                   <SyncOutlined className={`text-[14px] ${isSyncing ? 'animate-spin' : ''}`} />
                 </div>
                 <div>
-                  <span className="text-[15px] font-medium text-[#111827] block">
+                  <span className="text-[15px] font-medium text-[#111827] dark:text-white block">
                     Пересчитать балансы счетов
                   </span>
-                  <span className="text-xs text-[#9CA3AF]">
+                  <span className="text-xs text-[#9CA3AF] dark:text-[#8E92A4]">
                     Сверить все транзакции и остатки
                   </span>
                 </div>
               </div>
               {syncSuccess ? (
-                <span className="inline-flex items-center space-x-1 text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full animate-fade-in">
+                <span className="inline-flex items-center space-x-1 text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-full animate-fade-in">
                   <CheckOutlined className="text-[12px]" />
                   <span>Обновлено</span>
                 </span>
@@ -326,10 +325,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 onHaptic?.('heavy');
                 setShowResetConfirm(true);
               }}
-              className="w-full flex items-center justify-between p-4 hover:bg-red-50 active:bg-red-100 transition-colors text-left text-red-600"
+              className="w-full flex items-center justify-between p-4 hover:bg-red-50 dark:hover:bg-red-950/30 active:bg-red-100 dark:active:bg-red-900/40 transition-colors text-left text-red-600 dark:text-red-400"
             >
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex items-center justify-center">
                   <DeleteOutlined className="text-[14px]" />
                 </div>
                 <div>
@@ -348,20 +347,20 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <InfoCircleOutlined className="text-[12px]" />
             <span>AI Финансы v1.2 • Groq Llama 3.3 Edition</span>
           </div>
-          <p className="text-[11px] text-gray-400">Все данные зашифрованы и сохраняются локально</p>
+          <p className="text-[11px] text-gray-400 dark:text-gray-500">Все данные зашифрованы и сохраняются локально</p>
         </div>
       </div>
 
       {/* Confirmation Modal for Reset */}
       {showResetConfirm && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 backdrop-blur-sm p-5 animate-fade-in">
-          <div className="bg-white rounded-[28px] max-w-sm w-full p-6 shadow-2xl space-y-4 animate-slide-up text-center">
-            <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto">
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 backdrop-blur-sm p-5 animate-fade-in">
+          <div className="bg-white dark:bg-[#1A1B20] rounded-[28px] max-w-sm w-full p-6 shadow-2xl space-y-4 animate-slide-up text-center border border-gray-100 dark:border-[#252730]">
+            <div className="w-12 h-12 rounded-full bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto">
               <WarningOutlined className="text-[22px]" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-[#111827]">Сбросить данные?</h3>
-              <p className="text-sm text-[#6B7280] mt-1.5">
+              <h3 className="text-lg font-bold text-[#111827] dark:text-white">Сбросить данные?</h3>
+              <p className="text-sm text-[#6B7280] dark:text-[#8E92A4] mt-1.5">
                 Локальные кэши будут очищены, а балансы и категории восстановлены к исходным значениям.
               </p>
             </div>
@@ -369,7 +368,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               <button
                 type="button"
                 onClick={() => setShowResetConfirm(false)}
-                className="py-3 px-4 rounded-xl bg-gray-100 text-[#374151] font-semibold text-sm active:bg-gray-200"
+                className="py-3 px-4 rounded-xl bg-gray-100 dark:bg-[#252730] text-[#374151] dark:text-white font-semibold text-sm active:bg-gray-200 dark:active:bg-[#2F323D]"
               >
                 Отмена
               </button>

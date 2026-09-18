@@ -54,7 +54,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   }, {} as Record<string, Account[]>);
 
   return (
-    <div className="min-h-screen bg-[#F6F7FB] flex flex-col justify-between pb-10 select-none animate-fade-in relative">
+    <div className="min-h-screen bg-[#F6F7FB] dark:bg-[#121318] text-[#111827] dark:text-white flex flex-col justify-between pb-10 select-none animate-fade-in relative transition-colors duration-200">
       {/* Top Header Bar */}
       <div className="px-5 pt-12 pb-4 flex items-center justify-between">
         <div className="flex items-center space-x-3">
@@ -64,11 +64,11 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
               onHaptic?.('light');
               onBack();
             }}
-            className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-[#111827] active:bg-[#F3F4F6]"
+            className="w-10 h-10 rounded-full bg-white dark:bg-[#1E1F26] shadow-sm border border-gray-100 dark:border-gray-800 flex items-center justify-center text-[#111827] dark:text-white active:bg-gray-100 dark:active:bg-gray-800"
           >
             <ArrowLeftOutlined className="text-[18px]" />
           </button>
-          <h1 className="text-[26px] font-bold text-[#111827] tracking-tight">Счета</h1>
+          <h1 className="text-[26px] font-bold text-[#111827] dark:text-white tracking-tight">Счета</h1>
         </div>
 
         {/* Header Actions: Edit & Add (+) with Rocket Badge */}
@@ -76,7 +76,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
           <button
             type="button"
             onClick={() => onHaptic?.('light')}
-            className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-[#111827] active:bg-[#F3F4F6]"
+            className="w-10 h-10 rounded-full bg-white dark:bg-[#1E1F26] shadow-sm border border-gray-100 dark:border-gray-800 flex items-center justify-center text-[#111827] dark:text-white active:bg-gray-100 dark:active:bg-gray-800"
           >
             <EditOutlined className="text-[14px]" />
           </button>
@@ -88,7 +88,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 onHaptic?.('light');
                 onAddNewAccount?.();
               }}
-              className="w-10 h-10 rounded-full bg-[#EDE9FE] text-[#7C3AED] shadow-sm flex items-center justify-center active:scale-95"
+              className="w-10 h-10 rounded-full bg-[#EDE9FE] dark:bg-[#312E81]/60 text-[#7C3AED] dark:text-[#A78BFA] shadow-sm flex items-center justify-center active:scale-95"
             >
               <PlusOutlined className="text-[18px]" />
             </button>
@@ -101,22 +101,22 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
       <div className="flex-1 px-5 max-w-lg mx-auto w-full">
         {/* Big Total Balance Header */}
         <div className="text-center my-6">
-          <h2 className="text-[34px] sm:text-[38px] font-extrabold text-[#111827] tracking-tight">
+          <h2 className="text-[34px] sm:text-[38px] font-extrabold text-[#111827] dark:text-white tracking-tight">
             {assetsBalance.toLocaleString('ru-RU', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             })}{' '}
             ₽
           </h2>
-          <p className="text-[14px] text-[#9CA3AF] font-medium mt-1">Доступно на счетах</p>
+          <p className="text-[14px] text-[#9CA3AF] dark:text-gray-400 font-medium mt-1">Доступно на счетах</p>
 
           {creditBalance > 0 && (
-            <div className="inline-flex items-center space-x-1.5 bg-red-50 text-red-600 px-3.5 py-1 rounded-full text-[13px] font-semibold mt-2.5 border border-red-100 shadow-sm">
+            <div className="inline-flex items-center space-x-1.5 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 px-3.5 py-1 rounded-full text-[13px] font-semibold mt-2.5 border border-red-100 dark:border-red-900/40 shadow-sm">
               <span>📑 Кредиты: -{creditBalance.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽</span>
             </div>
           )}
 
-          <p className="text-[12px] text-[#9CA3AF] mt-2 flex items-center justify-center space-x-1">
+          <p className="text-[12px] text-[#9CA3AF] dark:text-gray-400 mt-2 flex items-center justify-center space-x-1">
             <span>ⓘ</span>
             <span>Долгое нажатие для перевода</span>
           </p>
@@ -139,21 +139,21 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 >
                   <div className="flex items-center space-x-2">
                     {isOpen ? (
-                      <DownOutlined className="text-[14px] text-[#6B7280]" />
+                      <DownOutlined className="text-[14px] text-[#6B7280] dark:text-gray-400" />
                     ) : (
-                      <UpOutlined className="text-[14px] text-[#6B7280]" />
+                      <UpOutlined className="text-[14px] text-[#6B7280] dark:text-gray-400" />
                     )}
-                    <span className={`text-[17px] font-bold ${isCreditGroup ? 'text-red-600' : 'text-[#111827]'}`}>
+                    <span className={`text-[17px] font-bold ${isCreditGroup ? 'text-red-600 dark:text-red-400' : 'text-[#111827] dark:text-white'}`}>
                       {groupName}
                     </span>
                     <span className={`text-[12px] font-semibold px-2 py-0.5 rounded-full ${
-                      isCreditGroup ? 'bg-red-100 text-red-700' : 'text-[#6B7280] bg-[#E5E7EB]'
+                      isCreditGroup ? 'bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300' : 'text-[#6B7280] dark:text-gray-300 bg-[#E5E7EB] dark:bg-gray-800'
                     }`}>
                       {groupAccs.length}
                     </span>
                   </div>
 
-                  <span className={`text-[14px] font-semibold ${isCreditGroup ? 'text-red-500 font-bold' : 'text-[#6B7280]'}`}>
+                  <span className={`text-[14px] font-semibold ${isCreditGroup ? 'text-red-500 dark:text-red-400 font-bold' : 'text-[#6B7280] dark:text-gray-400'}`}>
                     {isCreditGroup ? '-' : ''}{groupSum.toLocaleString('ru-RU', {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
@@ -174,15 +174,15 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                           onSelectAccount?.(acc);
                         }}
                         title={acc.name}
-                        className={`inline-flex items-center max-w-full space-x-2.5 bg-white px-4 py-2.5 rounded-full shadow-sm border active:scale-[0.98] transition-all ${
-                          isCreditGroup ? 'border-red-100 hover:border-red-200' : 'border-gray-100/80'
+                        className={`inline-flex items-center max-w-full space-x-2.5 bg-white dark:bg-[#1E1F26] px-4 py-2.5 rounded-full shadow-sm border active:scale-[0.98] transition-all ${
+                          isCreditGroup ? 'border-red-100 dark:border-red-900/40 hover:border-red-200' : 'border-gray-100/80 dark:border-gray-800/80'
                         }`}
                       >
                         <span className="text-base shrink-0">{acc.icon}</span>
-                        <span className="text-[14px] font-semibold text-[#111827] truncate max-w-[170px] sm:max-w-[280px] text-left">
+                        <span className="text-[14px] font-semibold text-[#111827] dark:text-white truncate max-w-[170px] sm:max-w-[280px] text-left">
                           {acc.name}
                         </span>
-                        <span className={`text-[14px] font-medium shrink-0 whitespace-nowrap ${isCreditGroup ? 'text-red-600 font-semibold' : 'text-[#6B7280]'}`}>
+                        <span className={`text-[14px] font-medium shrink-0 whitespace-nowrap ${isCreditGroup ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-[#6B7280] dark:text-gray-400'}`}>
                           {isCreditGroup ? '-' : ''}{acc.balance.toLocaleString('ru-RU', {
                             minimumFractionDigits: 0,
                             maximumFractionDigits: 2,

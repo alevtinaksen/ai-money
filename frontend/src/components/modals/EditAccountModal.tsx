@@ -66,8 +66,8 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in select-none">
-      <div className="bg-white rounded-[32px] w-full max-w-sm p-6 shadow-2xl space-y-5 animate-slide-up">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in select-none transition-colors">
+      <div className="bg-white dark:bg-[#1A1B20] rounded-[32px] w-full max-w-sm p-6 shadow-2xl space-y-5 animate-slide-up border border-gray-100 dark:border-[#252730]">
         {/* Header */}
         <div className="flex items-center justify-between">
           <button
@@ -76,11 +76,11 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
               onHaptic?.('light');
               onClose();
             }}
-            className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 active:bg-gray-200"
+            className="w-9 h-9 rounded-full bg-gray-100 dark:bg-[#252730] flex items-center justify-center text-gray-500 dark:text-[#A0A5B5] active:bg-gray-200 dark:active:bg-[#2E313D]"
           >
             <CloseOutlined className="text-[18px]" />
           </button>
-          <h3 className="text-[18px] font-bold text-[#111827]">
+          <h3 className="text-[18px] font-bold text-[#111827] dark:text-white">
             {account ? 'Редактировать счёт' : 'Новый счёт'}
           </h3>
           <div className="w-9" /> {/* Spacer */}
@@ -95,7 +95,7 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
                 onHaptic?.('light');
                 setShowEmojiPicker(!showEmojiPicker);
               }}
-              className="w-20 h-20 rounded-full bg-red-50/80 flex items-center justify-center text-3xl shadow-sm border border-red-100 active:scale-95 transition-all"
+              className="w-20 h-20 rounded-full bg-red-50/80 dark:bg-red-950/40 flex items-center justify-center text-3xl shadow-sm border border-red-100 dark:border-red-900/40 active:scale-95 transition-all"
             >
               {icon}
             </button>
@@ -111,7 +111,7 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
 
         {/* Emoji Selector Carousel (if open) */}
         {showEmojiPicker && (
-          <div className="bg-gray-50 p-2.5 rounded-2xl flex items-center space-x-2 overflow-x-auto no-scrollbar animate-fade-in">
+          <div className="bg-gray-50 dark:bg-[#20222A] p-2.5 rounded-2xl flex items-center space-x-2 overflow-x-auto no-scrollbar animate-fade-in border border-gray-100 dark:border-[#252730]">
             {EMOJI_OPTIONS.map((e) => (
               <button
                 key={e}
@@ -121,7 +121,7 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
                   setShowEmojiPicker(false);
                 }}
                 className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0 transition-all ${
-                  icon === e ? 'bg-white shadow-sm ring-2 ring-blue-500' : 'hover:bg-white'
+                  icon === e ? 'bg-white dark:bg-[#2E313D] shadow-sm ring-2 ring-blue-500' : 'hover:bg-white dark:hover:bg-[#252730]'
                 }`}
               >
                 {e}
@@ -139,14 +139,14 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Название счёта"
-              className="w-full bg-white border border-gray-200/90 rounded-2xl pl-10 pr-4 py-3 text-[15px] font-semibold text-gray-900 shadow-2xs focus:outline-none focus:border-blue-500"
+              className="w-full bg-white dark:bg-[#20222A] border border-gray-200/90 dark:border-[#2E313D] rounded-2xl pl-10 pr-4 py-3 text-[15px] font-semibold text-gray-900 dark:text-white shadow-2xs focus:outline-none focus:border-blue-500"
             />
             <EditOutlined className="text-[14px] text-gray-400 absolute left-3.5 top-3.5" />
           </div>
 
           {/* Current Balance */}
           <div>
-            <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+            <label className="text-[11px] font-bold text-gray-400 dark:text-[#8E92A4] uppercase tracking-wider block mb-1">
               Текущий баланс (₽)
             </label>
             <input
@@ -155,13 +155,13 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
               value={balanceStr}
               onChange={(e) => setBalanceStr(e.target.value)}
               placeholder="0.00"
-              className="w-full bg-gray-50 border border-gray-200/80 rounded-2xl px-4 py-3 text-[18px] font-bold text-gray-900 focus:outline-none focus:border-blue-500"
+              className="w-full bg-gray-50 dark:bg-[#20222A] border border-gray-200/80 dark:border-[#2E313D] rounded-2xl px-4 py-3 text-[18px] font-bold text-gray-900 dark:text-white focus:outline-none focus:border-blue-500"
             />
           </div>
 
           {/* Group Selector */}
           <div>
-            <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+            <label className="text-[11px] font-bold text-gray-400 dark:text-[#8E92A4] uppercase tracking-wider block mb-1">
               Группа счёта
             </label>
             <div className="grid grid-cols-3 gap-1.5">
@@ -171,7 +171,7 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
                 className={`py-2 px-1 rounded-xl text-xs font-bold transition-all text-center ${
                   groupName === 'Личное'
                     ? 'bg-[#2B5BFF] text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-600'
+                    : 'bg-gray-100 dark:bg-[#252730] text-gray-600 dark:text-[#A0A5B5]'
                 }`}
               >
                 👤 Личное
@@ -183,7 +183,7 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
                 className={`py-2 px-1 rounded-xl text-xs font-bold transition-all text-center ${
                   groupName === 'Общее (с Владом)'
                     ? 'bg-[#2B5BFF] text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-600'
+                    : 'bg-gray-100 dark:bg-[#252730] text-gray-600 dark:text-[#A0A5B5]'
                 }`}
               >
                 👥 Общее
@@ -195,7 +195,7 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
                 className={`py-2 px-1 rounded-xl text-xs font-bold transition-all text-center ${
                   groupName === 'Кредиты'
                     ? 'bg-red-600 text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-600'
+                    : 'bg-gray-100 dark:bg-[#252730] text-gray-600 dark:text-[#A0A5B5]'
                 }`}
               >
                 📑 Кредиты
@@ -212,7 +212,7 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
               onHaptic?.('medium');
               setShowDeleteConfirm(true);
             }}
-            className="w-full py-2.5 rounded-2xl bg-red-50 text-red-600 text-[14px] font-semibold flex items-center justify-center space-x-1.5 hover:bg-red-100 transition-colors"
+            className="w-full py-2.5 rounded-2xl bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-[14px] font-semibold flex items-center justify-center space-x-1.5 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
           >
             <DeleteOutlined className="text-[14px]" />
             <span>Удалить счёт</span>
@@ -232,14 +232,14 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
 
       {/* Delete Confirmation */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/40 backdrop-blur-xs p-5">
-          <div className="bg-white rounded-3xl p-6 max-w-xs w-full shadow-2xl text-center space-y-4 animate-scale-up">
-            <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 mx-auto flex items-center justify-center">
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 backdrop-blur-xs p-5">
+          <div className="bg-white dark:bg-[#1A1B20] rounded-3xl p-6 max-w-xs w-full shadow-2xl text-center space-y-4 animate-scale-up border border-gray-100 dark:border-[#252730]">
+            <div className="w-12 h-12 rounded-full bg-red-50 dark:bg-red-950/30 text-red-500 dark:text-red-400 mx-auto flex items-center justify-center">
               <DeleteOutlined className="text-[22px]" />
             </div>
             <div>
-              <h4 className="text-[17px] font-bold text-gray-900">Удалить этот счёт?</h4>
-              <p className="text-[13px] text-gray-500 mt-1">
+              <h4 className="text-[17px] font-bold text-gray-900 dark:text-white">Удалить этот счёт?</h4>
+              <p className="text-[13px] text-gray-500 dark:text-[#8E92A4] mt-1">
                 Все связанные операции останутся в истории.
               </p>
             </div>
@@ -247,7 +247,7 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 py-2.5 rounded-xl bg-gray-100 text-gray-700 font-semibold text-[14px]"
+                className="flex-1 py-2.5 rounded-xl bg-gray-100 dark:bg-[#252730] text-gray-700 dark:text-white font-semibold text-[14px]"
               >
                 Отмена
               </button>

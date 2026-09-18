@@ -95,7 +95,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
   const displayAmount = amountStr || '0';
 
   return (
-    <div className="fixed inset-0 z-40 bg-[#F6F7FB] flex flex-col justify-between animate-fade-in select-none">
+    <div className="fixed inset-0 z-40 bg-[#F6F7FB] dark:bg-[#121318] flex flex-col justify-between animate-fade-in select-none transition-colors">
       {/* Top Bar with Close and Transfer */}
       <div className="px-5 pt-12 pb-3 flex items-center justify-between">
         <button
@@ -104,7 +104,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
             onHaptic?.('light');
             onClose();
           }}
-          className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-[#4B5563] active:bg-[#F3F4F6]"
+          className="w-10 h-10 rounded-full bg-white dark:bg-[#1A1B20] shadow-sm flex items-center justify-center text-[#4B5563] dark:text-[#A0A5B5] active:bg-[#F3F4F6] dark:active:bg-[#252730] border border-gray-100 dark:border-[#252730]"
         >
           <CloseOutlined className="text-[18px]" />
         </button>
@@ -115,7 +115,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
             onHaptic?.('light');
             setTxType(txType === 'transfer' ? 'expense' : 'transfer');
           }}
-          className={`w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-[#4B5563] active:bg-[#F3F4F6] ${
+          className={`w-10 h-10 rounded-full bg-white dark:bg-[#1A1B20] shadow-sm flex items-center justify-center text-[#4B5563] dark:text-[#A0A5B5] active:bg-[#F3F4F6] dark:active:bg-[#252730] border border-gray-100 dark:border-[#252730] ${
             txType === 'transfer' ? 'ring-2 ring-[#2B5BFF] text-[#2B5BFF]' : ''
           }`}
         >
@@ -135,14 +135,14 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                 onHaptic?.('light');
                 onOpenAccountSelect();
               }}
-              className="flex items-center space-x-2.5 bg-white px-4 py-2 rounded-[22px] shadow-sm active:scale-[0.98] transition-all border border-gray-100"
+              className="flex items-center space-x-2.5 bg-white dark:bg-[#1A1B20] px-4 py-2 rounded-[22px] shadow-sm active:scale-[0.98] transition-all border border-gray-100 dark:border-[#252730]"
             >
               <span className="text-xl">{selectedAccount.icon || '❤️'}</span>
               <div className="text-left">
-                <div className="text-[14px] font-semibold text-[#111827] leading-tight">
+                <div className="text-[14px] font-semibold text-[#111827] dark:text-white leading-tight">
                   {selectedAccount.name}
                 </div>
-                <div className="text-[12px] text-[#9CA3AF] font-medium leading-tight">
+                <div className="text-[12px] text-[#9CA3AF] dark:text-[#8E92A4] font-medium leading-tight">
                   {formatCompactBalance(selectedAccount.balance)}
                 </div>
               </div>
@@ -155,10 +155,10 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                 onHaptic?.('light');
                 setDateLabel(dateLabel === 'Сегодня' ? 'Вчера' : 'Сегодня');
               }}
-              className="flex items-center space-x-2 bg-white px-4 py-2.5 rounded-[22px] shadow-sm active:scale-[0.98] transition-all border border-gray-100"
+              className="flex items-center space-x-2 bg-white dark:bg-[#1A1B20] px-4 py-2.5 rounded-[22px] shadow-sm active:scale-[0.98] transition-all border border-gray-100 dark:border-[#252730]"
             >
-              <CalendarOutlined className="text-[14px] text-[#6B7280]" />
-              <span className="text-[14px] font-medium text-[#374151]">
+              <CalendarOutlined className="text-[14px] text-[#6B7280] dark:text-[#8E92A4]" />
+              <span className="text-[14px] font-medium text-[#374151] dark:text-white">
                 {dateLabel}
               </span>
             </button>
@@ -167,7 +167,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
           {/* Amount Display with [- +] Toggle */}
           <div className="flex items-center justify-between my-6 px-1">
             {/* [- +] Toggle Pill */}
-            <div className="flex items-center bg-white rounded-full p-1 shadow-sm border border-gray-100">
+            <div className="flex items-center bg-white dark:bg-[#1A1B20] rounded-full p-1 shadow-sm border border-gray-100 dark:border-[#252730]">
               <button
                 type="button"
                 onClick={() => {
@@ -177,7 +177,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                 className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-lg transition-all ${
                   txType === 'expense'
                     ? 'bg-[#FF4B55] text-white shadow-sm'
-                    : 'text-[#9CA3AF] hover:text-[#4B5563]'
+                    : 'text-[#9CA3AF] dark:text-[#8E92A4] hover:text-[#4B5563]'
                 }`}
               >
                 −
@@ -192,7 +192,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                 className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-lg transition-all ${
                   txType === 'income'
                     ? 'bg-[#34C759] text-white shadow-sm'
-                    : 'text-[#9CA3AF] hover:text-[#4B5563]'
+                    : 'text-[#9CA3AF] dark:text-[#8E92A4] hover:text-[#4B5563]'
                 }`}
               >
                 +
@@ -202,10 +202,10 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
             {/* Big Amount Text with Animated Blue Cursor */}
             <div className="flex items-center space-x-1">
               <span className="w-0.5 h-10 bg-[#2B5BFF] animate-pulse rounded-full" />
-              <span className="text-[44px] font-bold tracking-tight text-[#111827]">
+              <span className="text-[44px] font-bold tracking-tight text-[#111827] dark:text-white">
                 {displayAmount}
               </span>
-              <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-[#6B7280] font-medium text-lg ml-1 border border-gray-100">
+              <div className="w-10 h-10 rounded-full bg-white dark:bg-[#1A1B20] shadow-sm flex items-center justify-center text-[#6B7280] dark:text-[#8E92A4] font-medium text-lg ml-1 border border-gray-100 dark:border-[#252730]">
                 ₽
               </div>
             </div>
@@ -225,13 +225,13 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                   }}
                   className={`flex items-center space-x-2 px-4 py-2.5 rounded-full whitespace-nowrap transition-all shadow-sm ${
                     isSelected
-                      ? 'bg-white ring-2 ring-[#2B5BFF] text-[#111827]'
-                      : 'bg-white text-[#4B5563] hover:bg-gray-50 border border-gray-100'
+                      ? 'bg-white dark:bg-[#1E2337] ring-2 ring-[#2B5BFF] text-[#111827] dark:text-white'
+                      : 'bg-white dark:bg-[#1A1B20] text-[#4B5563] dark:text-[#A0A5B5] hover:bg-gray-50 dark:hover:bg-[#252730] border border-gray-100 dark:border-[#252730]'
                   }`}
                 >
                   <span className="text-lg">{cat.icon}</span>
                   <span className="text-[14px] font-medium">{cat.name}</span>
-                  <RightOutlined className="text-[12px] text-[#9CA3AF]" />
+                  <RightOutlined className="text-[12px] text-[#9CA3AF] dark:text-[#8E92A4]" />
                 </button>
               );
             })}
@@ -239,13 +239,13 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
 
           {/* Note Input Row with Blue Submit Check Button */}
           <div className="flex items-center space-x-3 mb-2">
-            <div className="flex-1 bg-white rounded-[22px] px-5 py-3 shadow-sm border border-gray-100">
+            <div className="flex-1 bg-white dark:bg-[#1A1B20] rounded-[22px] px-5 py-3 shadow-sm border border-gray-100 dark:border-[#252730]">
               <input
                 type="text"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Описание"
-                className="w-full bg-transparent text-[15px] font-normal text-[#111827] placeholder-[#9CA3AF] focus:outline-none"
+                className="w-full bg-transparent text-[15px] font-normal text-[#111827] dark:text-white placeholder-[#9CA3AF] dark:placeholder-[#5E6272] focus:outline-none"
               />
             </div>
 

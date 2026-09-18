@@ -277,7 +277,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   const dateLabel = dateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-between bg-[#F6F7FB] px-5 pt-12 pb-8 animate-fade-in select-none">
+    <div className="fixed inset-0 z-50 flex flex-col justify-between bg-[#F6F7FB] dark:bg-[#121318] px-5 pt-12 pb-8 animate-fade-in select-none transition-colors duration-200">
       {/* Top Bar: Close (X) & Delete (Trash) */}
       <div className="flex items-center justify-between">
         <button
@@ -286,7 +286,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
             onHaptic?.('light');
             onClose();
           }}
-          className="w-11 h-11 rounded-full bg-white shadow-sm flex items-center justify-center text-[#111827] active:bg-[#F3F4F6]"
+          className="w-11 h-11 rounded-full bg-white dark:bg-[#1E1F26] border border-gray-100 dark:border-gray-800 shadow-sm flex items-center justify-center text-[#111827] dark:text-white active:bg-gray-100 dark:active:bg-gray-800"
         >
           <CloseOutlined className="text-[18px]" />
         </button>
@@ -297,7 +297,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
             onHaptic?.('medium');
             setShowDeleteConfirm(true);
           }}
-          className="w-11 h-11 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-600 hover:text-red-500 active:bg-red-50 transition-colors"
+          className="w-11 h-11 rounded-full bg-white dark:bg-[#1E1F26] border border-gray-100 dark:border-gray-800 shadow-sm flex items-center justify-center text-gray-600 dark:text-gray-300 hover:text-red-500 active:bg-red-50 dark:active:bg-red-950/30 transition-colors"
         >
           <DeleteOutlined className="text-[18px]" />
         </button>
@@ -314,22 +314,22 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
               onHaptic?.('light');
               setIsAccPickerOpen(!isAccPickerOpen);
             }}
-            className="inline-flex items-center space-x-2 bg-white px-4 py-2.5 rounded-full shadow-sm border border-gray-100 active:scale-[0.98] transition-all"
+            className="inline-flex items-center space-x-2 bg-white dark:bg-[#1E1F26] px-4 py-2.5 rounded-full shadow-sm border border-gray-100 dark:border-gray-800 active:scale-[0.98] transition-all"
           >
             <span className="text-lg">{selectedAcc?.icon || '💳'}</span>
             <div className="text-left">
-              <span className="text-[14px] font-semibold text-[#111827] block leading-tight">
+              <span className="text-[14px] font-semibold text-[#111827] dark:text-white block leading-tight">
                 {selectedAcc?.name || 'Счёт'}
               </span>
-              <span className="text-[11px] text-[#9CA3AF] block leading-none mt-0.5">
+              <span className="text-[11px] text-[#9CA3AF] dark:text-gray-400 block leading-none mt-0.5">
                 {selectedAcc ? (selectedAcc.balance / 1000).toFixed(2) : 0} тыс. ₽
               </span>
             </div>
           </button>
 
           {/* Date Pill */}
-          <div className="inline-flex items-center space-x-2 bg-white px-4 py-2.5 rounded-full shadow-sm border border-gray-100 text-[#111827]">
-            <CalendarOutlined className="text-[14px] text-[#9CA3AF]" />
+          <div className="inline-flex items-center space-x-2 bg-white dark:bg-[#1E1F26] px-4 py-2.5 rounded-full shadow-sm border border-gray-100 dark:border-gray-800 text-[#111827] dark:text-white">
+            <CalendarOutlined className="text-[14px] text-[#9CA3AF] dark:text-gray-400" />
             <span className="text-[14px] font-semibold">{dateLabel}</span>
           </div>
         </div>
@@ -338,7 +338,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             {/* [- + ⇄] Toggle button */}
-            <div className="bg-white rounded-full p-1 shadow-sm border border-gray-100 flex items-center space-x-1">
+            <div className="bg-white dark:bg-[#1E1F26] rounded-full p-1 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center space-x-1">
               <button
                 type="button"
                 onClick={() => {
@@ -414,7 +414,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
           </div>
 
           {/* Currency Pill */}
-          <div className="w-10 h-10 rounded-full bg-white shadow-sm border border-gray-100 flex items-center justify-center text-gray-400 font-bold text-[18px] flex-shrink-0">
+          <div className="w-10 h-10 rounded-full bg-white dark:bg-[#1E1F26] shadow-sm border border-gray-100 dark:border-gray-800 flex items-center justify-center text-gray-400 dark:text-gray-300 font-bold text-[18px] flex-shrink-0">
             ₽
           </div>
         </div>
@@ -456,8 +456,8 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                 }}
                 className={`inline-flex items-center space-x-2 px-4 py-2.5 rounded-full font-semibold text-[14px] flex-shrink-0 transition-all active:scale-95 ${
                   isSelected
-                    ? 'bg-[#EFF6FF] text-[#2B5BFF] border border-[#2B5BFF] shadow-sm'
-                    : 'bg-white text-[#111827] border border-gray-100 shadow-sm hover:bg-gray-50'
+                    ? 'bg-[#EFF6FF] dark:bg-[#1E293B] text-[#2B5BFF] dark:text-[#60A5FA] border border-[#2B5BFF] shadow-sm'
+                    : 'bg-white dark:bg-[#1E1F26] text-[#111827] dark:text-gray-200 border border-gray-100 dark:border-gray-800 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800'
                 }`}
               >
                 <span
@@ -473,95 +473,91 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
 
         {/* Category & Subcategory Picker Popup Sheet */}
         {isPickerOpen && (
-          <div className="bg-white rounded-3xl p-4 shadow-xl border border-gray-100 max-h-[340px] overflow-y-auto space-y-3.5 animate-slide-up">
-            <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+          <div className="bg-white dark:bg-[#1E1F26] rounded-3xl p-4 shadow-xl border border-gray-100 dark:border-gray-800 max-h-[340px] overflow-y-auto space-y-3.5 animate-slide-up">
+            <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-gray-800">
               <span className="text-[13px] font-bold text-gray-400 uppercase tracking-wider">
                 Категории и подкатегории
               </span>
               <button
                 type="button"
                 onClick={() => setIsPickerOpen(false)}
-                className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200"
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-white"
               >
                 <CloseOutlined className="text-[14px]" />
               </button>
             </div>
 
-            <div className="space-y-3">
-              {filteredCatalog.map((cat) => {
-                const isCatActive = selectedCat?.name.toLowerCase() === cat.name.toLowerCase();
-                const matchedDbCat = categories.find((c) => c.name.toLowerCase() === cat.name.toLowerCase());
-                return (
-                  <div key={cat.name} className="bg-[#F9FAFB] rounded-2xl p-3 border border-gray-100">
-                    {/* Category Header */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onHaptic?.('light');
-                        if (matchedDbCat) {
-                          setCategoryId(matchedDbCat.id);
-                        }
-                        setSelectedSubcat('');
-                        setIsPickerOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between py-1 px-1 rounded-xl text-left transition-all ${
-                        isCatActive ? 'text-[#2B5BFF]' : 'text-[#111827]'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-2.5">
-                        <span className="text-2xl">{cat.icon}</span>
-                        <span className="text-[15px] font-bold">{cat.name}</span>
-                      </div>
-                      {isCatActive && <CheckOutlined className="text-[14px] text-[#2B5BFF]" />}
-                    </button>
+            {filteredCatalog.map((catItem) => {
+              const isCatActive =
+                selectedCat?.name.toLowerCase() === catItem.name.toLowerCase();
 
-                    {/* Subcategories list */}
-                    {cat.subcategories.length > 0 && (
-                      <div className="flex items-center flex-wrap gap-1.5 mt-2.5 pl-8">
-                        {cat.subcategories.map((sc) => {
-                          const isSubActive = isCatActive && selectedSubcat === sc;
-                          return (
-                            <button
-                              key={sc}
-                              type="button"
-                              onClick={() => {
-                                onHaptic?.('light');
-                                if (matchedDbCat) {
-                                  setCategoryId(matchedDbCat.id);
-                                }
-                                setSelectedSubcat(sc);
-                                if (!note || cat.subcategories.includes(note)) {
-                                  setNote(sc);
-                                }
-                                setIsPickerOpen(false);
-                              }}
-                              className={`px-3 py-1.5 rounded-full text-[13px] font-semibold flex items-center space-x-1.5 transition-all ${
-                                isSubActive
-                                  ? 'bg-[#2B5BFF] text-white shadow-xs'
-                                  : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
-                              }`}
-                            >
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  isSubActive ? 'bg-white' : 'bg-gray-400'
-                                }`}
-                              />
-                              <span>{sc}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
+              return (
+                <div key={catItem.name} className="space-y-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onHaptic?.('light');
+                      const found = categories.find(
+                        (c) => c.name.toLowerCase() === catItem.name.toLowerCase()
+                      );
+                      if (found) setCategoryId(found.id);
+                      setSelectedSubcat('');
+                      setIsPickerOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition-colors ${
+                      isCatActive
+                        ? 'bg-blue-50 dark:bg-blue-950/40 text-[#2B5BFF] font-bold'
+                        : 'text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2.5">
+                      <span className="text-xl">{catItem.icon}</span>
+                      <span className="text-[15px] font-semibold">{catItem.name}</span>
+                    </div>
+                    {isCatActive && <CheckOutlined className="text-[14px] text-[#2B5BFF]" />}
+                  </button>
+
+                  {/* Subcategories Chips inside picker */}
+                  <div className="flex flex-wrap gap-1.5 pl-8">
+                    {catItem.subcategories.map((sub) => {
+                      const isSubSelected =
+                        isCatActive &&
+                        (selectedSubcat === sub || note.toLowerCase() === sub.toLowerCase());
+
+                      return (
+                        <button
+                          key={sub}
+                          type="button"
+                          onClick={() => {
+                            onHaptic?.('light');
+                            const found = categories.find(
+                              (c) => c.name.toLowerCase() === catItem.name.toLowerCase()
+                            );
+                            if (found) setCategoryId(found.id);
+                            setSelectedSubcat(sub);
+                            setNote(sub);
+                            setIsPickerOpen(false);
+                          }}
+                          className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                            isSubSelected
+                              ? 'bg-[#2B5BFF] text-white shadow-xs'
+                              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                          }`}
+                        >
+                          {sub}
+                        </button>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
         {/* Account Picker Dropdown Sheet */}
         {isAccPickerOpen && (
-          <div className="bg-white rounded-2xl p-3 shadow-lg border border-gray-100 max-h-52 overflow-y-auto space-y-1 animate-slide-up">
+          <div className="bg-white dark:bg-[#1E1F26] rounded-2xl p-3 shadow-lg border border-gray-100 dark:border-gray-800 max-h-52 overflow-y-auto space-y-1 animate-slide-up">
             {accounts
               .filter((a) => a.group_name !== 'Кредиты')
               .map((a) => (
@@ -573,13 +569,13 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                     setAccountId(a.id);
                     setIsAccPickerOpen(false);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-left hover:bg-gray-50"
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-left hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                   <div className="flex items-center space-x-2.5">
                     <span className="text-lg">{a.icon}</span>
-                    <span className="text-[14px] font-semibold text-gray-800">{a.name}</span>
+                    <span className="text-[14px] font-semibold text-gray-800 dark:text-white">{a.name}</span>
                   </div>
-                  <span className="text-[13px] font-medium text-gray-500">
+                  <span className="text-[13px] font-medium text-gray-500 dark:text-gray-400">
                     {a.balance.toLocaleString('ru-RU')} ₽
                   </span>
                 </button>
@@ -595,7 +591,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="Описание"
-          className="flex-1 bg-white rounded-[22px] px-4 py-4 shadow-sm border border-gray-100 text-[15px] font-medium text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-400"
+          className="flex-1 bg-white dark:bg-[#1E1F26] rounded-[22px] px-4 py-4 shadow-sm border border-gray-100 dark:border-gray-800 text-[15px] font-medium text-gray-800 dark:text-white placeholder-gray-400 focus:outline-none focus:border-[#2B5BFF]"
         />
 
         <button
@@ -609,14 +605,14 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/40 backdrop-blur-xs p-5">
-          <div className="bg-white rounded-3xl p-6 max-w-xs w-full shadow-2xl text-center space-y-4 animate-scale-up">
-            <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 mx-auto flex items-center justify-center">
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 backdrop-blur-xs p-5">
+          <div className="bg-white dark:bg-[#1E1F26] rounded-3xl p-6 max-w-xs w-full shadow-2xl text-center space-y-4 animate-scale-up border border-transparent dark:border-gray-800">
+            <div className="w-12 h-12 rounded-full bg-red-50 dark:bg-red-950/40 text-red-500 mx-auto flex items-center justify-center">
               <DeleteOutlined className="text-[22px]" />
             </div>
             <div>
-              <h4 className="text-[17px] font-bold text-gray-900">Удалить операцию?</h4>
-              <p className="text-[13px] text-gray-500 mt-1">
+              <h4 className="text-[17px] font-bold text-gray-900 dark:text-white">Удалить операцию?</h4>
+              <p className="text-[13px] text-gray-500 dark:text-gray-400 mt-1">
                 Баланс счёта будет автоматически восстановлен.
               </p>
             </div>
@@ -624,7 +620,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 py-2.5 rounded-xl bg-gray-100 text-gray-700 font-semibold text-[14px]"
+                className="flex-1 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-semibold text-[14px]"
               >
                 Отмена
               </button>

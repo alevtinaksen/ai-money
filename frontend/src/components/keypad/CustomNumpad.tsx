@@ -41,24 +41,24 @@ export const CustomNumpad: React.FC<CustomNumpadProps> = ({
   };
 
   return (
-    <div className="w-full bg-[#E5E7EB] pt-3 pb-8 px-4 rounded-t-[32px] shadow-[0_-4px_20px_rgba(0,0,0,0.03)] select-none">
+    <div className="w-full bg-[#E5E7EB] dark:bg-[#181920] pt-3 pb-8 px-4 rounded-t-[32px] shadow-[0_-4px_20px_rgba(0,0,0,0.03)] select-none transition-colors">
       <div className="max-w-md mx-auto grid grid-cols-3 gap-2 sm:gap-3">
         {KEYS.map((k, idx) => (
           <button
             key={idx}
             type="button"
             onClick={() => handleClick(k)}
-            className="h-[52px] sm:h-[58px] bg-white active:bg-[#F3F4F6] rounded-[16px] flex flex-col items-center justify-center shadow-[0_1px_2px_rgba(0,0,0,0.08)] transition-all active:scale-[0.98]"
+            className="h-[52px] sm:h-[58px] bg-white dark:bg-[#252732] active:bg-[#F3F4F6] dark:active:bg-[#2E303D] rounded-[16px] flex flex-col items-center justify-center shadow-[0_1px_2px_rgba(0,0,0,0.08)] transition-all active:scale-[0.98]"
           >
             {k.action === 'delete' ? (
-              <RollbackOutlined className="text-[22px] text-[#1F2937]" />
+              <RollbackOutlined className="text-[22px] text-[#1F2937] dark:text-white" />
             ) : (
               <>
-                <span className="text-[24px] font-medium leading-none text-[#111827]">
+                <span className="text-[24px] font-medium leading-none text-[#111827] dark:text-white">
                   {k.main}
                 </span>
                 {k.sub ? (
-                  <span className="text-[9px] font-medium tracking-[0.1em] text-[#6B7280] mt-0.5">
+                  <span className="text-[9px] font-medium tracking-[0.1em] text-[#6B7280] dark:text-[#8E92A4] mt-0.5">
                     {k.sub}
                   </span>
                 ) : null}

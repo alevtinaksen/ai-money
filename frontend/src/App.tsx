@@ -20,12 +20,13 @@ import { EditTransactionModal } from './components/modals/EditTransactionModal';
 import { CategoryDetailModal } from './components/modals/CategoryDetailModal';
 import { VoiceOverlay } from './components/voice/VoiceOverlay';
 import { SettingsScreen } from './components/settings/SettingsScreen';
+import { TransactionsScreen } from './components/transactions/TransactionsScreen';
 
 export const App: React.FC = () => {
   const { initData, hapticImpact, hapticNotification } = useTelegram();
 
   // Navigation state
-  const [currentScreen, setCurrentScreen] = useState<'dashboard' | 'accounts' | 'settings'>('dashboard');
+  const [currentScreen, setCurrentScreen] = useState<'dashboard' | 'accounts' | 'settings' | 'transactions'>('dashboard');
   const [isAddTxOpen, setIsAddTxOpen] = useState(false);
   const [isAccountSheetOpen, setIsAccountSheetOpen] = useState(false);
   const [isEditAccountOpen, setIsEditAccountOpen] = useState(false);
@@ -385,7 +386,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <main className="w-full min-h-screen bg-[#F6F7FB] text-[#111827]">
+    <main className="w-full min-h-screen bg-[#F6F7FB] dark:bg-[#121318] text-[#111827] dark:text-white transition-colors">
       {/* Hidden file input for receipt scanner */}
       <input
         ref={fileInputRef}
@@ -402,6 +403,7 @@ export const App: React.FC = () => {
           accounts={accounts}
           categories={categories}
           onOpenAccounts={() => setCurrentScreen('accounts')}
+          onOpenTransactions={() => setCurrentScreen('transactions')}
           onOpenAddTransaction={() => setIsAddTxOpen(true)}
           onOpenVoice={() => setIsVoiceOpen(true)}
           onOpenSettings={() => setCurrentScreen('settings')}
@@ -409,6 +411,16 @@ export const App: React.FC = () => {
           onSelectTransaction={handleSelectTransaction}
           onSelectCategory={(cat) => setDetailCategory(cat)}
           onRefresh={loadData}
+          onHaptic={hapticImpact}
+        />
+      ) : currentScreen === 'transactions' ? (
+        <TransactionsScreen
+          onBack={() => setCurrentScreen('dashboard')}
+          transactions={summary.recent_transactions}
+          accounts={accounts}
+          categories={categories}
+          onSelectTransaction={handleSelectTransaction}
+          onOpenAddTransaction={() => setIsAddTxOpen(true)}
           onHaptic={hapticImpact}
         />
       ) : currentScreen === 'accounts' ? (
