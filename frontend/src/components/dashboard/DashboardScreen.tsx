@@ -59,6 +59,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onHaptic,
 }) => {
   const [monthIdx, setMonthIdx] = useState(8); // Default to "Сентябрь 2026"
+  const [categoryMode, setCategoryMode] = useState<'expense' | 'income'>('expense');
 
   const totalAccountsBalance = accounts.reduce((sum, acc) => {
     if (acc.group_name === 'Кредиты') return sum - acc.balance;
@@ -75,7 +76,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     setMonthIdx((prev) => (prev < 11 ? prev + 1 : 0));
   };
 
-  // Top categories sorted by real spending for the period dynamically calculated from transactions
+  // Top categories sorted by real spending or income for the period dynamically calculated from transactions
   const topCategories = React.useMemo(() => {
     const spendMap: Record<string, number> = {};
 
@@ -99,11 +100,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       const foundByName = categories.find((c) => c.name.toLowerCase() === nameToCheck.toLowerCase());
       if (foundByName) return foundByName.name;
 
-      return nameToCheck || 'Другое';
+      return nameToCheck || (categoryMode === 'income' ? 'Прочее' : 'Другое');
     };
 
     for (const tx of summary.recent_transactions) {
-      if (tx.type === 'expense') {
+      if (tx.type === categoryMode) {
         const catName = resolveMainCatName(tx);
         spendMap[catName] = (spendMap[catName] || 0) + tx.amount;
       }
@@ -126,21 +127,31 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       list.push({
         id: foundInCat?.id || `cat-${name}`,
         name,
-        icon: foundInCat?.icon || foundInCatalog?.icon || '📦',
-        color: foundInCat?.color || '#FF7A00',
+        icon: foundInCat?.icon || foundInCatalog?.icon || (categoryMode === 'income' ? '💰' : '📦'),
+        color: foundInCat?.color || (categoryMode === 'income' ? '#10B981' : '#FF7A00'),
         amount: amt,
         percentage: 0,
       });
       processed.add(name.toLowerCase());
     }
 
-    const defaultCategories = [
+    const defaultExpenseCategories = [
       { name: 'Еда', icon: '🍔', color: '#FF7A00' },
       { name: 'Транспорт', icon: '🚗', color: '#EF4444' },
       { name: 'Здоровье', icon: '💊', color: '#F59E0B' },
       { name: 'Покупки', icon: '🛍️', color: '#EC4899' },
       { name: 'Машина', icon: '🚘', color: '#3B82F6' },
     ];
+
+    const defaultIncomeCategories = [
+      { name: 'Зарплата', icon: '💰', color: '#10B981' },
+      { name: 'Переводы', icon: '🥧', color: '#3B82F6' },
+      { name: 'Накопления', icon: '🪙', color: '#9CA3AF' },
+      { name: 'Подарки', icon: '🎁', color: '#EC4899' },
+      { name: 'Прочее', icon: '🥖', color: '#8B5CF6' },
+    ];
+
+    const defaultCategories = categoryMode === 'income' ? defaultIncomeCategories : defaultExpenseCategories;
 
     for (const def of defaultCategories) {
       if (!processed.has(def.name.toLowerCase())) {
@@ -159,13 +170,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
     list.sort((a, b) => b.amount - a.amount);
 
-    const totalExp = list.reduce((sum, c) => sum + c.amount, 0);
+    const totalAmt = list.reduce((sum, c) => sum + c.amount, 0);
 
     return list.map((c) => ({
       ...c,
-      percentage: totalExp > 0 ? Math.min(100, Math.round((c.amount / totalExp) * 100)) : 0,
+      percentage: totalAmt > 0 ? Math.min(100, Math.round((c.amount / totalAmt) * 100)) : 0,
     }));
-  }, [summary.recent_transactions, categories]);
+  }, [summary.recent_transactions, categories, categoryMode]);
 
   const formatCompactAmount = (amount: number) => {
     if (amount <= 0) return '0 ₽';
@@ -263,27 +274,67 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             );
           })()}
 
-          {/* Stat Badges: Income ↓ and Expense ↑ */}
+          {/* Stat Badges: Income ↓ and Expense ↑ (Interactive Toggles) */}
           <div className="flex items-center justify-center space-x-3 mt-3">
-            <div className="flex items-center space-x-1.5 px-4 py-1.5 rounded-full bg-[#ECFDF5] text-[#10B981] font-bold text-[14px]">
-              <span>↓</span>
+            {/* Green Income Toggle Button */}
+            <button
+              type="button"
+              onClick={() => {
+                onHaptic?.('light');
+                setCategoryMode('income');
+              }}
+              className={`flex items-center space-x-2 px-4 py-1.5 rounded-full font-bold text-[14px] transition-all active:scale-95 cursor-pointer select-none ${
+                categoryMode === 'income'
+                  ? 'bg-[#34C759] text-white shadow-sm'
+                  : 'bg-[#ECFDF5] dark:bg-[#14231E] text-[#10B981] border border-emerald-200/60 dark:border-emerald-900/30'
+              }`}
+            >
+              <div
+                className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold leading-none ${
+                  categoryMode === 'income'
+                    ? 'bg-white text-[#34C759]'
+                    : 'bg-emerald-100 dark:bg-emerald-950/80 text-[#10B981]'
+                }`}
+              >
+                ↓
+              </div>
               <span>
                 {summary.period_income.toLocaleString('ru-RU', {
                   minimumFractionDigits: 0,
                 })}{' '}
                 ₽
               </span>
-            </div>
+            </button>
 
-            <div className="flex items-center space-x-1.5 px-4 py-1.5 rounded-full bg-[#FEE2E2] text-[#EF4444] font-bold text-[14px]">
-              <span>↑</span>
+            {/* Red Expense Toggle Button */}
+            <button
+              type="button"
+              onClick={() => {
+                onHaptic?.('light');
+                setCategoryMode('expense');
+              }}
+              className={`flex items-center space-x-2 px-4 py-1.5 rounded-full font-bold text-[14px] transition-all active:scale-95 cursor-pointer select-none ${
+                categoryMode === 'expense'
+                  ? 'bg-[#FF4B55] text-white shadow-sm'
+                  : 'bg-[#FEE2E2] dark:bg-[#28181E] text-[#EF4444] border border-red-200/60 dark:border-red-900/30'
+              }`}
+            >
+              <div
+                className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold leading-none ${
+                  categoryMode === 'expense'
+                    ? 'bg-white text-[#FF4B55]'
+                    : 'bg-red-100 dark:bg-red-950/80 text-[#EF4444]'
+                }`}
+              >
+                ↑
+              </div>
               <span>
                 {summary.period_expense.toLocaleString('ru-RU', {
                   minimumFractionDigits: 0,
                 })}{' '}
                 ₽
               </span>
-            </div>
+            </button>
           </div>
         </div>
 
