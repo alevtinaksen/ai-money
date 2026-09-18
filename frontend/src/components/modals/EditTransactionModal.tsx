@@ -155,24 +155,55 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
 }) => {
   if (!isOpen || !transaction) return null;
 
+  const resolveInitialAcc = () =>
+    transaction?.account_id ||
+    accounts.find((a) => a.name === transaction?.account_name)?.id ||
+    accounts[0]?.id;
+
+  const resolveInitialCat = () => {
+    if (transaction?.category_id) return transaction.category_id;
+    if (transaction?.type === 'transfer') {
+      const tc = categories.find((c) => c.name === 'Переводы' || c.name.toLowerCase().includes('перевод'));
+      if (tc) return tc.id;
+    }
+    const found = categories.find((c) => c.name.toLowerCase() === transaction?.category_name?.toLowerCase());
+    return found?.id || categories[0]?.id;
+  };
+
   const [type, setType] = useState<'expense' | 'income' | 'transfer'>(
     transaction.type || 'expense'
   );
   const [amountStr, setAmountStr] = useState<string>(transaction.amount.toString());
-  const [accountId, setAccountId] = useState<string>(transaction.account_id);
-  const [categoryId, setCategoryId] = useState<string | undefined>(() => {
-    if (transaction.category_id) return transaction.category_id;
-    if (transaction.type === 'transfer') {
-      const tc = categories.find((c) => c.name === 'Переводы' || c.name.toLowerCase().includes('перевод'));
-      return tc?.id;
-    }
-    return undefined;
-  });
+  const [accountId, setAccountId] = useState<string>(resolveInitialAcc());
+  const [categoryId, setCategoryId] = useState<string | undefined>(resolveInitialCat());
   const [note, setNote] = useState<string>(transaction.note || '');
 
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [isAccPickerOpen, setIsAccPickerOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Sync state when transaction or modal open changes
+  React.useEffect(() => {
+    if (transaction && isOpen) {
+      setType(transaction.type || 'expense');
+      setAmountStr(transaction.amount.toString());
+      setAccountId(
+        transaction.account_id ||
+        accounts.find((a) => a.name === transaction.account_name)?.id ||
+        accounts[0]?.id
+      );
+      setCategoryId(
+        transaction.category_id ||
+        categories.find((c) => c.name.toLowerCase() === transaction.category_name?.toLowerCase())?.id ||
+        categories[0]?.id
+      );
+      setNote(transaction.note || '');
+      setSelectedSubcat(transaction.note || '');
+      setIsPickerOpen(false);
+      setIsAccPickerOpen(false);
+      setShowDeleteConfirm(false);
+    }
+  }, [transaction, isOpen]);
 
   const transferCat = categories.find((c) => c.name === 'Переводы' || c.name.toLowerCase().includes('перевод'));
   const defaultCat = (type === 'transfer' || transaction.type === 'transfer')
@@ -183,8 +214,8 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
 
   // Resolve matching catalog entry for categories and subcategories
   const activeCatalog =
-    CATEGORIES_CATALOG.find((c) => c.name.toLowerCase() === selectedCat?.name.toLowerCase()) ||
-    CATEGORIES_CATALOG.find((c) => selectedCat?.name.toLowerCase().includes(c.name.toLowerCase())) ||
+    CATEGORIES_CATALOG.find((c) => c.name.toLowerCase() === selectedCat?.name?.toLowerCase()) ||
+    CATEGORIES_CATALOG.find((c) => selectedCat?.name?.toLowerCase().includes(c.name.toLowerCase())) ||
     CATEGORIES_CATALOG[0];
 
   const currentSubcategories = activeCatalog.subcategories;
@@ -222,7 +253,8 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
 
   const handleSave = () => {
     onHaptic?.('heavy');
-    const parsedAmount = evaluateMathSum(amountStr) || transaction.amount;
+    const evaluated = evaluateMathSum(amountStr);
+    const parsedAmount = evaluated > 0 ? evaluated : (parseFloat(amountStr) || transaction.amount);
     const finalNote = note.trim() || selectedSubcat || undefined;
     onSave({
       id: transaction.id,
@@ -232,7 +264,6 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
       type,
       note: finalNote,
     });
-    onClose();
   };
 
   const handleDelete = () => {

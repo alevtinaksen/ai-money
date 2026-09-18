@@ -107,6 +107,12 @@ export function getStoredSyncData(): { balances?: Record<string, number>; recent
         const jsonStr = decodeURIComponent(escape(atob(b64)));
         const data = JSON.parse(jsonStr);
         localStorage.setItem('ai_money_sync_data', JSON.stringify(data));
+        try {
+          if (window.history && window.history.replaceState) {
+            const cleanUrl = fullUrl.replace(/[?#&]sync=[^&#]*/, '');
+            window.history.replaceState({}, document.title, cleanUrl || window.location.pathname);
+          }
+        } catch (e) {}
         return data;
       }
     }
@@ -131,6 +137,31 @@ export function getStoredSyncData(): { balances?: Record<string, number>; recent
   } catch (e) {}
 
   return null;
+}
+
+export function saveStoredSyncData(data: { balances?: Record<string, number>; recent_transactions?: any[] }) {
+  try {
+    const existing = (function() {
+      try {
+        const c = localStorage.getItem('ai_money_sync_data');
+        return c ? JSON.parse(c) : {};
+      } catch {
+        return {};
+      }
+    })();
+    const merged = {
+      ...existing,
+      ...data,
+      balances: {
+        ...(existing.balances || {}),
+        ...(data.balances || {}),
+      },
+      recent_transactions: data.recent_transactions !== undefined ? data.recent_transactions : existing.recent_transactions,
+    };
+    localStorage.setItem('ai_money_sync_data', JSON.stringify(merged));
+  } catch (e) {
+    console.error('Failed to saveStoredSyncData:', e);
+  }
 }
 
 export async function fetchDashboard(initData: string): Promise<DashboardSummary> {
@@ -159,12 +190,36 @@ export async function fetchDashboard(initData: string): Promise<DashboardSummary
     .filter(a => a.group_name !== 'Кредиты')
     .reduce((sum, a) => sum + a.balance, 0);
 
-  const recent = sync?.recent_transactions && sync.recent_transactions.length > 0
+  const rawRecent = sync?.recent_transactions && sync.recent_transactions.length > 0
     ? sync.recent_transactions
     : INITIAL_RECENT_TRANSACTIONS;
 
-  const expenseTotal = recent.filter((t: any) => t.type === 'expense').reduce((sum: number, t: any) => sum + t.amount, 0);
-  const incomeTotal = recent.filter((t: any) => t.type === 'income').reduce((sum: number, t: any) => sum + t.amount, 0);
+  const recent: Transaction[] = rawRecent.map((t: any) => {
+    let accId = t.account_id;
+    if (!accId && t.account_name) {
+      accId = currentAccounts.find(a => a.name === t.account_name || a.name.includes(t.account_name))?.id || currentAccounts[0].id;
+    }
+    let catId = t.category_id;
+    if (!catId && t.category_name) {
+      catId = INITIAL_CATEGORIES.find(c => c.name.toLowerCase() === t.category_name.toLowerCase())?.id || INITIAL_CATEGORIES[0].id;
+    }
+    return {
+      id: t.id || `tx-${Date.now()}`,
+      user_id: t.user_id || 143702968,
+      account_id: accId || currentAccounts[0].id,
+      category_id: catId,
+      amount: Number(t.amount) || 0,
+      type: t.type || 'expense',
+      note: t.note || '',
+      created_at: t.created_at || new Date().toISOString(),
+      account_name: t.account_name,
+      category_name: t.category_name,
+      category_icon: t.category_icon || '📦',
+    };
+  });
+
+  const expenseTotal = recent.filter((t) => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+  const incomeTotal = recent.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
 
   return {
     total_balance: total,
@@ -172,7 +227,7 @@ export async function fetchDashboard(initData: string): Promise<DashboardSummary
     period_income: incomeTotal,
     period_expense: expenseTotal,
     categories: INITIAL_CATEGORIES.map(c => {
-      const catSpend = recent.filter((t: any) => (t.category_name?.toLowerCase() === c.name.toLowerCase() || t.category_id === c.id) && t.type === 'expense').reduce((sum: number, t: any) => sum + t.amount, 0);
+      const catSpend = recent.filter((t) => (t.category_name?.toLowerCase() === c.name.toLowerCase() || t.category_id === c.id) && t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
       return {
         id: c.id,
         name: c.name,

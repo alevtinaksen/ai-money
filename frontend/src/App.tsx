@@ -7,6 +7,7 @@ import {
   createTransactionAPI,
   updateTransactionAPI,
   deleteTransactionAPI,
+  saveStoredSyncData,
   INITIAL_ACCOUNTS,
   INITIAL_CATEGORIES,
 } from './api/client';
@@ -41,41 +42,32 @@ export const App: React.FC = () => {
   // Hidden file input for receipt scanner
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Data state
+  // Core financial state
   const [accounts, setAccounts] = useState<Account[]>(INITIAL_ACCOUNTS);
-  const [categories] = useState<Category[]>(INITIAL_CATEGORIES);
   const [selectedAccount, setSelectedAccount] = useState<Account>(INITIAL_ACCOUNTS[0]);
+  const [categories] = useState<Category[]>(INITIAL_CATEGORIES);
   const [summary, setSummary] = useState<DashboardSummary>({
-    total_balance: INITIAL_ACCOUNTS.reduce((sum, a) => sum + a.balance, 0),
+    total_balance: 297771.53,
     period_label: 'Сентябрь 2026',
     period_income: 0,
-    period_expense: 0,
-    categories: INITIAL_CATEGORIES.map((c) => ({
-      id: c.id,
-      name: c.name,
-      icon: c.icon,
-      color: c.color,
-      total_amount: 0,
-      percentage: 0,
-    })),
+    period_expense: 1539,
+    categories: [],
     recent_transactions: [
       {
         id: 'tx-1',
         user_id: 143702968,
         account_id: 'acc-1',
-        category_id: 'cat-7',
         amount: 894,
         type: 'expense',
         note: 'Самокат',
         created_at: '2026-05-07T14:30:00Z',
         category_icon: '🍔',
-        category_name: 'Еда',
+        category_name: 'Самокат',
       },
       {
         id: 'tx-2',
         user_id: 143702968,
         account_id: 'acc-1',
-        category_id: 'cat-6',
         amount: 645,
         type: 'expense',
         note: 'Подписки',
@@ -148,41 +140,54 @@ export const App: React.FC = () => {
     hapticNotification('success');
     setIsAddTxOpen(false);
 
-    setAccounts((prev) =>
-      prev.map((acc) => {
+    let updatedAccounts: Account[] = [];
+    setAccounts((prev) => {
+      updatedAccounts = prev.map((acc) => {
         if (acc.id === data.account_id) {
           const newBal =
             data.type === 'expense'
               ? acc.balance - data.amount
               : acc.balance + data.amount;
-          return { ...acc, balance: newBal };
+          return { ...acc, balance: Math.round(newBal * 100) / 100 };
         }
         return acc;
-      })
-    );
+      });
+      return updatedAccounts;
+    });
+
+    const cat = categories.find((c) => c.id === data.category_id);
+    const targetAcc = accounts.find((a) => a.id === data.account_id);
+    const newTx: Transaction = {
+      id: `tx-${Date.now()}`,
+      user_id: 143702968,
+      account_id: data.account_id,
+      category_id: data.category_id,
+      amount: data.amount,
+      type: data.type,
+      note: data.note,
+      created_at: new Date().toISOString(),
+      account_name: targetAcc?.name || 'Карта Альфа',
+      category_name: cat?.name,
+      category_icon: cat?.icon || '📦',
+    };
 
     setSummary((prev) => {
-      const cat = categories.find((c) => c.id === data.category_id);
-      const newTx: Transaction = {
-        id: `tx-${Date.now()}`,
-        user_id: 143702968,
-        account_id: data.account_id,
-        category_id: data.category_id,
-        amount: data.amount,
-        type: data.type,
-        note: data.note,
-        created_at: new Date().toISOString(),
-        category_name: cat?.name,
-        category_icon: cat?.icon || '📦',
-      };
+      const updatedTxs = [newTx, ...prev.recent_transactions];
+      const newExp = updatedTxs.filter((t) => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+      const newInc = updatedTxs.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+
+      const balancesMap: Record<string, number> = {};
+      for (const a of (updatedAccounts.length ? updatedAccounts : accounts)) {
+        balancesMap[a.name] = a.balance;
+        balancesMap[a.id] = a.balance;
+      }
+      saveStoredSyncData({ balances: balancesMap, recent_transactions: updatedTxs });
 
       return {
         ...prev,
-        period_expense:
-          data.type === 'expense' ? prev.period_expense + data.amount : prev.period_expense,
-        period_income:
-          data.type === 'income' ? prev.period_income + data.amount : prev.period_income,
-        recent_transactions: [newTx, ...prev.recent_transactions],
+        period_expense: newExp,
+        period_income: newInc,
+        recent_transactions: updatedTxs,
       };
     });
 
@@ -211,9 +216,9 @@ export const App: React.FC = () => {
     const oldTx = editingTransaction;
     const cat = categories.find((c) => c.id === data.category_id);
 
-    // Adjust balances
-    setAccounts((prev) =>
-      prev.map((acc) => {
+    let updatedAccounts: Account[] = [];
+    setAccounts((prev) => {
+      updatedAccounts = prev.map((acc) => {
         let bal = acc.balance;
         if (acc.id === oldTx.account_id) {
           bal = oldTx.type === 'expense' ? bal + oldTx.amount : bal - oldTx.amount;
@@ -221,29 +226,54 @@ export const App: React.FC = () => {
         if (acc.id === data.account_id) {
           bal = data.type === 'expense' ? bal - data.amount : bal + data.amount;
         }
-        return { ...acc, balance: bal };
-      })
-    );
+        return { ...acc, balance: Math.round(bal * 100) / 100 };
+      });
+      return updatedAccounts;
+    });
 
-    // Update list
-    setSummary((prev) => ({
-      ...prev,
-      recent_transactions: prev.recent_transactions.map((tx) =>
+    setSummary((prev) => {
+      const updatedTxs = prev.recent_transactions.map((tx) =>
         tx.id === data.id
           ? {
               ...tx,
               amount: data.amount,
               account_id: data.account_id,
+              account_name:
+                (updatedAccounts.length ? updatedAccounts : accounts).find(
+                  (a) => a.id === data.account_id
+                )?.name || tx.account_name,
               category_id: data.category_id,
               type: data.type,
               note: data.note,
-              category_name: cat?.name,
-              category_icon: cat?.icon || '📦',
+              category_name: cat?.name || tx.category_name,
+              category_icon: cat?.icon || tx.category_icon || '📦',
             }
           : tx
-      ),
-    }));
+      );
 
+      const newExp = updatedTxs
+        .filter((t) => t.type === 'expense')
+        .reduce((sum, t) => sum + t.amount, 0);
+      const newInc = updatedTxs
+        .filter((t) => t.type === 'income')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      const balancesMap: Record<string, number> = {};
+      for (const a of (updatedAccounts.length ? updatedAccounts : accounts)) {
+        balancesMap[a.name] = a.balance;
+        balancesMap[a.id] = a.balance;
+      }
+      saveStoredSyncData({ balances: balancesMap, recent_transactions: updatedTxs });
+
+      return {
+        ...prev,
+        period_expense: newExp,
+        period_income: newInc,
+        recent_transactions: updatedTxs,
+      };
+    });
+
+    setEditingTransaction(null);
     await updateTransactionAPI(initData, data.id, data);
   };
 
@@ -253,26 +283,48 @@ export const App: React.FC = () => {
     setIsEditTxOpen(false);
 
     const txToDelete = summary.recent_transactions.find((tx) => tx.id === id);
+    let updatedAccounts: Account[] = [];
     if (txToDelete) {
-      setAccounts((prev) =>
-        prev.map((acc) => {
+      setAccounts((prev) => {
+        updatedAccounts = prev.map((acc) => {
           if (acc.id === txToDelete.account_id) {
             const bal =
               txToDelete.type === 'expense'
                 ? acc.balance + txToDelete.amount
                 : acc.balance - txToDelete.amount;
-            return { ...acc, balance: bal };
+            return { ...acc, balance: Math.round(bal * 100) / 100 };
           }
           return acc;
-        })
-      );
+        });
+        return updatedAccounts;
+      });
     }
 
-    setSummary((prev) => ({
-      ...prev,
-      recent_transactions: prev.recent_transactions.filter((tx) => tx.id !== id),
-    }));
+    setSummary((prev) => {
+      const updatedTxs = prev.recent_transactions.filter((tx) => tx.id !== id);
+      const newExp = updatedTxs
+        .filter((t) => t.type === 'expense')
+        .reduce((sum, t) => sum + t.amount, 0);
+      const newInc = updatedTxs
+        .filter((t) => t.type === 'income')
+        .reduce((sum, t) => sum + t.amount, 0);
 
+      const balancesMap: Record<string, number> = {};
+      for (const a of (updatedAccounts.length ? updatedAccounts : accounts)) {
+        balancesMap[a.name] = a.balance;
+        balancesMap[a.id] = a.balance;
+      }
+      saveStoredSyncData({ balances: balancesMap, recent_transactions: updatedTxs });
+
+      return {
+        ...prev,
+        period_expense: newExp,
+        period_income: newInc,
+        recent_transactions: updatedTxs,
+      };
+    });
+
+    setEditingTransaction(null);
     await deleteTransactionAPI(initData, id);
   };
 

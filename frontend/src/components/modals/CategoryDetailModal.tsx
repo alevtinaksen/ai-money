@@ -9,6 +9,7 @@ import {
   CloseOutlined,
 } from '@ant-design/icons';
 import { Transaction, CategoryStat, Category } from '../../types';
+import { CATEGORIES_CATALOG } from './EditTransactionModal';
 
 interface CategoryDetailModalProps {
   isOpen: boolean;
@@ -46,38 +47,56 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
 
   if (!isOpen || !category) return null;
 
-  // Filter transactions for this category
-  const catTxs = transactions.filter(
-    (t) =>
-      t.type === 'expense' &&
-      (t.category_id === category.id ||
-        t.category_name?.toLowerCase() === category.name.toLowerCase())
-  );
+  // Find active catalog entry for subcategories matching
+  const activeCatalog =
+    CATEGORIES_CATALOG.find((c) => c.name.toLowerCase() === category.name.toLowerCase()) ||
+    CATEGORIES_CATALOG.find((c) => category.name.toLowerCase().includes(c.name.toLowerCase()));
 
-  // Compute total amount and subcategories
-  const computedTotal = catTxs.reduce((sum, t) => sum + t.amount, 0);
+  // Filter transactions strictly for this category and its subcategories
+  const catTxs = transactions.filter((t) => {
+    if (t.type !== 'expense') return false;
+    if (t.category_id && t.category_id === category.id) return true;
+    const catNameLower = category.name.toLowerCase();
+    const tCatName = t.category_name?.toLowerCase() || '';
+    const tNote = t.note?.toLowerCase() || '';
 
-  // Provide realistic default distribution from screenshot if category is 'Еда' and transactions are initial
-  const isFoodCategory = category.name.toLowerCase() === 'еда';
-  const totalAmount = isFoodCategory && computedTotal < 5000 ? 11717.97 : (computedTotal > 0 ? computedTotal : ('total_amount' in category ? category.total_amount : 0));
-  const txCount = isFoodCategory && catTxs.length < 5 ? 17 : catTxs.length;
+    if (tCatName === catNameLower || tNote === catNameLower) return true;
 
-  // Subcategories breakdown matching screenshot
+    // Check if tx is a subcategory of this category
+    if (activeCatalog) {
+      if (
+        activeCatalog.subcategories.some(
+          (sc) => sc.toLowerCase() === tCatName || sc.toLowerCase() === tNote
+        )
+      ) {
+        return true;
+      }
+    }
+    return false;
+  });
+
+  // Dynamic metrics calculated purely from user data
+  const totalAmount = catTxs.reduce((sum, t) => sum + t.amount, 0);
+  const txCount = catTxs.length;
+
+  // Subcategories breakdown
   const subcategories: SubcatStat[] = (() => {
-    if (isFoodCategory && totalAmount >= 11000) {
+    if (catTxs.length === 0) {
       return [
-        { name: 'Без подкатегории', icon: '🍔', amount: 5562.97, percentage: 47 },
-        { name: 'Самокат', icon: '📁', amount: 4225.00, percentage: 36 },
-        { name: 'Кафе', icon: '📁', amount: 670.00, percentage: 5 },
-        { name: 'НаЛанч', icon: '📁', amount: 660.00, percentage: 5 },
-        { name: 'Кофе', icon: '📁', amount: 600.00, percentage: 5 },
+        { name: 'Без подкатегории', icon: category.icon, amount: 0, percentage: 0 },
       ];
     }
 
-    // Dynamic grouping from transactions
     const subMap: Record<string, number> = {};
     for (const t of catTxs) {
-      const subName = t.note?.trim() || 'Без подкатегории';
+      let subName = t.note?.trim();
+      if (!subName || subName.toLowerCase() === category.name.toLowerCase()) {
+        if (t.category_name && t.category_name.toLowerCase() !== category.name.toLowerCase()) {
+          subName = t.category_name.trim();
+        } else {
+          subName = 'Без подкатегории';
+        }
+      }
       subMap[subName] = (subMap[subName] || 0) + t.amount;
     }
 
@@ -88,51 +107,26 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
       percentage: totalAmount > 0 ? Math.round((amt / totalAmount) * 100) : 0,
     }));
 
-    if (items.length === 0) {
-      return [
-        { name: 'Без подкатегории', icon: category.icon, amount: totalAmount, percentage: 100 },
-      ];
-    }
-
     return items.sort((a, b) => b.amount - a.amount);
   })();
 
-  // Daily Chart Points: Days 1 to 31 with realistic peak curve matching Screenshot 2
-  const daysData = [
-    { day: 1, val: 980 },
-    { day: 2, val: 1450 },
-    { day: 3, val: 1820 },
-    { day: 4, val: 2100 },
-    { day: 5, val: 1650 },
-    { day: 6, val: 2850 }, // Peak
-    { day: 7, val: 1100 },
-    { day: 8, val: 0 },
-    { day: 9, val: 0 },
-    { day: 10, val: 0 },
-    { day: 11, val: 0 },
-    { day: 12, val: 0 },
-    { day: 13, val: 0 },
-    { day: 14, val: 0 },
-    { day: 15, val: 0 },
-    { day: 16, val: 0 },
-    { day: 17, val: 0 },
-    { day: 18, val: 0 },
-    { day: 19, val: 0 },
-    { day: 20, val: 0 },
-    { day: 21, val: 0 },
-    { day: 22, val: 0 },
-    { day: 23, val: 0 },
-    { day: 24, val: 0 },
-    { day: 25, val: 0 },
-    { day: 26, val: 0 },
-    { day: 27, val: 0 },
-    { day: 28, val: 0 },
-    { day: 29, val: 0 },
-    { day: 30, val: 0 },
-    { day: 31, val: 0 },
-  ];
+  // Daily Chart Points: Days 1 to 31 dynamically mapped from transaction dates
+  const daySpendMap: Record<number, number> = {};
+  for (const t of catTxs) {
+    if (t.created_at) {
+      const d = new Date(t.created_at).getDate();
+      if (d >= 1 && d <= 31) {
+        daySpendMap[d] = (daySpendMap[d] || 0) + t.amount;
+      }
+    }
+  }
 
-  const maxVal = 3269;
+  const daysData = Array.from({ length: 31 }, (_, i) => {
+    const day = i + 1;
+    return { day, val: daySpendMap[day] || 0 };
+  });
+
+  const maxVal = Math.max(100, ...daysData.map((d) => d.val));
   const chartHeight = 120;
   const chartWidth = 300;
 

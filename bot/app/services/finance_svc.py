@@ -353,6 +353,9 @@ class FinanceService:
             cat = cat_dict.get(t.category_id)
             recent.append({
                 "id": t.id,
+                "user_id": t.user_id,
+                "account_id": t.account_id,
+                "category_id": t.category_id,
                 "amount": float(t.amount),
                 "type": t.type,
                 "note": t.note or (cat.name if cat else "Трата"),

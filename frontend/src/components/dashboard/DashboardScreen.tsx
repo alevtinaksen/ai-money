@@ -11,6 +11,8 @@ import {
 } from '@ant-design/icons';
 import { DashboardSummary, Account, Category, Transaction } from '../../types';
 
+import { CATEGORIES_CATALOG } from '../modals/EditTransactionModal';
+
 interface DashboardScreenProps {
   summary: DashboardSummary;
   accounts: Account[];
@@ -55,7 +57,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onRefresh,
   onHaptic,
 }) => {
-  const [monthIdx, setMonthIdx] = useState(4); // Default to "Май 2026" (matches real app data)
+  const [monthIdx, setMonthIdx] = useState(8); // Default to "Сентябрь 2026"
 
   const totalAccountsBalance = accounts.reduce((sum, acc) => {
     if (acc.group_name === 'Кредиты') return sum - acc.balance;
@@ -72,56 +74,100 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     setMonthIdx((prev) => (prev < 11 ? prev + 1 : 0));
   };
 
-  // Top categories sorted by spending for the period (matching Screenshot 1: media_1789746985466.png)
+  // Top categories sorted by real spending for the period dynamically calculated from transactions
   const topCategories = React.useMemo(() => {
     const spendMap: Record<string, number> = {};
+
+    const resolveMainCatName = (tx: Transaction): string => {
+      const foundById = categories.find((c) => c.id === tx.category_id);
+      const nameToCheck = (foundById?.name || tx.category_name || tx.note || '').trim();
+
+      for (const catItem of CATEGORIES_CATALOG) {
+        if (catItem.name.toLowerCase() === nameToCheck.toLowerCase()) {
+          return catItem.name;
+        }
+        if (catItem.subcategories.some((sc) => sc.toLowerCase() === nameToCheck.toLowerCase())) {
+          return catItem.name;
+        }
+        if (tx.note && catItem.subcategories.some((sc) => sc.toLowerCase() === tx.note?.toLowerCase())) {
+          return catItem.name;
+        }
+      }
+
+      if (foundById) return foundById.name;
+      const foundByName = categories.find((c) => c.name.toLowerCase() === nameToCheck.toLowerCase());
+      if (foundByName) return foundByName.name;
+
+      return nameToCheck || 'Другое';
+    };
+
     for (const tx of summary.recent_transactions) {
       if (tx.type === 'expense') {
-        const catName = tx.category_name || 'Другое';
+        const catName = resolveMainCatName(tx);
         spendMap[catName] = (spendMap[catName] || 0) + tx.amount;
       }
     }
 
-    // Baseline distributions from user's real app screenshots
-    const baselineMap: Record<string, number> = {
-      'Еда': 11717.97,
-      'Транспорт': 9910.00,
-      'Здоровье': 7630.00,
-      'Покупки': 3330.00,
-      'Машина': 3180.00,
-    };
+    const list: Array<{
+      id: string;
+      name: string;
+      icon: string;
+      color: string;
+      amount: number;
+      percentage: number;
+    }> = [];
 
-    const mainList = [
-      { id: 'cat-eda', name: 'Еда', icon: '🍔', color: '#FF7A00', amount: (spendMap['Еда'] || 0) + baselineMap['Еда'] },
-      { id: 'cat-trans', name: 'Транспорт', icon: '🚗', color: '#EF4444', amount: (spendMap['Транспорт'] || 0) + baselineMap['Транспорт'] },
-      { id: 'cat-health', name: 'Здоровье', icon: '💊', color: '#F59E0B', amount: (spendMap['Здоровье'] || 0) + baselineMap['Здоровье'] },
-      { id: 'cat-shop', name: 'Покупки', icon: '🛍️', color: '#EC4899', amount: (spendMap['Покупки'] || 0) + baselineMap['Покупки'] },
-      { id: 'cat-car', name: 'Машина', icon: '🚘', color: '#3B82F6', amount: (spendMap['Машина'] || 0) + baselineMap['Машина'] },
-    ];
+    const processed = new Set<string>();
 
     for (const [name, amt] of Object.entries(spendMap)) {
-      if (!mainList.some((m) => m.name.toLowerCase() === name.toLowerCase())) {
-        const found = categories.find((c) => c.name.toLowerCase() === name.toLowerCase());
-        mainList.push({
-          id: found?.id || `cat-${name}`,
-          name,
-          icon: found?.icon || '📦',
-          color: found?.color || '#2B5BFF',
-          amount: amt,
+      const foundInCat = categories.find((c) => c.name.toLowerCase() === name.toLowerCase());
+      const foundInCatalog = CATEGORIES_CATALOG.find((c) => c.name.toLowerCase() === name.toLowerCase());
+      list.push({
+        id: foundInCat?.id || `cat-${name}`,
+        name,
+        icon: foundInCat?.icon || foundInCatalog?.icon || '📦',
+        color: foundInCat?.color || '#FF7A00',
+        amount: amt,
+        percentage: 0,
+      });
+      processed.add(name.toLowerCase());
+    }
+
+    const defaultCategories = [
+      { name: 'Еда', icon: '🍔', color: '#FF7A00' },
+      { name: 'Транспорт', icon: '🚗', color: '#EF4444' },
+      { name: 'Здоровье', icon: '💊', color: '#F59E0B' },
+      { name: 'Покупки', icon: '🛍️', color: '#EC4899' },
+      { name: 'Машина', icon: '🚘', color: '#3B82F6' },
+    ];
+
+    for (const def of defaultCategories) {
+      if (!processed.has(def.name.toLowerCase())) {
+        const found = categories.find((c) => c.name.toLowerCase() === def.name.toLowerCase());
+        list.push({
+          id: found?.id || `cat-${def.name}`,
+          name: def.name,
+          icon: found?.icon || def.icon,
+          color: found?.color || def.color,
+          amount: 0,
+          percentage: 0,
         });
+        processed.add(def.name.toLowerCase());
       }
     }
 
-    mainList.sort((a, b) => b.amount - a.amount);
-    const totalExp = mainList.reduce((sum, c) => sum + c.amount, 0) || 1;
+    list.sort((a, b) => b.amount - a.amount);
 
-    return mainList.map((c) => ({
+    const totalExp = list.reduce((sum, c) => sum + c.amount, 0);
+
+    return list.map((c) => ({
       ...c,
-      percentage: Math.min(100, Math.round((c.amount / totalExp) * 100)),
+      percentage: totalExp > 0 ? Math.min(100, Math.round((c.amount / totalExp) * 100)) : 0,
     }));
   }, [summary.recent_transactions, categories]);
 
   const formatCompactAmount = (amount: number) => {
+    if (amount <= 0) return '0 ₽';
     if (amount >= 1000) {
       const thousands = amount / 1000;
       const formatted = thousands >= 10 ? thousands.toFixed(1) : thousands.toFixed(2);
@@ -246,7 +292,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             {topCategories.map((cat) => {
               const radius = 29;
               const circumference = 2 * Math.PI * radius;
-              const strokeDashoffset = circumference - ((cat.percentage || 15) / 100) * circumference;
+              const pct = cat.amount > 0 ? (cat.percentage || 0) : 0;
+              const strokeDashoffset = circumference - (pct / 100) * circumference;
 
               return (
                 <button
