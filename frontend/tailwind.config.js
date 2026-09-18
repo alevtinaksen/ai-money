@@ -34,6 +34,11 @@ export default {
         'ios-card': '0 2px 12px rgba(0, 0, 0, 0.04)',
         'ios-float': '0 8px 24px rgba(43, 91, 255, 0.35)',
         'ios-numpad': '0 1px 2px rgba(0, 0, 0, 0.1)',
+      },
+      spacing: {
+        '13': '3.25rem',
+        '17': '4.25rem',
+        '18': '4.5rem',
       }
     },
   },

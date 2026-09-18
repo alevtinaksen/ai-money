@@ -230,9 +230,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         <div className="my-6">
           <div className="flex items-center space-x-4 overflow-x-auto no-scrollbar py-2 px-1">
             {topCategories.map((cat) => {
-              const radius = 27;
+              const radius = 29;
               const circumference = 2 * Math.PI * radius;
-              const strokeDashoffset = circumference - (cat.percentage / 100) * circumference;
+              const strokeDashoffset = circumference - ((cat.percentage || 15) / 100) * circumference;
 
               return (
                 <button
@@ -242,11 +242,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     onHaptic?.('light');
                     onSelectCategory?.(cat as any);
                   }}
-                  className="flex flex-col items-center flex-shrink-0 group active:scale-95 transition-all min-w-[76px]"
+                  className="flex flex-col items-center flex-shrink-0 group active:scale-95 transition-all min-w-[72px]"
                 >
                   {/* Concentric Progress Ring with Emoji Icon inside */}
-                  <div className="relative w-17 h-17 flex items-center justify-center">
-                    <svg className="w-17 h-17 -rotate-90 transform" viewBox="0 0 68 68">
+                  <div className="relative w-[68px] h-[68px] flex items-center justify-center mb-1.5 shrink-0">
+                    <svg className="w-[68px] h-[68px] -rotate-90 transform absolute inset-0" viewBox="0 0 68 68">
                       {/* Track */}
                       <circle
                         cx="34"
@@ -270,19 +270,20 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         className="transition-all duration-700"
                       />
                     </svg>
+
                     {/* Centered Emoji Circle */}
-                    <div className="absolute inset-2 rounded-full bg-white shadow-sm flex items-center justify-center text-2xl group-hover:scale-105 transition-transform border border-gray-100">
+                    <div className="w-[52px] h-[52px] rounded-full bg-white shadow-sm flex items-center justify-center text-[26px] z-10 border border-gray-100 group-hover:scale-105 transition-transform select-none">
                       {cat.icon}
                     </div>
                   </div>
 
                   {/* Category Name */}
-                  <span className="text-[13px] font-semibold text-[#111827] mt-1.5 leading-none text-center truncate max-w-[80px]">
+                  <span className="text-[13px] font-semibold text-[#111827] text-center truncate max-w-[76px] block leading-tight">
                     {cat.name}
                   </span>
 
                   {/* Formatted Amount (e.g. 11,7 тыс. ₽) */}
-                  <span className="text-[11px] font-bold text-[#6B7280] mt-1">
+                  <span className="text-[11px] font-medium text-[#6B7280] text-center mt-1 block whitespace-nowrap leading-none">
                     {formatCompactAmount(cat.amount)}
                   </span>
                 </button>
