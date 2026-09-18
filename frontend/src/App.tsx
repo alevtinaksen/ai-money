@@ -16,6 +16,7 @@ import { AddTransactionScreen } from './components/transaction/AddTransactionScr
 import { AccountSelectSheet } from './components/modals/AccountSelectSheet';
 import { EditAccountModal } from './components/modals/EditAccountModal';
 import { EditTransactionModal } from './components/modals/EditTransactionModal';
+import { CategoryDetailModal } from './components/modals/CategoryDetailModal';
 import { VoiceOverlay } from './components/voice/VoiceOverlay';
 import { SettingsScreen } from './components/settings/SettingsScreen';
 
@@ -29,6 +30,9 @@ export const App: React.FC = () => {
   const [isEditAccountOpen, setIsEditAccountOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [isVoiceOpen, setIsVoiceOpen] = useState(false);
+
+  // Category Detail Statistics Modal State (matching media_1789746985465.png)
+  const [detailCategory, setDetailCategory] = useState<any | null>(null);
 
   // Edit / View Transaction Modal State (matching media_1789730678657.png)
   const [isEditTxOpen, setIsEditTxOpen] = useState(false);
@@ -343,6 +347,7 @@ export const App: React.FC = () => {
           onOpenSettings={() => setCurrentScreen('settings')}
           onScanReceipt={() => fileInputRef.current?.click()}
           onSelectTransaction={handleSelectTransaction}
+          onSelectCategory={(cat) => setDetailCategory(cat)}
           onRefresh={loadData}
           onHaptic={hapticImpact}
         />
@@ -415,6 +420,25 @@ export const App: React.FC = () => {
         categories={categories}
         onSave={handleSaveEditedTransaction}
         onDelete={handleDeleteTransaction}
+        onHaptic={hapticImpact}
+      />
+
+      {/* Category Detail Statistics Modal (matching media_1789746985465.png) */}
+      <CategoryDetailModal
+        isOpen={!!detailCategory}
+        onClose={() => setDetailCategory(null)}
+        category={detailCategory}
+        periodLabel={summary.period_label || 'Май 2026 г.'}
+        transactions={summary.recent_transactions}
+        onOpenAddTransaction={() => {
+          setDetailCategory(null);
+          setIsAddTxOpen(true);
+        }}
+        onSelectTransaction={(tx) => {
+          setDetailCategory(null);
+          setEditingTransaction(tx);
+          setIsEditTxOpen(true);
+        }}
         onHaptic={hapticImpact}
       />
 
