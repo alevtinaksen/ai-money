@@ -488,6 +488,13 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
 
   const currentSubcategories = activeCatalog.subcategories;
 
+  const orderedSubcategories = React.useMemo(() => {
+    if (!selectedSubcat) return currentSubcategories;
+    const match = currentSubcategories.find((s) => s === selectedSubcat);
+    const others = currentSubcategories.filter((s) => s !== selectedSubcat);
+    return match ? [match, ...others] : currentSubcategories;
+  }, [currentSubcategories, selectedSubcat]);
+
   const filteredCatalog = CATEGORIES_CATALOG.filter((c) => {
     if (type === 'income') return c.type === 'income' || c.name === 'Подарки' || c.name === 'Переводы';
     if (type === 'transfer') return c.type === 'transfer' || c.name === 'Накопления';
@@ -697,7 +704,7 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
           </button>
 
           {/* Subcategories Horizontal Pills (matching Screenshot 2: • Одежда, • Электроника...) */}
-          {currentSubcategories.map((sc) => {
+          {orderedSubcategories.map((sc) => {
             const isSelected = selectedSubcat === sc;
             return (
               <button

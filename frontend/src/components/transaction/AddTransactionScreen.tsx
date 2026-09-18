@@ -62,6 +62,13 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
   const [note, setNote] = useState('');
   const [dateLabel, setDateLabel] = useState('Сегодня');
 
+  // Put selected category at the first place among all badges
+  const orderedCategories = React.useMemo(() => {
+    const selected = categories.find((c) => c.id === selectedCategory.id);
+    const others = categories.filter((c) => c.id !== selectedCategory.id);
+    return selected ? [selected, ...others] : categories;
+  }, [categories, selectedCategory.id]);
+
   // Keypad handlers
   const handleDigit = (digit: string) => {
     onHaptic?.('light');
@@ -235,7 +242,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
 
           {/* Categories Horizontal Carousel */}
           <div className="mb-6 overflow-x-auto no-scrollbar flex items-center space-x-2.5 py-1">
-            {categories.map((cat) => {
+            {orderedCategories.map((cat) => {
               const isSelected = selectedCategory.id === cat.id;
               return (
                 <button
@@ -247,12 +254,12 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                   }}
                   className={`flex items-center space-x-2 px-4 py-2.5 rounded-full whitespace-nowrap transition-all shadow-sm ${
                     isSelected
-                      ? 'bg-white dark:bg-[#1E2337] ring-2 ring-[#2B5BFF] text-[#111827] dark:text-white'
+                      ? 'bg-white dark:bg-[#1E2337] ring-2 ring-[#2B5BFF] text-[#111827] dark:text-white font-semibold'
                       : 'bg-white dark:bg-[#1A1B20] text-[#4B5563] dark:text-[#A0A5B5] hover:bg-gray-50 dark:hover:bg-[#252730] border border-gray-100 dark:border-[#252730]'
                   }`}
                 >
                   <span className="text-lg">{cat.icon}</span>
-                  <span className="text-[14px] font-medium">{cat.name}</span>
+                  <span className="text-[14px]">{cat.name}</span>
                   <RightOutlined className="text-[12px] text-[#9CA3AF] dark:text-[#8E92A4]" />
                 </button>
               );
