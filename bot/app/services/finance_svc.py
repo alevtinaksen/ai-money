@@ -28,6 +28,9 @@ DEFAULT_ACCOUNTS = [
     {"name": "Влад и Алина - Едоки (Т-Банк)", "group_name": "Общее (с Владом)", "balance": 24759.86, "currency": "RUB", "icon": "👥", "color": "#FFEDD5", "is_default": False, "sort_order": 11},
     {"name": "Еда (подушка безопасности)", "group_name": "Общее (с Владом)", "balance": 46145.89, "currency": "RUB", "icon": "🛏️", "color": "#FEF3C7", "is_default": False, "sort_order": 12},
     {"name": "Совместный с Владом (Альфа)", "group_name": "Общее (с Владом)", "balance": 189.50, "currency": "RUB", "icon": "👥", "color": "#FEE2E2", "is_default": False, "sort_order": 13},
+
+    # Кредиты и обязательства
+    {"name": "Кредит наличными (Альфа)", "group_name": "Кредиты", "balance": 1290015.13, "currency": "RUB", "icon": "📑", "color": "#FEE2E2", "is_default": False, "sort_order": 20},
 ]
 
 DEFAULT_CATEGORIES = [

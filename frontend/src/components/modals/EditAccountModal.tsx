@@ -10,7 +10,7 @@ interface EditAccountModalProps {
   onHaptic?: (style?: 'light' | 'medium' | 'heavy') => void;
 }
 
-const EMOJI_OPTIONS = ['❤️', '💛', '💙', '💳', '💵', '👥', '📈', '🪙', '🏺', '🛏️', '🏠', '🚗'];
+const EMOJI_OPTIONS = ['❤️', '💛', '💙', '💳', '💵', '👥', '📈', '🪙', '🏺', '🛏️', '🏠', '🚗', '📑'];
 
 export const EditAccountModal: React.FC<EditAccountModalProps> = ({
   isOpen,
@@ -105,11 +105,11 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
             <label className="text-xs font-semibold text-gray-400 block mb-1">
               Группа
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-1.5">
               <button
                 type="button"
                 onClick={() => setGroupName('Личное')}
-                className={`py-2 rounded-xl text-xs font-semibold transition-all ${
+                className={`py-2 px-1 rounded-xl text-xs font-semibold transition-all text-center ${
                   groupName === 'Личное'
                     ? 'bg-[#2B5BFF] text-white shadow-sm'
                     : 'bg-gray-100 text-gray-600'
@@ -121,13 +121,25 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
               <button
                 type="button"
                 onClick={() => setGroupName('Общее (с Владом)')}
-                className={`py-2 rounded-xl text-xs font-semibold transition-all ${
+                className={`py-2 px-1 rounded-xl text-xs font-semibold transition-all text-center ${
                   groupName === 'Общее (с Владом)'
                     ? 'bg-[#2B5BFF] text-white shadow-sm'
                     : 'bg-gray-100 text-gray-600'
                 }`}
               >
-                👥 Общее (с Владом)
+                👥 Общее
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setGroupName('Кредиты')}
+                className={`py-2 px-1 rounded-xl text-xs font-semibold transition-all text-center ${
+                  groupName === 'Кредиты'
+                    ? 'bg-red-600 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                📑 Кредиты
               </button>
             </div>
           </div>

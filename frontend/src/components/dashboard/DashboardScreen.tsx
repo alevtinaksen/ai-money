@@ -43,7 +43,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 }) => {
   const [monthIdx, setMonthIdx] = useState(2); // 'Сентябрь 2026'
 
-  const totalAccountsBalance = accounts.reduce((acc, a) => acc + a.balance, 0);
+  const totalAccountsBalance = accounts
+    .filter((a) => a.group_name !== 'Кредиты')
+    .reduce((acc, a) => acc + a.balance, 0);
 
   const prevMonth = () => {
     onHaptic?.('light');
