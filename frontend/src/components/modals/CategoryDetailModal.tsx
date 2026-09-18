@@ -8,7 +8,7 @@ import {
   CloseOutlined,
 } from '@ant-design/icons';
 import { Transaction, CategoryStat, Category } from '../../types';
-import { CATEGORIES_CATALOG } from './EditTransactionModal';
+import { CATEGORIES_CATALOG, resolveCategoryAndSubcategory } from './EditTransactionModal';
 
 interface CategoryDetailModalProps {
   isOpen: boolean;
@@ -296,9 +296,7 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
               >
                 <div>
                   <span className="text-[14px] font-semibold text-[#111827] dark:text-white block">
-                    {tx.category_name && tx.note && tx.note.toLowerCase() !== tx.category_name.toLowerCase()
-                      ? `${tx.category_name} · ${tx.note}`
-                      : tx.note || tx.category_name || 'Расход'}
+                    {resolveCategoryAndSubcategory(tx).displayTitle}
                   </span>
                   <span className="text-[11px] text-gray-400 block mt-0.5">
                     {new Date(tx.created_at).toLocaleDateString('ru-RU', {

@@ -36,7 +36,7 @@ DEFAULT_ACCOUNTS = [
 DEFAULT_CATEGORIES = [
     # Еда
     {"name": "Еда", "type": "expense", "icon": "🍔", "color": "#FEE2E2", "sort_order": 1},
-    {"name": "Кафе", "type": "expense", "icon": "☕", "color": "#FEE2E2", "sort_order": 2},
+    {"name": "Кафе", "type": "expense", "icon": "🍽️", "color": "#FEE2E2", "sort_order": 2},
     {"name": "Самокат", "type": "expense", "icon": "🛴", "color": "#FEE2E2", "sort_order": 3},
     {"name": "Кофе", "type": "expense", "icon": "☕", "color": "#FEE2E2", "sort_order": 4},
     {"name": "НаЛанч", "type": "expense", "icon": "🍱", "color": "#FEE2E2", "sort_order": 5},

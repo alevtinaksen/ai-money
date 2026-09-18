@@ -9,6 +9,7 @@ import {
   CheckOutlined,
 } from '@ant-design/icons';
 import { Transaction, Account, Category, TransactionType } from '../../types';
+import { resolveCategoryAndSubcategory } from '../modals/EditTransactionModal';
 
 interface TransactionsScreenProps {
   onBack: () => void;
@@ -419,6 +420,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
                   const isTransfer = tx.type === 'transfer';
                   const isIncome = tx.type === 'income';
                   const isExpense = tx.type === 'expense';
+                  const resolved = resolveCategoryAndSubcategory(tx);
 
                   return (
                     <div
@@ -443,7 +445,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
                           {isTransfer ? (
                             <SwapOutlined className="text-[18px]" />
                           ) : (
-                            tx.category_icon || '📦'
+                            resolved.icon
                           )}
                         </div>
 
@@ -462,14 +464,19 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
                             <div>
                               <div className="flex items-center space-x-1.5 truncate">
                                 <span className="text-[15px] font-bold text-[#111827] dark:text-white leading-tight truncate">
-                                  {tx.category_name && tx.note && tx.note.toLowerCase() !== tx.category_name.toLowerCase()
-                                    ? `${tx.category_name} · ${tx.note}`
-                                    : tx.category_name || tx.note || 'Расход'}
+                                  {resolved.displayTitle}
                                 </span>
                               </div>
 
                               <div className="flex items-center space-x-1.5 text-[12px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">
-                                <span className="truncate">{tx.account_name || 'Карта Альфа'}</span>
+                                <span className="truncate">
+                                  {tx.note &&
+                                  !resolved.subcategory &&
+                                  tx.note.toLowerCase() !== resolved.mainCategory.toLowerCase()
+                                    ? `${tx.note} • `
+                                    : ''}
+                                  {tx.account_name || 'Карта Альфа'}
+                                </span>
                               </div>
                             </div>
                           )}

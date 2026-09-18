@@ -30,7 +30,7 @@ export const INITIAL_ACCOUNTS: Account[] = [
 export const INITIAL_CATEGORIES: Category[] = [
   // Еда
   { id: 'cat-1', user_id: 999999, name: 'Еда', type: 'expense', icon: '🍔', color: '#FEE2E2', sort_order: 1 },
-  { id: 'cat-2', user_id: 999999, name: 'Кафе', type: 'expense', icon: '☕', color: '#FEE2E2', sort_order: 2 },
+  { id: 'cat-2', user_id: 999999, name: 'Кафе', type: 'expense', icon: '🍽️', color: '#FEE2E2', sort_order: 2 },
   { id: 'cat-3', user_id: 999999, name: 'Самокат', type: 'expense', icon: '🛴', color: '#FEE2E2', sort_order: 3 },
   { id: 'cat-4', user_id: 999999, name: 'Кофе', type: 'expense', icon: '☕', color: '#FEE2E2', sort_order: 4 },
   { id: 'cat-5', user_id: 999999, name: 'НаЛанч', type: 'expense', icon: '🍱', color: '#FEE2E2', sort_order: 5 },

@@ -10,7 +10,7 @@ import {
 } from '@ant-design/icons';
 import { DashboardSummary, Account, Category, Transaction } from '../../types';
 
-import { CATEGORIES_CATALOG } from '../modals/EditTransactionModal';
+import { CATEGORIES_CATALOG, resolveCategoryAndSubcategory } from '../modals/EditTransactionModal';
 
 interface DashboardScreenProps {
   summary: DashboardSummary;
@@ -458,38 +458,39 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             {/* Horizontal / Stacked Transaction Cards */}
             <div className="flex items-center space-x-3 overflow-x-auto no-scrollbar pb-2">
               {monthTransactions.length > 0 ? (
-                monthTransactions.map((tx) => (
-                  <button
-                    key={tx.id}
-                    type="button"
-                    onClick={() => {
-                      onHaptic?.('light');
-                      onSelectTransaction?.(tx);
-                    }}
-                    className="flex-shrink-0 bg-white dark:bg-[#1E1F26] rounded-[22px] px-4 py-3 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center space-x-3 min-w-[170px] text-left active:scale-[0.98] transition-all"
-                  >
-                    <div className="text-2xl">{tx.category_icon || (tx.type === 'transfer' ? '🔄' : '📦')}</div>
-                    <div>
-                      <div className="text-[14px] font-semibold text-[#111827] dark:text-white leading-tight truncate max-w-[160px]">
-                        {tx.category_name && tx.note && tx.note.toLowerCase() !== tx.category_name.toLowerCase()
-                          ? `${tx.category_name} · ${tx.note}`
-                          : tx.category_name || tx.note || (tx.type === 'transfer' ? 'Перевод' : 'Расход')}
+                monthTransactions.map((tx) => {
+                  const resolved = resolveCategoryAndSubcategory(tx);
+                  return (
+                    <button
+                      key={tx.id}
+                      type="button"
+                      onClick={() => {
+                        onHaptic?.('light');
+                        onSelectTransaction?.(tx);
+                      }}
+                      className="flex-shrink-0 bg-white dark:bg-[#1E1F26] rounded-[22px] px-4 py-3 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center space-x-3 min-w-[170px] text-left active:scale-[0.98] transition-all"
+                    >
+                      <div className="text-2xl">{resolved.icon}</div>
+                      <div>
+                        <div className="text-[14px] font-semibold text-[#111827] dark:text-white leading-tight truncate max-w-[160px]">
+                          {resolved.displayTitle}
+                        </div>
+                        <div
+                          className={`text-[13px] font-bold mt-0.5 ${
+                            tx.type === 'expense'
+                              ? 'text-[#FF4B55]'
+                              : tx.type === 'income'
+                              ? 'text-[#10B981]'
+                              : 'text-[#6B7280] dark:text-gray-400'
+                          }`}
+                        >
+                          {tx.type === 'expense' ? '−' : tx.type === 'income' ? '+' : ''}
+                          {tx.amount.toLocaleString('ru-RU')} ₽
+                        </div>
                       </div>
-                      <div
-                        className={`text-[13px] font-bold mt-0.5 ${
-                          tx.type === 'expense'
-                            ? 'text-[#FF4B55]'
-                            : tx.type === 'income'
-                            ? 'text-[#10B981]'
-                            : 'text-[#6B7280] dark:text-gray-400'
-                        }`}
-                      >
-                        {tx.type === 'expense' ? '−' : tx.type === 'income' ? '+' : ''}
-                        {tx.amount.toLocaleString('ru-RU')} ₽
-                      </div>
-                    </div>
-                  </button>
-                ))
+                    </button>
+                  );
+                })
               ) : (
                 <div className="text-sm text-gray-400 py-4 text-center w-full">Нет операций за этот месяц</div>
               )}

@@ -143,6 +143,206 @@ export function evaluateMathSum(expr: string): number {
   return hasValid ? Math.round(sum * 100) / 100 : 0;
 }
 
+export const SUBCATEGORY_ICONS: Record<string, string> = {
+  // Еда
+  'Самокат': '🛴',
+  'Кафе': '🍽️',
+  'Кофе': '☕',
+  'НаЛанч': '🍱',
+  'Супермаркет': '🛒',
+
+  // Транспорт & Машина
+  'Такси': '🚕',
+  'Каршеринг': '🚙',
+  'Общественный': '🚌',
+  'Поезд': '🚆',
+  'Бензин': '⛽',
+  'ТО авто': '🔧',
+  'Парковка': '🅿️',
+  'Кредит за авто': '📑',
+
+  // Покупки
+  'Одежда': '👗',
+  'Электроника': '💻',
+  'Бытовая химия': '🧼',
+  'Товары для хобби': '🎨',
+
+  // Развлечения
+  'Кино': '🍿',
+  'Игры': '🎮',
+  'Вечеринки': '🎉',
+
+  // Здоровье
+  'Лекарства': '💊',
+  'Врачи': '🩺',
+  'Психотерапевт': '🧠',
+
+  // Жилье
+  'Аренда': '🔑',
+  'ЖКХ': '💡',
+  'Ремонт': '🔨',
+
+  // Личное & Кот
+  'Внешний вид': '💄',
+  'Привычки': '🧘',
+  'Спорт': '🏃',
+  'Корм для кота': '🐟',
+  'Здоровье кота': '🐾',
+
+  // Путешествия
+  'Отели': '🏨',
+  'Билеты': '🎫',
+  'Экскурсии': '🗺️',
+
+  // Подписки
+  'Музыка': '🎵',
+  'Кинотеатры': '🎬',
+  'Облако': '☁️',
+
+  // Подарки & Накопления & Доходы
+  'Друзьям': '🎁',
+  'Семье': '👨‍👩‍👧',
+  'Вклад': '🏦',
+  'Копилка': '🪙',
+  'Владу': '💸',
+  'Родителям': '💸',
+  'Себе на карту': '💳',
+  'Основная': '💰',
+  'Аванс': '💵',
+  'Премия': '🏆',
+  'Кешбэк': '🪙',
+};
+
+export interface ResolvedCategoryInfo {
+  mainCategory: string;
+  subcategory: string | null;
+  displayTitle: string;
+  icon: string;
+}
+
+export function resolveCategoryAndSubcategory(tx: {
+  category_name?: string | null;
+  note?: string | null;
+  category_icon?: string | null;
+  type?: string | null;
+}): ResolvedCategoryInfo {
+  const rawCat = (tx.category_name || '').trim();
+  const rawNote = (tx.note || '').trim();
+
+  // 1. Check if rawCat is an official subcategory in any catalog group
+  // (e.g. rawCat === "Самокат" -> parent is "Еда", subcategory is "Самокат")
+  for (const cat of CATEGORIES_CATALOG) {
+    const matchingSub = cat.subcategories.find(
+      (sc) => sc.toLowerCase() === rawCat.toLowerCase()
+    );
+    if (matchingSub) {
+      const icon =
+        tx.category_icon && tx.category_icon !== '📦'
+          ? tx.category_icon
+          : SUBCATEGORY_ICONS[matchingSub] || cat.icon;
+      return {
+        mainCategory: cat.name,
+        subcategory: matchingSub,
+        displayTitle: `${cat.name} · ${matchingSub}`,
+        icon,
+      };
+    }
+  }
+
+  // 2. Check if rawCat is an official main category in catalog
+  const catalogItem = CATEGORIES_CATALOG.find(
+    (c) => c.name.toLowerCase() === rawCat.toLowerCase()
+  );
+
+  if (catalogItem) {
+    // Check if rawNote matches an official subcategory of THIS category
+    if (rawNote) {
+      const exactSub = catalogItem.subcategories.find(
+        (sc) => sc.toLowerCase() === rawNote.toLowerCase()
+      );
+      if (exactSub) {
+        const icon =
+          tx.category_icon && tx.category_icon !== '📦'
+            ? tx.category_icon
+            : SUBCATEGORY_ICONS[exactSub] || catalogItem.icon;
+        return {
+          mainCategory: catalogItem.name,
+          subcategory: exactSub,
+          displayTitle: `${catalogItem.name} · ${exactSub}`,
+          icon,
+        };
+      }
+
+      // Check if rawNote contains a subcategory name (e.g. "в самокате" -> "Самокат")
+      const partialSub = catalogItem.subcategories.find((sc) =>
+        rawNote.toLowerCase().includes(sc.toLowerCase())
+      );
+      if (partialSub) {
+        const icon =
+          tx.category_icon && tx.category_icon !== '📦'
+            ? tx.category_icon
+            : SUBCATEGORY_ICONS[partialSub] || catalogItem.icon;
+        return {
+          mainCategory: catalogItem.name,
+          subcategory: partialSub,
+          displayTitle: `${catalogItem.name} · ${partialSub}`,
+          icon,
+        };
+      }
+    }
+
+    // No official subcategory match! Do NOT append arbitrary comment.
+    return {
+      mainCategory: catalogItem.name,
+      subcategory: null,
+      displayTitle: catalogItem.name,
+      icon: tx.category_icon && tx.category_icon !== '📦' ? tx.category_icon : catalogItem.icon,
+    };
+  }
+
+  // 3. If rawCat wasn't matched, check if rawNote matches any subcategory in catalog
+  if (rawNote) {
+    for (const cat of CATEGORIES_CATALOG) {
+      const matched = cat.subcategories.find(
+        (sc) =>
+          sc.toLowerCase() === rawNote.toLowerCase() ||
+          rawNote.toLowerCase().includes(sc.toLowerCase())
+      );
+      if (matched) {
+        const icon =
+          tx.category_icon && tx.category_icon !== '📦'
+            ? tx.category_icon
+            : SUBCATEGORY_ICONS[matched] || cat.icon;
+        return {
+          mainCategory: cat.name,
+          subcategory: matched,
+          displayTitle: `${cat.name} · ${matched}`,
+          icon,
+        };
+      }
+    }
+  }
+
+  // 4. Transfers
+  if (tx.type === 'transfer') {
+    return {
+      mainCategory: 'Переводы',
+      subcategory: null,
+      displayTitle: rawCat || 'Перевод',
+      icon: tx.category_icon || '🔄',
+    };
+  }
+
+  // 5. Fallback: return rawCat or generic label, without arbitrary comment
+  const fallbackName = rawCat || (tx.type === 'income' ? 'Доход' : 'Расход');
+  return {
+    mainCategory: fallbackName,
+    subcategory: null,
+    displayTitle: fallbackName,
+    icon: tx.category_icon || (tx.type === 'income' ? '💰' : '📦'),
+  };
+}
+
 interface EditTransactionContentProps {
   transaction: Transaction;
   accounts: Account[];
