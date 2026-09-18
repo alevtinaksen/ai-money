@@ -1,5 +1,11 @@
 import React, { useState } from 'react';
-import { X, Trash2, Calendar, ChevronDown, Check } from 'lucide-react';
+import {
+  CloseOutlined,
+  DeleteOutlined,
+  CalendarOutlined,
+  DownOutlined,
+  CheckOutlined,
+} from '@ant-design/icons';
 import { Transaction, Account, Category } from '../../types';
 
 interface EditTransactionModalProps {
@@ -251,7 +257,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
           }}
           className="w-11 h-11 rounded-full bg-white shadow-sm flex items-center justify-center text-[#111827] active:bg-[#F3F4F6]"
         >
-          <X className="w-5 h-5" />
+          <CloseOutlined className="text-[18px]" />
         </button>
 
         <button
@@ -262,7 +268,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
           }}
           className="w-11 h-11 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-600 hover:text-red-500 active:bg-red-50 transition-colors"
         >
-          <Trash2 className="w-5 h-5" />
+          <DeleteOutlined className="text-[18px]" />
         </button>
       </div>
 
@@ -292,7 +298,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
 
           {/* Date Pill */}
           <div className="inline-flex items-center space-x-2 bg-white px-4 py-2.5 rounded-full shadow-sm border border-gray-100 text-[#111827]">
-            <Calendar className="w-4 h-4 text-[#9CA3AF]" />
+            <CalendarOutlined className="text-[14px] text-[#9CA3AF]" />
             <span className="text-[14px] font-semibold">{dateLabel}</span>
           </div>
         </div>
@@ -396,7 +402,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
           >
             <span>{selectedCat?.icon || activeCatalog.icon || '📦'}</span>
             <span>{selectedCat?.name || activeCatalog.name}</span>
-            <ChevronDown className="w-4 h-4 ml-0.5" />
+            <DownOutlined className="text-[14px] ml-0.5" />
           </button>
 
           {/* Subcategories Horizontal Pills (matching Screenshot 2: • Одежда, • Электроника...) */}
@@ -446,7 +452,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                 onClick={() => setIsPickerOpen(false)}
                 className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200"
               >
-                <X className="w-4 h-4" />
+                <CloseOutlined className="text-[14px]" />
               </button>
             </div>
 
@@ -475,7 +481,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                         <span className="text-2xl">{cat.icon}</span>
                         <span className="text-[15px] font-bold">{cat.name}</span>
                       </div>
-                      {isCatActive && <Check className="w-4 h-4 text-[#2B5BFF]" />}
+                      {isCatActive && <CheckOutlined className="text-[14px] text-[#2B5BFF]" />}
                     </button>
 
                     {/* Subcategories list */}
@@ -566,7 +572,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
           onClick={handleSave}
           className="w-14 h-14 rounded-full bg-[#2B5BFF] text-white flex items-center justify-center shadow-[0_8px_20px_rgba(43,91,255,0.4)] active:scale-95 transition-all flex-shrink-0"
         >
-          <Check className="w-7 h-7 stroke-[2.5]" />
+          <CheckOutlined className="text-[26px]" />
         </button>
       </div>
 
@@ -575,7 +581,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/40 backdrop-blur-xs p-5">
           <div className="bg-white rounded-3xl p-6 max-w-xs w-full shadow-2xl text-center space-y-4 animate-scale-up">
             <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 mx-auto flex items-center justify-center">
-              <Trash2 className="w-6 h-6" />
+              <DeleteOutlined className="text-[22px]" />
             </div>
             <div>
               <h4 className="text-[17px] font-bold text-gray-900">Удалить операцию?</h4>

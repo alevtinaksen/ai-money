@@ -1,5 +1,11 @@
 import React, { useState } from 'react';
-import { X, ArrowLeftRight, Calendar, Check, ChevronRight } from 'lucide-react';
+import {
+  CloseOutlined,
+  SwapOutlined,
+  CalendarOutlined,
+  CheckOutlined,
+  RightOutlined,
+} from '@ant-design/icons';
 import { Account, Category, TransactionType } from '../../types';
 import { CustomNumpad } from '../keypad/CustomNumpad';
 
@@ -100,7 +106,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
           }}
           className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-[#4B5563] active:bg-[#F3F4F6]"
         >
-          <X className="w-5 h-5" />
+          <CloseOutlined className="text-[18px]" />
         </button>
 
         <button
@@ -113,7 +119,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
             txType === 'transfer' ? 'ring-2 ring-[#2B5BFF] text-[#2B5BFF]' : ''
           }`}
         >
-          <ArrowLeftRight className="w-5 h-5" />
+          <SwapOutlined className="text-[18px]" />
         </button>
       </div>
 
@@ -151,7 +157,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
               }}
               className="flex items-center space-x-2 bg-white px-4 py-2.5 rounded-[22px] shadow-sm active:scale-[0.98] transition-all border border-gray-100"
             >
-              <Calendar className="w-4 h-4 text-[#6B7280]" />
+              <CalendarOutlined className="text-[14px] text-[#6B7280]" />
               <span className="text-[14px] font-medium text-[#374151]">
                 {dateLabel}
               </span>
@@ -225,7 +231,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                 >
                   <span className="text-lg">{cat.icon}</span>
                   <span className="text-[14px] font-medium">{cat.name}</span>
-                  <ChevronRight className="w-3.5 h-3.5 text-[#9CA3AF]" />
+                  <RightOutlined className="text-[12px] text-[#9CA3AF]" />
                 </button>
               );
             })}
@@ -248,7 +254,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
               onClick={handleSubmit}
               className="w-13 h-13 p-3 rounded-full bg-[#2B5BFF] text-white flex items-center justify-center shadow-[0_4px_16px_rgba(43,91,255,0.4)] active:scale-95 transition-all"
             >
-              <Check className="w-6 h-6 stroke-[2.5]" />
+              <CheckOutlined className="text-[22px]" />
             </button>
           </div>
         </div>

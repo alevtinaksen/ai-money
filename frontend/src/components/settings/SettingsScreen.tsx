@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
 import {
-  ArrowLeft,
-  Palette,
-  RefreshCw,
-  Globe,
-  Mic,
-  ScanLine,
-  Cpu,
-  Trash2,
-  Info,
-  ChevronRight,
-  Sparkles,
-  Check,
-  AlertTriangle,
-} from 'lucide-react';
+  ArrowLeftOutlined,
+  BgColorsOutlined,
+  DollarOutlined,
+  GlobalOutlined,
+  AudioOutlined,
+  ScanOutlined,
+  ApiOutlined,
+  SyncOutlined,
+  DeleteOutlined,
+  InfoCircleOutlined,
+  RightOutlined,
+  ThunderboltOutlined,
+  CheckOutlined,
+  WarningOutlined,
+} from '@ant-design/icons';
 
 interface SettingsScreenProps {
   onBack: () => void;
@@ -127,7 +128,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             }}
             className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-[#111827] active:bg-[#F3F4F6]"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeftOutlined className="text-[18px]" />
           </button>
           <h1 className="text-[24px] font-bold text-[#111827] tracking-tight">
             Настройки
@@ -135,7 +136,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         </div>
 
         <div className="flex items-center space-x-1 px-3 py-1 rounded-full bg-[#EDE9FE] text-[#7C3AED] text-xs font-bold shadow-sm">
-          <Sparkles className="w-3.5 h-3.5" />
+          <ThunderboltOutlined className="text-[12px]" />
           <span>AI Pro</span>
         </div>
       </div>
@@ -156,13 +157,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             >
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                  <Palette className="w-4 h-4" />
+                  <BgColorsOutlined className="text-[14px]" />
                 </div>
                 <span className="text-[15px] font-medium text-[#111827]">Тема</span>
               </div>
               <div className="flex items-center space-x-1.5 text-[#2B5BFF] text-sm font-semibold">
                 <span>{theme === 'light' ? '☀️ Светлая' : '🌙 Тёмная'}</span>
-                <ChevronRight className="w-4 h-4 text-gray-400" />
+                <RightOutlined className="text-[12px] text-gray-400" />
               </div>
             </button>
 
@@ -174,7 +175,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             >
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                  <RefreshCw className="w-4 h-4" />
+                  <DollarOutlined className="text-[14px]" />
                 </div>
                 <span className="text-[15px] font-medium text-[#111827]">Основная валюта</span>
               </div>
@@ -182,7 +183,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 <span className="bg-[#EEF2FF] text-[#4338CA] px-2.5 py-0.5 rounded-full text-xs font-bold">
                   {CURRENCIES[currencyIdx]}
                 </span>
-                <ChevronRight className="w-4 h-4 text-gray-400" />
+                <RightOutlined className="text-[12px] text-gray-400" />
               </div>
             </button>
 
@@ -194,13 +195,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             >
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-                  <Globe className="w-4 h-4" />
+                  <GlobalOutlined className="text-[14px]" />
                 </div>
                 <span className="text-[15px] font-medium text-[#111827]">Язык</span>
               </div>
               <div className="flex items-center space-x-1.5 text-[#6B7280] text-sm font-medium">
                 <span>{lang}</span>
-                <ChevronRight className="w-4 h-4 text-gray-400" />
+                <RightOutlined className="text-[12px] text-gray-400" />
               </div>
             </button>
           </div>
@@ -220,7 +221,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             >
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                  <Mic className="w-4 h-4" />
+                  <AudioOutlined className="text-[14px]" />
                 </div>
                 <div>
                   <span className="text-[15px] font-medium text-[#111827] block">Голосовой ввод</span>
@@ -229,7 +230,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </div>
               <div className="flex items-center space-x-1 text-[#2B5BFF] text-xs font-semibold max-w-[140px] text-right truncate">
                 <span>{VOICE_ENGINES[voiceEngineIdx]}</span>
-                <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                <RightOutlined className="text-[12px] text-gray-400 shrink-0" />
               </div>
             </button>
 
@@ -237,7 +238,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <div className="flex items-center justify-between p-4">
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                  <ScanLine className="w-4 h-4" />
+                  <ScanOutlined className="text-[14px]" />
                 </div>
                 <div>
                   <span className="text-[15px] font-medium text-[#111827] block">Сканер чеков и QR</span>
@@ -267,7 +268,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             >
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                  <Cpu className="w-4 h-4" />
+                  <ApiOutlined className="text-[14px]" />
                 </div>
                 <div>
                   <span className="text-[15px] font-medium text-[#111827] block">AI-движок</span>
@@ -278,7 +279,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md font-bold">
                   {AI_MODELS[aiModelIdx]}
                 </span>
-                <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                <RightOutlined className="text-[12px] text-gray-400 shrink-0" />
               </div>
             </button>
           </div>
@@ -298,7 +299,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             >
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                  <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                  <SyncOutlined className={`text-[14px] ${isSyncing ? 'animate-spin' : ''}`} />
                 </div>
                 <div>
                   <span className="text-[15px] font-medium text-[#111827] block">
@@ -311,11 +312,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </div>
               {syncSuccess ? (
                 <span className="inline-flex items-center space-x-1 text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full animate-fade-in">
-                  <Check className="w-3.5 h-3.5 stroke-[3]" />
+                  <CheckOutlined className="text-[12px]" />
                   <span>Обновлено</span>
                 </span>
               ) : (
-                <ChevronRight className="w-4 h-4 text-[#8E8E93]" />
+                <RightOutlined className="text-[12px] text-[#8E8E93]" />
               )}
             </button>
 
@@ -329,14 +330,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             >
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
-                  <Trash2 className="w-4 h-4" />
+                  <DeleteOutlined className="text-[14px]" />
                 </div>
                 <div>
                   <span className="text-[15px] font-medium block">Очистить кэш и сбросить</span>
                   <span className="text-xs text-red-400">Сбросить данные к начальным</span>
                 </div>
               </div>
-              <ChevronRight className="w-4 h-4 text-red-400" />
+              <RightOutlined className="text-[12px] text-red-400" />
             </button>
           </div>
         </div>
@@ -344,7 +345,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         {/* Group: Информация */}
         <div className="pt-2 text-center text-xs text-[#8E8E93] space-y-1">
           <div className="flex items-center justify-center space-x-1">
-            <Info className="w-3.5 h-3.5" />
+            <InfoCircleOutlined className="text-[12px]" />
             <span>AI Финансы v1.2 • Groq Llama 3.3 Edition</span>
           </div>
           <p className="text-[11px] text-gray-400">Все данные зашифрованы и сохраняются локально</p>
@@ -356,7 +357,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 backdrop-blur-sm p-5 animate-fade-in">
           <div className="bg-white rounded-[28px] max-w-sm w-full p-6 shadow-2xl space-y-4 animate-slide-up text-center">
             <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto">
-              <AlertTriangle className="w-6 h-6 stroke-[2]" />
+              <WarningOutlined className="text-[22px]" />
             </div>
             <div>
               <h3 className="text-lg font-bold text-[#111827]">Сбросить данные?</h3>

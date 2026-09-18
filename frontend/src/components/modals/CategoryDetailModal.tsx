@@ -1,5 +1,13 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Pencil, CreditCard, Receipt, ChevronRight, Plus, X } from 'lucide-react';
+import {
+  ArrowLeftOutlined,
+  EditOutlined,
+  CreditCardOutlined,
+  FileTextOutlined,
+  RightOutlined,
+  PlusOutlined,
+  CloseOutlined,
+} from '@ant-design/icons';
 import { Transaction, CategoryStat, Category } from '../../types';
 
 interface CategoryDetailModalProps {
@@ -166,7 +174,7 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
           }}
           className="w-10 h-10 rounded-full bg-[#1F2026] flex items-center justify-center text-gray-300 active:scale-90 transition-all border border-gray-700/40"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeftOutlined className="text-[18px]" />
         </button>
 
         <div className="flex items-center space-x-2.5">
@@ -190,7 +198,7 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
           }}
           className="w-10 h-10 rounded-full bg-[#1F2026] flex items-center justify-center text-gray-300 active:scale-90 transition-all border border-gray-700/40"
         >
-          <Pencil className="w-4 h-4" />
+          <EditOutlined className="text-[14px]" />
         </button>
       </div>
 
@@ -200,14 +208,12 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 rounded-xl bg-[#25262C] flex items-center justify-center text-gray-400 border border-gray-700/40">
-                <CreditCard className="w-5 h-5" />
+                <CreditCardOutlined className="text-[18px]" />
               </div>
               <div>
-                <span className="text-[14px] font-bold text-white block">Бюджет на месяц</span>
-                <span className="text-[12px] text-gray-400 block mt-0.5">
-                  {budget
-                    ? `Лимит: ${budget.toLocaleString('ru-RU')} ₽`
-                    : 'Бюджет не установлен для этой категории'}
+                <span className="text-[13px] font-semibold text-gray-400 block">Бюджет на месяц</span>
+                <span className="text-[20px] font-black text-white block tracking-tight mt-0.5">
+                  {budget ? `${budget.toLocaleString('ru-RU')} ₽` : 'Не установлен'}
                 </span>
               </div>
             </div>
@@ -216,46 +222,30 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
               type="button"
               onClick={() => {
                 onHaptic?.('light');
-                setIsEditingBudget(true);
+                setIsEditingBudget(!isEditingBudget);
                 setBudgetInput(budget ? budget.toString() : '');
               }}
-              className="text-[14px] font-semibold text-[#4F75FF] hover:underline"
+              className="text-[13px] font-bold text-[#4F75FF] bg-[#25262C] px-3 py-1.5 rounded-full hover:bg-gray-800 transition-colors"
             >
               {budget ? 'Изменить' : 'Установить'}
             </button>
           </div>
 
-          {/* Budget progress bar if budget is set */}
-          {budget && (
-            <div className="mt-3 pt-3 border-t border-gray-800/40">
-              <div className="flex items-center justify-between text-[12px] text-gray-400 mb-1.5 font-medium">
-                <span>Потрачено: {totalAmount.toLocaleString('ru-RU')} ₽</span>
-                <span>{Math.round((totalAmount / budget) * 100)}%</span>
-              </div>
-              <div className="w-full h-2 bg-[#25262C] rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[#4F75FF] rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(100, Math.round((totalAmount / budget) * 100))}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Inline Budget Editor */}
+          {/* Quick budget inline edit input */}
           {isEditingBudget && (
-            <div className="mt-3 pt-3 border-t border-gray-800/60 flex items-center space-x-2">
+            <div className="mt-3 pt-3 border-t border-gray-800/60 flex items-center space-x-2 animate-fade-in">
               <input
-                type="text"
+                type="number"
+                placeholder="Сумма лимита (₽)"
                 value={budgetInput}
                 onChange={(e) => setBudgetInput(e.target.value)}
-                placeholder="Сумма лимита (₽)"
+                className="flex-1 bg-[#25262C] rounded-xl px-3.5 py-2 text-white text-sm outline-none border border-gray-700 focus:border-[#4F75FF]"
                 autoFocus
-                className="flex-1 bg-[#25262C] rounded-xl px-3 py-2 text-[14px] text-white placeholder-gray-500 focus:outline-none border border-gray-700"
               />
               <button
                 type="button"
                 onClick={handleSaveBudget}
-                className="px-3.5 py-2 bg-[#2B5BFF] text-white rounded-xl text-[13px] font-bold active:scale-95"
+                className="bg-[#2B5BFF] text-white px-3.5 py-2 rounded-xl text-xs font-bold active:scale-95"
               >
                 ОК
               </button>
@@ -264,7 +254,7 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
                 onClick={() => setIsEditingBudget(false)}
                 className="p-2 text-gray-400 hover:text-white"
               >
-                <X className="w-4 h-4" />
+                <CloseOutlined className="text-[14px]" />
               </button>
             </div>
           )}
@@ -281,7 +271,7 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
         >
           <div className="flex items-center space-x-3.5">
             <div className="w-10 h-10 rounded-xl bg-[#25262C] flex items-center justify-center text-gray-400 border border-gray-700/40">
-              <Receipt className="w-5 h-5" />
+              <FileTextOutlined className="text-[18px]" />
             </div>
             <div>
               <span className="text-[13px] font-semibold text-gray-400 block">Транзакции</span>
@@ -294,7 +284,7 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
 
           <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-[#25262C] text-[#4F75FF] font-bold text-[13px]">
             <span>{txCount}</span>
-            <ChevronRight className="w-4 h-4" />
+            <RightOutlined className="text-[12px]" />
           </div>
         </button>
 
@@ -465,7 +455,7 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
                         ₽
                       </span>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-gray-500" />
+                    <RightOutlined className="text-[12px] text-gray-500" />
                   </div>
                 </div>
 
@@ -497,7 +487,7 @@ export const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({
           }}
           className="w-14 h-14 rounded-full bg-[#2B5BFF] text-white flex items-center justify-center shadow-[0_8px_24px_rgba(43,91,255,0.4)] active:scale-90 transition-all"
         >
-          <Plus className="w-7 h-7 stroke-[2.5]" />
+          <PlusOutlined className="text-[26px]" />
         </button>
       </div>
     </div>

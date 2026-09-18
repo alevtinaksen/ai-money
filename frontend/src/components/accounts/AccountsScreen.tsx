@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Pencil, Plus, ChevronDown, ChevronUp, ArrowLeftRight } from 'lucide-react';
+import {
+  ArrowLeftOutlined,
+  EditOutlined,
+  PlusOutlined,
+  DownOutlined,
+  UpOutlined,
+  SwapOutlined,
+} from '@ant-design/icons';
 import { Account } from '../../types';
 
 interface AccountsScreenProps {
@@ -59,7 +66,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
             }}
             className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-[#111827] active:bg-[#F3F4F6]"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeftOutlined className="text-[18px]" />
           </button>
           <h1 className="text-[26px] font-bold text-[#111827] tracking-tight">Счета</h1>
         </div>
@@ -71,7 +78,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
             onClick={() => onHaptic?.('light')}
             className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-[#111827] active:bg-[#F3F4F6]"
           >
-            <Pencil className="w-4 h-4" />
+            <EditOutlined className="text-[14px]" />
           </button>
 
           <div className="relative">
@@ -83,7 +90,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
               }}
               className="w-10 h-10 rounded-full bg-[#EDE9FE] text-[#7C3AED] shadow-sm flex items-center justify-center active:scale-95"
             >
-              <Plus className="w-5 h-5 stroke-[2.5]" />
+              <PlusOutlined className="text-[18px]" />
             </button>
             <span className="absolute -top-1 -right-1 text-[12px]">🚀</span>
           </div>
@@ -132,9 +139,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 >
                   <div className="flex items-center space-x-2">
                     {isOpen ? (
-                      <ChevronDown className="w-4 h-4 text-[#6B7280]" />
+                      <DownOutlined className="text-[14px] text-[#6B7280]" />
                     ) : (
-                      <ChevronUp className="w-4 h-4 text-[#6B7280]" />
+                      <UpOutlined className="text-[14px] text-[#6B7280]" />
                     )}
                     <span className={`text-[17px] font-bold ${isCreditGroup ? 'text-red-600' : 'text-[#111827]'}`}>
                       {groupName}
@@ -202,7 +209,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
           }}
           className="w-14 h-14 rounded-full bg-[#2B5BFF] text-white flex items-center justify-center shadow-[0_8px_24px_rgba(43,91,255,0.4)] active:scale-95 transition-all"
         >
-          <ArrowLeftRight className="w-6 h-6 stroke-[2.5]" />
+          <SwapOutlined className="text-[22px]" />
         </button>
       </div>
     </div>

@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import {
-  Wallet,
-  RotateCw,
-  Settings,
-  ChevronLeft,
-  ChevronRight,
-  ScanLine,
-  Mic,
-  Plus,
-} from 'lucide-react';
+  WalletOutlined,
+  ReloadOutlined,
+  SettingOutlined,
+  LeftOutlined,
+  RightOutlined,
+  ScanOutlined,
+  AudioOutlined,
+  PlusOutlined,
+} from '@ant-design/icons';
 import { DashboardSummary, Account, Category, Transaction } from '../../types';
 
 interface DashboardScreenProps {
@@ -26,7 +26,20 @@ interface DashboardScreenProps {
   onHaptic?: (style?: 'light' | 'medium' | 'heavy') => void;
 }
 
-const MONTHS = ['Июль 2026', 'Август 2026', 'Сентябрь 2026', 'Октябрь 2026', 'Ноябрь 2026'];
+const MONTHS = [
+  'Январь 2026',
+  'Февраль 2026',
+  'Март 2026',
+  'Апрель 2026',
+  'Май 2026',
+  'Июнь 2026',
+  'Июль 2026',
+  'Август 2026',
+  'Сентябрь 2026',
+  'Октябрь 2026',
+  'Ноябрь 2026',
+  'Декабрь 2026',
+];
 
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   summary,
@@ -40,22 +53,23 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onSelectTransaction,
   onSelectCategory,
   onRefresh,
-  onHaptic
+  onHaptic,
 }) => {
-  const [monthIdx, setMonthIdx] = useState(2); // 'Сентябрь 2026'
+  const [monthIdx, setMonthIdx] = useState(4); // Default to "Май 2026" (matches real app data)
 
-  const totalAccountsBalance = accounts
-    .filter((a) => a.group_name !== 'Кредиты')
-    .reduce((acc, a) => acc + a.balance, 0);
+  const totalAccountsBalance = accounts.reduce((sum, acc) => {
+    if (acc.group_name === 'Кредиты') return sum - acc.balance;
+    return sum + acc.balance;
+  }, 0);
 
   const prevMonth = () => {
     onHaptic?.('light');
-    setMonthIdx((prev) => Math.max(0, prev - 1));
+    setMonthIdx((prev) => (prev > 0 ? prev - 1 : 11));
   };
 
   const nextMonth = () => {
     onHaptic?.('light');
-    setMonthIdx((prev) => Math.min(MONTHS.length - 1, prev + 1));
+    setMonthIdx((prev) => (prev < 11 ? prev + 1 : 0));
   };
 
   // Top categories sorted by spending for the period (matching Screenshot 1: media_1789746985466.png)
@@ -129,7 +143,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           }}
           className="flex items-center space-x-2 text-[#111827] active:opacity-75 transition-opacity"
         >
-          <Wallet className="w-6 h-6 text-[#111827]" strokeWidth={2.2} />
+          <WalletOutlined className="text-[22px] text-[#111827]" />
           <span className="text-[17px] font-bold tracking-tight">
             {totalAccountsBalance.toLocaleString('ru-RU', {
               minimumFractionDigits: 2,
@@ -150,7 +164,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             className="p-1 hover:text-black transition-colors active:rotate-180 transition-transform duration-300"
             title="Обновить"
           >
-            <RotateCw className="w-5 h-5 text-[#4B5563]" strokeWidth={1.8} />
+            <ReloadOutlined className="text-[18px] text-[#4B5563]" />
           </button>
           <button
             type="button"
@@ -161,7 +175,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             className="p-1 hover:text-black transition-colors"
             title="Настройки"
           >
-            <Settings className="w-5 h-5 text-[#4B5563]" strokeWidth={1.8} />
+            <SettingOutlined className="text-[18px] text-[#4B5563]" />
           </button>
         </div>
       </div>
@@ -175,7 +189,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             onClick={prevMonth}
             className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-[#6B7280] active:scale-90"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <LeftOutlined className="text-[14px]" />
           </button>
           <span className="text-[17px] font-bold text-[#111827] min-w-[140px] text-center">
             {MONTHS[monthIdx]}
@@ -185,7 +199,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             onClick={nextMonth}
             className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-[#6B7280] active:scale-90"
           >
-            <ChevronRight className="w-4 h-4" />
+            <RightOutlined className="text-[14px]" />
           </button>
         </div>
 
@@ -299,10 +313,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             <button
               type="button"
               onClick={() => onHaptic?.('light')}
-              className="text-[13px] font-semibold text-[#2B5BFF] flex items-center space-x-0.5"
+              className="text-[13px] font-semibold text-[#2B5BFF] flex items-center space-x-1"
             >
               <span>Все транзакции</span>
-              <ChevronRight className="w-3.5 h-3.5" />
+              <RightOutlined className="text-[12px]" />
             </button>
           </div>
 
@@ -371,7 +385,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             }}
             className="w-13 h-13 p-3 rounded-full bg-white text-[#111827] shadow-[0_4px_16px_rgba(0,0,0,0.08)] flex items-center justify-center active:scale-90 transition-all border border-gray-100"
           >
-            <ScanLine className="w-6 h-6 stroke-[2]" />
+            <ScanOutlined className="text-[22px]" />
           </button>
 
           {/* Center: Big Elevated Royal Blue Microphone Button */}
@@ -385,7 +399,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               }}
               className="relative w-18 h-18 p-4 rounded-full bg-[#2B5BFF] text-white shadow-[0_8px_24px_rgba(43,91,255,0.45)] flex items-center justify-center active:scale-95 transition-all"
             >
-              <Mic className="w-8 h-8 stroke-[2.2]" />
+              <AudioOutlined className="text-[30px]" />
             </button>
           </div>
 
@@ -398,7 +412,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             }}
             className="w-13 h-13 p-3 rounded-full bg-[#2B5BFF]/15 text-[#2B5BFF] flex items-center justify-center active:scale-90 transition-all border border-[#2B5BFF]/25 shadow-sm"
           >
-            <Plus className="w-6 h-6 stroke-[2.5]" />
+            <PlusOutlined className="text-[22px]" />
           </button>
         </div>
       </div>

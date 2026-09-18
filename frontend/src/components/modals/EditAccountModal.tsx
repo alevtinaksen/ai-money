@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Pencil, Trash2, Check } from 'lucide-react';
+import { CloseOutlined, EditOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons';
 import { Account } from '../../types';
 
 interface EditAccountModalProps {
@@ -78,7 +78,7 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
             }}
             className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 active:bg-gray-200"
           >
-            <X className="w-5 h-5" />
+            <CloseOutlined className="text-[18px]" />
           </button>
           <h3 className="text-[18px] font-bold text-[#111827]">
             {account ? 'Редактировать счёт' : 'Новый счёт'}
@@ -104,7 +104,7 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
               className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-sm"
             >
-              <Pencil className="w-3 h-3" />
+              <EditOutlined className="text-[10px]" />
             </button>
           </div>
         </div>
@@ -141,7 +141,7 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
               placeholder="Название счёта"
               className="w-full bg-white border border-gray-200/90 rounded-2xl pl-10 pr-4 py-3 text-[15px] font-semibold text-gray-900 shadow-2xs focus:outline-none focus:border-blue-500"
             />
-            <Pencil className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5" />
+            <EditOutlined className="text-[14px] text-gray-400 absolute left-3.5 top-3.5" />
           </div>
 
           {/* Current Balance */}
@@ -214,7 +214,7 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
             }}
             className="w-full py-2.5 rounded-2xl bg-red-50 text-red-600 text-[14px] font-semibold flex items-center justify-center space-x-1.5 hover:bg-red-100 transition-colors"
           >
-            <Trash2 className="w-4 h-4" />
+            <DeleteOutlined className="text-[14px]" />
             <span>Удалить счёт</span>
           </button>
         )}
@@ -225,7 +225,7 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
           onClick={handleSave}
           className="w-full py-3.5 rounded-2xl bg-[#FF4B55] text-white font-bold text-[16px] shadow-[0_6px_20px_rgba(255,75,85,0.35)] active:scale-[0.98] transition-all flex items-center justify-center space-x-2"
         >
-          <Check className="w-5 h-5 stroke-[2.5]" />
+          <CheckOutlined className="text-[18px]" />
           <span>Сохранить</span>
         </button>
       </div>
@@ -235,7 +235,7 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/40 backdrop-blur-xs p-5">
           <div className="bg-white rounded-3xl p-6 max-w-xs w-full shadow-2xl text-center space-y-4 animate-scale-up">
             <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 mx-auto flex items-center justify-center">
-              <Trash2 className="w-6 h-6" />
+              <DeleteOutlined className="text-[22px]" />
             </div>
             <div>
               <h4 className="text-[17px] font-bold text-gray-900">Удалить этот счёт?</h4>

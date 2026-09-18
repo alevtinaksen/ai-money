@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Plus, Pencil, Check } from 'lucide-react';
+import { CloseOutlined, PlusOutlined, EditOutlined, CheckOutlined } from '@ant-design/icons';
 import { Account } from '../../types';
 
 interface AccountSelectSheetProps {
@@ -43,7 +43,7 @@ export const AccountSelectSheet: React.FC<AccountSelectSheetProps> = ({
             }}
             className="w-9 h-9 rounded-full bg-[#F3F4F6] flex items-center justify-center text-[#4B5563] active:bg-[#E5E7EB]"
           >
-            <Plus className="w-5 h-5" />
+            <PlusOutlined className="text-[18px]" />
           </button>
 
           <button
@@ -54,7 +54,7 @@ export const AccountSelectSheet: React.FC<AccountSelectSheetProps> = ({
             }}
             className="w-9 h-9 rounded-full bg-[#F3F4F6] flex items-center justify-center text-[#4B5563] active:bg-[#E5E7EB]"
           >
-            <X className="w-5 h-5" />
+            <CloseOutlined className="text-[18px]" />
           </button>
         </div>
 
@@ -113,7 +113,7 @@ export const AccountSelectSheet: React.FC<AccountSelectSheetProps> = ({
                     }}
                     className="text-[#9CA3AF] hover:text-[#4B5563] p-1"
                   >
-                    <Pencil className="w-4 h-4" />
+                    <EditOutlined className="text-[14px]" />
                   </button>
 
                   <div
@@ -123,7 +123,7 @@ export const AccountSelectSheet: React.FC<AccountSelectSheetProps> = ({
                         : 'border-2 border-[#D1D5DB]'
                     }`}
                   >
-                    {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                    {isSelected && <CheckOutlined className="text-[12px]" />}
                   </div>
                 </div>
               </div>

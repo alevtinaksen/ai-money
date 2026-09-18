@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Check } from 'lucide-react';
+import { CloseOutlined, CheckOutlined } from '@ant-design/icons';
 import { Account } from '../../types';
 
 interface VoiceOverlayProps {
@@ -158,7 +158,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({
           }}
           className="w-13 h-13 p-3.5 rounded-full bg-white text-[#111827] shadow-[0_4px_16px_rgba(0,0,0,0.12)] flex items-center justify-center active:scale-90 transition-all border border-gray-100"
         >
-          <X className="w-6 h-6 stroke-[2.2]" />
+          <CloseOutlined className="text-[22px]" />
         </button>
 
         {/* Big Action Checkmark Button (Center) */}
@@ -173,7 +173,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({
             {isProcessing ? (
               <div className="w-7 h-7 border-3 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
-              <Check className="w-9 h-9 stroke-[3]" />
+              <CheckOutlined className="text-[34px]" />
             )}
           </button>
         </div>

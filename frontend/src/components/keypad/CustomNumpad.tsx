@@ -1,5 +1,5 @@
 import React from 'react';
-import { Delete } from 'lucide-react';
+import { RollbackOutlined } from '@ant-design/icons';
 
 interface CustomNumpadProps {
   onDigit: (digit: string) => void;
@@ -51,7 +51,7 @@ export const CustomNumpad: React.FC<CustomNumpadProps> = ({
             className="h-[52px] sm:h-[58px] bg-white active:bg-[#F3F4F6] rounded-[16px] flex flex-col items-center justify-center shadow-[0_1px_2px_rgba(0,0,0,0.08)] transition-all active:scale-[0.98]"
           >
             {k.action === 'delete' ? (
-              <Delete className="w-6 h-6 text-[#1F2937]" strokeWidth={1.75} />
+              <RollbackOutlined className="text-[22px] text-[#1F2937]" />
             ) : (
               <>
                 <span className="text-[24px] font-medium leading-none text-[#111827]">
