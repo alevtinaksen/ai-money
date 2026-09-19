@@ -777,14 +777,14 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
                 setIsAccPickerOpen(!isAccPickerOpen);
                 setIsPickerOpen(false);
               }}
-              className="inline-flex items-center space-x-2 bg-white dark:bg-[#1E1F26] px-4 py-2.5 rounded-full shadow-sm border border-gray-100 dark:border-gray-800 active:scale-[0.98] transition-all"
+              className="inline-flex items-center space-x-2 bg-white dark:bg-[#1E1F26] px-4 py-2.5 rounded-full shadow-sm border border-gray-100 dark:border-gray-800 active:scale-[0.98] transition-all max-w-[200px] sm:max-w-[240px] min-w-0 flex-shrink"
             >
-              <span className="text-lg">{selectedAcc?.icon || '💳'}</span>
-              <div className="text-left">
-                <span className="text-[14px] font-semibold text-[#111827] dark:text-white block leading-tight">
+              <span className="text-lg flex-shrink-0">{selectedAcc?.icon || '💳'}</span>
+              <div className="text-left min-w-0 flex-1">
+                <span className="text-[14px] font-semibold text-[#111827] dark:text-white block leading-tight truncate">
                   {selectedAcc?.name || 'Счёт'}
                 </span>
-                <span className="text-[11px] text-[#9CA3AF] dark:text-gray-400 block leading-none mt-0.5">
+                <span className="text-[11px] text-[#9CA3AF] dark:text-gray-400 block leading-none mt-0.5 whitespace-nowrap">
                   {selectedAcc ? (selectedAcc.balance / 1000).toFixed(2) : 0} тыс. ₽
                 </span>
               </div>

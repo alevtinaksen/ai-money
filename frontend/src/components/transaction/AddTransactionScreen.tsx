@@ -164,14 +164,14 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                 onHaptic?.('light');
                 onOpenAccountSelect();
               }}
-              className="flex items-center space-x-2.5 bg-white dark:bg-[#1A1B20] px-4 py-2 rounded-[22px] shadow-sm active:scale-[0.98] transition-all border border-gray-100 dark:border-[#252730]"
+              className="flex items-center space-x-2.5 bg-white dark:bg-[#1A1B20] px-4 py-2 rounded-[22px] shadow-sm active:scale-[0.98] transition-all border border-gray-100 dark:border-[#252730] max-w-[200px] sm:max-w-[240px] min-w-0"
             >
-              <span className="text-xl">{selectedAccount.icon || '❤️'}</span>
-              <div className="text-left">
-                <div className="text-[14px] font-semibold text-[#111827] dark:text-white leading-tight">
+              <span className="text-xl shrink-0">{selectedAccount.icon || '❤️'}</span>
+              <div className="text-left min-w-0 flex-1">
+                <div className="text-[14px] font-semibold text-[#111827] dark:text-white leading-tight truncate">
                   {selectedAccount.name}
                 </div>
-                <div className="text-[12px] text-[#9CA3AF] dark:text-[#8E92A4] font-medium leading-tight">
+                <div className="text-[12px] text-[#9CA3AF] dark:text-[#8E92A4] font-medium leading-tight whitespace-nowrap">
                   {formatCompactBalance(selectedAccount.balance)}
                 </div>
               </div>
