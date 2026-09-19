@@ -273,9 +273,20 @@ export function getStoredSyncData(): { balances?: Record<string, number>; recent
         ...(existing.balances || {}),
         ...(parsedPayload.balances || {}),
       },
-      recent_transactions: parsedPayload.recent_transactions && parsedPayload.recent_transactions.length > 0
-        ? parsedPayload.recent_transactions
-        : existing.recent_transactions,
+      recent_transactions: (function () {
+        const incoming = parsedPayload.recent_transactions || [];
+        const existingList = existing.recent_transactions || [];
+        const txMap = new Map<string, any>();
+        for (const t of existingList) {
+          if (t && t.id) txMap.set(t.id, t);
+        }
+        for (const t of incoming) {
+          if (t && t.id) txMap.set(t.id, t);
+        }
+        return Array.from(txMap.values()).sort(
+          (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+        );
+      })(),
     };
     localStorage.setItem(STORAGE_SYNC_KEY, JSON.stringify(merged));
     return merged;

@@ -355,7 +355,7 @@ class FinanceService:
         accounts = await FinanceService.get_accounts(db, user_id)
         balances = {a.name: float(a.balance) for a in accounts}
 
-        stmt = select(Transaction).where(Transaction.user_id == user_id).order_by(desc(Transaction.created_at)).limit(10)
+        stmt = select(Transaction).where(Transaction.user_id == user_id).order_by(desc(Transaction.created_at)).limit(50)
         res = await db.execute(stmt)
         txs = res.scalars().all()
 
