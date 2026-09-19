@@ -458,35 +458,48 @@ export async function fetchAccounts(initData: string): Promise<Account[]> {
       const res = await fetch(`${API_BASE}/api/accounts`, {
         headers: { Authorization: `tma ${initData}` }
       });
-      if (res.ok) return await res.json();
+      if (res.ok) {
+        const accs = await res.json();
+        saveStoredAccounts(accs);
+        return accs;
+      }
     }
   } catch (e) {
     // Fallback
   }
 
-  // 1. Check local storage
+  // 1. Load accounts from storage or INITIAL_ACCOUNTS
+  let currentAccounts = INITIAL_ACCOUNTS;
   try {
     const cached = localStorage.getItem(STORAGE_ACCOUNTS_KEY);
     if (cached) {
       const parsed = JSON.parse(cached);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) currentAccounts = parsed;
     }
   } catch {}
 
-  // 2. Check sync
+  // 2. Merge sync accounts if provided
   const sync = getStoredSyncData();
-  if (sync && sync.accounts && sync.accounts.length > 0) {
-    return sync.accounts;
+  if (sync?.accounts && sync.accounts.length > 0) {
+    currentAccounts = currentAccounts.map((acc) => {
+      const match = sync.accounts!.find(
+        (sa) => sa.id === acc.id || sa.name.toLowerCase() === acc.name.toLowerCase()
+      );
+      return match ? { ...acc, ...match } : acc;
+    });
   }
-  if (sync && sync.balances) {
-    const balances = sync.balances;
-    return INITIAL_ACCOUNTS.map(acc => {
+
+  // 3. ALWAYS update balances with latest sync balances!
+  const balances = sync?.balances;
+  if (balances) {
+    currentAccounts = currentAccounts.map((acc) => {
       const newBal = balances[acc.name] ?? balances[acc.id];
       return newBal !== undefined ? { ...acc, balance: Number(newBal) } : acc;
     });
   }
 
-  return INITIAL_ACCOUNTS;
+  saveStoredAccounts(currentAccounts);
+  return currentAccounts;
 }
 
 export const STORAGE_CATEGORIES_KEY = 'ai_money_categories';

@@ -259,24 +259,31 @@ export const App: React.FC = () => {
     setAccounts((prev) => {
       updatedAccounts = prev.map((acc) => {
         let bal = acc.balance;
+        const isOldMatch =
+          acc.id === oldTx.account_id ||
+          (oldTx.account_name && acc.name.toLowerCase() === oldTx.account_name.toLowerCase());
+        const isOldToMatch = acc.id === oldTx.to_account_id;
+        const isNewMatch = acc.id === data.account_id;
+        const isNewToMatch = acc.id === data.to_account_id;
+
         // Revert old transaction effect
-        if (oldTx.type === 'expense' && acc.id === oldTx.account_id) {
+        if (oldTx.type === 'expense' && isOldMatch) {
           bal += oldTx.amount;
-        } else if (oldTx.type === 'income' && acc.id === oldTx.account_id) {
+        } else if (oldTx.type === 'income' && isOldMatch) {
           bal -= oldTx.amount;
         } else if (oldTx.type === 'transfer') {
-          if (acc.id === oldTx.account_id) bal += oldTx.amount;
-          if (acc.id === oldTx.to_account_id) bal -= oldTx.amount;
+          if (isOldMatch) bal += oldTx.amount;
+          if (isOldToMatch) bal -= oldTx.amount;
         }
 
         // Apply new transaction effect
-        if (data.type === 'expense' && acc.id === data.account_id) {
+        if (data.type === 'expense' && isNewMatch) {
           bal -= data.amount;
-        } else if (data.type === 'income' && acc.id === data.account_id) {
+        } else if (data.type === 'income' && isNewMatch) {
           bal += data.amount;
         } else if (data.type === 'transfer') {
-          if (acc.id === data.account_id) bal -= data.amount;
-          if (acc.id === data.to_account_id) bal += data.amount;
+          if (isNewMatch) bal -= data.amount;
+          if (isNewToMatch) bal += data.amount;
         }
 
         return { ...acc, balance: Math.round(bal * 100) / 100 };
@@ -342,12 +349,20 @@ export const App: React.FC = () => {
     if (txToDelete) {
       setAccounts((prev) => {
         updatedAccounts = prev.map((acc) => {
-          if (acc.id === txToDelete.account_id) {
+          const isMatch =
+            acc.id === txToDelete.account_id ||
+            (txToDelete.account_name && acc.name.toLowerCase() === txToDelete.account_name.toLowerCase());
+          if (isMatch) {
             const bal =
               txToDelete.type === 'expense'
                 ? acc.balance + txToDelete.amount
                 : acc.balance - txToDelete.amount;
             return { ...acc, balance: Math.round(bal * 100) / 100 };
+          }
+          if (txToDelete.type === 'transfer') {
+            if (acc.id === txToDelete.to_account_id) {
+              return { ...acc, balance: Math.round((acc.balance - txToDelete.amount) * 100) / 100 };
+            }
           }
           return acc;
         });
