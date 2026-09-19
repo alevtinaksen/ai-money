@@ -28,27 +28,6 @@ interface DashboardScreenProps {
   onHaptic?: (style?: 'light' | 'medium' | 'heavy') => void;
 }
 
-function formatCardDate(dateStr?: string): string {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  const now = new Date();
-  const isToday =
-    d.getDate() === now.getDate() &&
-    d.getMonth() === now.getMonth() &&
-    d.getFullYear() === now.getFullYear();
-
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  const isYesterday =
-    d.getDate() === yesterday.getDate() &&
-    d.getMonth() === yesterday.getMonth() &&
-    d.getFullYear() === yesterday.getFullYear();
-
-  if (isToday) return 'Сегодня';
-  if (isYesterday) return 'Вчера';
-  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
-}
-
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   summary,
   accounts,
@@ -103,6 +82,59 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       return d.getFullYear() === targetYear && d.getMonth() === targetMonth;
     });
   }, [summary.recent_transactions, selectedDate]);
+
+  // Group transactions for the recent section: strictly the last 2 active days
+  const recentTwoDaysGroups = React.useMemo(() => {
+    if (monthTransactions.length === 0) return [];
+
+    const dateMap: Map<string, { label: string; transactions: Transaction[] }> = new Map();
+    const now = new Date();
+
+    const getDayKey = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    for (const tx of monthTransactions) {
+      if (!tx.created_at) continue;
+      const d = new Date(tx.created_at);
+      if (isNaN(d.getTime())) continue;
+
+      const key = getDayKey(d);
+      if (!dateMap.has(key)) {
+        const isToday =
+          d.getDate() === now.getDate() &&
+          d.getMonth() === now.getMonth() &&
+          d.getFullYear() === now.getFullYear();
+
+        const yesterday = new Date(now);
+        yesterday.setDate(now.getDate() - 1);
+        const isYesterday =
+          d.getDate() === yesterday.getDate() &&
+          d.getMonth() === yesterday.getMonth() &&
+          d.getFullYear() === yesterday.getFullYear();
+
+        const formattedDayMonth = d
+          .toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
+          .replace('.', '');
+
+        let label = formattedDayMonth;
+        if (isToday) {
+          label = `Сегодня, ${formattedDayMonth}`;
+        } else if (isYesterday) {
+          label = `Вчера, ${formattedDayMonth}`;
+        }
+
+        dateMap.set(key, { label, transactions: [] });
+      }
+      dateMap.get(key)!.transactions.push(tx);
+    }
+
+    // Sort keys descending (most recent days first)
+    const sortedKeys = Array.from(dateMap.keys()).sort((a, b) => b.localeCompare(a));
+    // Take only the 2 most recent days!
+    const top2Keys = sortedKeys.slice(0, 2);
+
+    return top2Keys.map((k) => dateMap.get(k)!);
+  }, [monthTransactions]);
 
   const periodExpense = React.useMemo(() => {
     return monthTransactions
@@ -464,55 +496,53 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </div>
 
           {/* Transactions List */}
-          <div className="space-y-2">
-            {/* Horizontal / Stacked Transaction Cards */}
-            <div className="flex items-center space-x-3 overflow-x-auto no-scrollbar pb-2 pt-1">
-              {monthTransactions.length > 0 ? (
-                monthTransactions.map((tx) => {
-                  const resolved = resolveCategoryAndSubcategory(tx);
-                  const dateTag = formatCardDate(tx.created_at);
-                  return (
-                    <button
-                      key={tx.id}
-                      type="button"
-                      onClick={() => {
-                        onHaptic?.('light');
-                        onSelectTransaction?.(tx);
-                      }}
-                      className="flex-shrink-0 bg-white dark:bg-[#1E1F26] rounded-[22px] px-4 py-3 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center space-x-3 min-w-[180px] text-left active:scale-[0.98] transition-all"
-                    >
-                      <div className="text-2xl flex-shrink-0">{resolved.icon}</div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between space-x-1.5">
-                          <div className="text-[14px] font-semibold text-[#111827] dark:text-white leading-tight truncate">
-                            {resolved.displayTitle}
-                          </div>
-                          {dateTag && (
-                            <span className="text-[10px] font-medium text-[#9CA3AF] dark:text-gray-400 bg-gray-50 dark:bg-gray-800 px-1.5 py-0.5 rounded-full whitespace-nowrap">
-                              {dateTag}
-                            </span>
-                          )}
-                        </div>
-                        <div
-                          className={`text-[13px] font-bold mt-1 ${
-                            tx.type === 'expense'
-                              ? 'text-[#FF4B55]'
-                              : tx.type === 'income'
-                              ? 'text-[#10B981]'
-                              : 'text-[#6B7280] dark:text-gray-400'
-                          }`}
+          <div className="space-y-4">
+            {recentTwoDaysGroups.length > 0 ? (
+              recentTwoDaysGroups.map((group) => (
+                <div key={group.label} className="space-y-2">
+                  <div className="text-[13px] font-semibold text-[#6B7280] dark:text-gray-300 pl-1">
+                    {group.label}
+                  </div>
+                  <div className="flex items-center space-x-3 overflow-x-auto no-scrollbar pb-1">
+                    {group.transactions.map((tx) => {
+                      const resolved = resolveCategoryAndSubcategory(tx);
+                      return (
+                        <button
+                          key={tx.id}
+                          type="button"
+                          onClick={() => {
+                            onHaptic?.('light');
+                            onSelectTransaction?.(tx);
+                          }}
+                          className="flex-shrink-0 bg-white dark:bg-[#1E1F26] rounded-[22px] px-4 py-3 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center space-x-3 min-w-[175px] text-left active:scale-[0.98] transition-all"
                         >
-                          {tx.type === 'expense' ? '−' : tx.type === 'income' ? '+' : ''}
-                          {tx.amount.toLocaleString('ru-RU')} ₽
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })
-              ) : (
-                <div className="text-sm text-gray-400 py-4 text-center w-full">Нет операций за этот месяц</div>
-              )}
-            </div>
+                          <div className="text-2xl flex-shrink-0">{resolved.icon}</div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[14px] font-semibold text-[#111827] dark:text-white leading-tight truncate max-w-[155px]">
+                              {resolved.displayTitle}
+                            </div>
+                            <div
+                              className={`text-[13px] font-bold mt-1 ${
+                                tx.type === 'expense'
+                                  ? 'text-[#FF4B55]'
+                                  : tx.type === 'income'
+                                  ? 'text-[#10B981]'
+                                  : 'text-[#6B7280] dark:text-gray-400'
+                              }`}
+                            >
+                              {tx.type === 'expense' ? '−' : tx.type === 'income' ? '+' : ''}
+                              {tx.amount.toLocaleString('ru-RU')} ₽
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-sm text-gray-400 py-4 text-center w-full">Нет операций за этот месяц</div>
+            )}
           </div>
         </div>
       </div>

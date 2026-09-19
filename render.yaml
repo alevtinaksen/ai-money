@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: ai-money-bot
+    runtime: python
+    buildCommand: pip install -r bot/requirements.txt
+    startCommand: cd bot && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: WEBAPP_URL
+        value: https://ai-money-ten.vercel.app/
+      - key: DATABASE_URL
+        value: sqlite+aiosqlite:///finance.db
+      - key: PYTHONPATH
+        value: .
