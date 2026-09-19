@@ -28,7 +28,7 @@ export const INITIAL_ACCOUNTS: Account[] = [
 ];
 
 export const INITIAL_CATEGORIES: Category[] = [
-  // 1. Еда (4 подкатегорий)
+  // 1. Еда (5 подкатегорий)
   {
     id: 'cat-1',
     user_id: 143702968,
@@ -37,7 +37,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     icon: '🍔',
     color: '#FEE2E2',
     sort_order: 1,
-    subcategories: ['Кафе', 'Самокат', 'Кофе', 'НаЛанч'],
+    subcategories: ['Супермаркет', 'Кафе', 'Самокат', 'Кофе', 'НаЛанч'],
   },
   // 2. Транспорт (5 подкатегорий)
   {
@@ -391,10 +391,19 @@ export async function fetchDashboard(initData: string): Promise<DashboardSummary
     : INITIAL_RECENT_TRANSACTIONS;
 
   const recent: Transaction[] = rawRecent.map((t: any) => {
-    let accId = t.account_id;
-    if (!accId && t.account_name) {
-      accId = currentAccounts.find(a => a.name === t.account_name || a.name.includes(t.account_name))?.id || currentAccounts[0].id;
-    }
+    const matchedAcc = currentAccounts.find(
+      (a) =>
+        a.id === t.account_id ||
+        (t.account_name &&
+          (a.name.toLowerCase() === t.account_name.toLowerCase() ||
+            a.name.toLowerCase().includes(t.account_name.toLowerCase()) ||
+            t.account_name.toLowerCase().includes(a.name.toLowerCase()) ||
+            (t.account_name.toLowerCase().includes('едок') && a.name.toLowerCase().includes('едок')) ||
+            (t.account_name.toLowerCase().includes('влад') && a.name.toLowerCase().includes('влад'))))
+    );
+    const accId = matchedAcc ? matchedAcc.id : (t.account_id || currentAccounts[0].id);
+    const accName = matchedAcc ? matchedAcc.name : (t.account_name || currentAccounts[0].name);
+
     const foundCat =
       (t.category_name && INITIAL_CATEGORIES.find(c => c.name.toLowerCase() === t.category_name.toLowerCase())) ||
       (t.note && INITIAL_CATEGORIES.find(c => c.name.toLowerCase() === t.note.toLowerCase())) ||
@@ -408,13 +417,13 @@ export async function fetchDashboard(initData: string): Promise<DashboardSummary
     return {
       id: t.id || `tx-${Date.now()}`,
       user_id: t.user_id || 143702968,
-      account_id: accId || currentAccounts[0].id,
+      account_id: accId,
       category_id: catId,
       amount: Number(t.amount) || 0,
       type: t.type || 'expense',
       note: t.note || '',
       created_at: t.created_at || new Date().toISOString(),
-      account_name: t.account_name,
+      account_name: accName,
       category_name: catName,
       category_icon: catIcon,
     };

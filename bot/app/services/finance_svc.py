@@ -383,6 +383,21 @@ class FinanceService:
 
         payload = {
             "balances": balances,
+            "accounts": [
+                {
+                    "id": a.id,
+                    "user_id": a.user_id,
+                    "name": a.name,
+                    "group_name": a.group_name,
+                    "balance": float(a.balance),
+                    "currency": a.currency,
+                    "icon": a.icon,
+                    "color": a.color,
+                    "is_default": a.is_default,
+                    "sort_order": a.sort_order,
+                }
+                for a in accounts
+            ],
             "recent_transactions": recent
         }
         json_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")

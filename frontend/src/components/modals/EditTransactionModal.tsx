@@ -40,7 +40,7 @@ export const CATEGORIES_CATALOG: CategoryCatalogItem[] = [
     name: 'Еда',
     icon: '🍔',
     type: 'expense',
-    subcategories: ['Кафе', 'Самокат', 'Кофе', 'НаЛанч'],
+    subcategories: ['Супермаркет', 'Кафе', 'Самокат', 'Кофе', 'НаЛанч'],
   },
   {
     name: 'Транспорт',
@@ -227,6 +227,67 @@ export interface ResolvedCategoryInfo {
   icon: string;
 }
 
+export const SUBCATEGORY_KEYWORDS_MAP: Record<string, { main: string; sub: string }> = {
+  // Еда -> Супермаркет
+  "о'кей": { main: 'Еда', sub: 'Супермаркет' },
+  "окей": { main: 'Еда', sub: 'Супермаркет' },
+  "супермаркет": { main: 'Еда', sub: 'Супермаркет' },
+  "супермаркеты": { main: 'Еда', sub: 'Супермаркет' },
+  "пятерочк": { main: 'Еда', sub: 'Супермаркет' },
+  "перекресток": { main: 'Еда', sub: 'Супермаркет' },
+  "магнит": { main: 'Еда', sub: 'Супермаркет' },
+  "вкусвилл": { main: 'Еда', sub: 'Супермаркет' },
+  "лента": { main: 'Еда', sub: 'Супермаркет' },
+  "ашан": { main: 'Еда', sub: 'Супермаркет' },
+  "дикси": { main: 'Еда', sub: 'Супермаркет' },
+  "spar": { main: 'Еда', sub: 'Супермаркет' },
+  "спар": { main: 'Еда', sub: 'Супермаркет' },
+  "продукты": { main: 'Еда', sub: 'Супермаркет' },
+  "магазин продуктов": { main: 'Еда', sub: 'Супермаркет' },
+
+  // Еда -> Кафе
+  "вкусно": { main: 'Еда', sub: 'Кафе' },
+  "food factory": { main: 'Еда', sub: 'Кафе' },
+  "макдоналдс": { main: 'Еда', sub: 'Кафе' },
+  "бургер": { main: 'Еда', sub: 'Кафе' },
+  "теремок": { main: 'Еда', sub: 'Кафе' },
+  "kfc": { main: 'Еда', sub: 'Кафе' },
+  "ростикс": { main: 'Еда', sub: 'Кафе' },
+  "додо": { main: 'Еда', sub: 'Кафе' },
+  "шоколадниц": { main: 'Еда', sub: 'Кафе' },
+  "столов": { main: 'Еда', sub: 'Кафе' },
+  "пекарн": { main: 'Еда', sub: 'Кафе' },
+  "булочн": { main: 'Еда', sub: 'Кафе' },
+  "кафе": { main: 'Еда', sub: 'Кафе' },
+  "ресторан": { main: 'Еда', sub: 'Кафе' },
+
+  // Еда -> Кофе
+  "кофе": { main: 'Еда', sub: 'Кофе' },
+  "кофейн": { main: 'Еда', sub: 'Кофе' },
+  "starbucks": { main: 'Еда', sub: 'Кофе' },
+  "surf": { main: 'Еда', sub: 'Кофе' },
+  "капучино": { main: 'Еда', sub: 'Кофе' },
+  "латте": { main: 'Еда', sub: 'Кофе' },
+
+  // Еда -> Самокат
+  "самокат": { main: 'Еда', sub: 'Самокат' },
+
+  // Еда -> НаЛанч
+  "наланч": { main: 'Еда', sub: 'НаЛанч' },
+  "на ланч": { main: 'Еда', sub: 'НаЛанч' },
+
+  // Транспорт -> Такси
+  "такси": { main: 'Транспорт', sub: 'Такси' },
+  "яндекс go": { main: 'Транспорт', sub: 'Такси' },
+  "яндекс такси": { main: 'Транспорт', sub: 'Такси' },
+  "uber": { main: 'Транспорт', sub: 'Такси' },
+
+  // Транспорт -> Каршеринг
+  "каршеринг": { main: 'Транспорт', sub: 'Каршеринг' },
+  "делимобиль": { main: 'Транспорт', sub: 'Каршеринг' },
+  "ситидрайв": { main: 'Транспорт', sub: 'Каршеринг' },
+};
+
 export function resolveCategoryAndSubcategory(tx: {
   category_name?: string | null;
   note?: string | null;
@@ -235,8 +296,24 @@ export function resolveCategoryAndSubcategory(tx: {
 }): ResolvedCategoryInfo {
   const rawCat = (tx.category_name || '').trim();
   const rawNote = (tx.note || '').trim();
+  const rawNoteLow = rawNote.toLowerCase();
 
-  // 1. Check if rawCat is an official subcategory in any catalog group
+  // 1. Check if rawNote matches semantic keyword dictionary
+  for (const [kw, match] of Object.entries(SUBCATEGORY_KEYWORDS_MAP)) {
+    if (rawNoteLow.includes(kw)) {
+      const icon =
+        SUBCATEGORY_ICONS[match.sub] ||
+        (tx.category_icon && tx.category_icon !== '📦' ? tx.category_icon : '🍔');
+      return {
+        mainCategory: match.main,
+        subcategory: match.sub,
+        displayTitle: `${match.main} · ${match.sub}`,
+        icon,
+      };
+    }
+  }
+
+  // 2. Check if rawCat is an official subcategory in any catalog group
   // (e.g. rawCat === "Самокат" -> parent is "Еда", subcategory is "Самокат")
   for (const cat of CATEGORIES_CATALOG) {
     const matchingSub = cat.subcategories.find(
@@ -255,7 +332,7 @@ export function resolveCategoryAndSubcategory(tx: {
     }
   }
 
-  // 2. Check if rawCat is an official main category in catalog
+  // 3. Check if rawCat is an official main category in catalog
   const catalogItem = CATEGORIES_CATALOG.find(
     (c) => c.name.toLowerCase() === rawCat.toLowerCase()
   );
@@ -304,7 +381,7 @@ export function resolveCategoryAndSubcategory(tx: {
     };
   }
 
-  // 3. If rawCat wasn't matched, check if rawNote matches any subcategory in catalog
+  // 4. If rawCat wasn't matched, check if rawNote matches any subcategory in catalog
   if (rawNote) {
     for (const cat of CATEGORIES_CATALOG) {
       const matched = cat.subcategories.find(
@@ -326,7 +403,7 @@ export function resolveCategoryAndSubcategory(tx: {
     }
   }
 
-  // 4. Transfers
+  // 5. Transfers
   if (tx.type === 'transfer') {
     return {
       mainCategory: 'Переводы',
@@ -336,7 +413,7 @@ export function resolveCategoryAndSubcategory(tx: {
     };
   }
 
-  // 5. Fallback: return rawCat or generic label, without arbitrary comment
+  // 6. Fallback: return rawCat or generic label, without arbitrary comment
   const fallbackName = rawCat || (tx.type === 'income' ? 'Доход' : 'Расход');
   return {
     mainCategory: fallbackName,
@@ -373,10 +450,29 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
   onDelete,
   onHaptic,
 }) => {
-  const resolveInitialAcc = () =>
-    transaction.account_id ||
-    accounts.find((a) => a.name === transaction.account_name)?.id ||
-    accounts[0]?.id;
+  const resolveInitialAcc = () => {
+    if (transaction.account_id) {
+      const byId = accounts.find((a) => a.id === transaction.account_id);
+      if (byId) return byId.id;
+    }
+    if (transaction.account_name) {
+      const tName = transaction.account_name.toLowerCase();
+      const byName = accounts.find((a) => {
+        const aName = a.name.toLowerCase();
+        return (
+          aName === tName ||
+          aName.includes(tName) ||
+          tName.includes(aName) ||
+          (tName.includes('едок') && aName.includes('едок')) ||
+          (tName.includes('влад') && aName.includes('влад')) ||
+          (tName.includes('т-банк') && aName.includes('т-банк') && !aName.includes('usd') && !aName.includes('инвест')) ||
+          (tName.includes('альфа') && aName.includes('альфа') && !aName.includes('счёт') && !aName.includes('копилка'))
+        );
+      });
+      if (byName) return byName.id;
+    }
+    return accounts[0]?.id;
+  };
 
   const resolveInitialCat = () => {
     // 1. Check if category_name matches a category in categories
@@ -412,16 +508,9 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
     return categories[0]?.id;
   };
 
-  const [type, setType] = useState<'expense' | 'income' | 'transfer'>(
-    transaction.type || 'expense'
-  );
-  const [amountStr, setAmountStr] = useState<string>(transaction.amount.toString());
-  const [accountId, setAccountId] = useState<string>(resolveInitialAcc());
-  const [toAccountId, setToAccountId] = useState<string | null>(transaction.to_account_id || null);
-  const [accPickerTarget, setAccPickerTarget] = useState<'from' | 'to'>('from');
-  const [categoryId, setCategoryId] = useState<string | undefined>(resolveInitialCat());
-  const [note, setNote] = useState<string>(transaction.note || '');
-  const [selectedSubcat, setSelectedSubcat] = useState<string>(() => {
+  const resolveInitialSubcat = () => {
+    const resolved = resolveCategoryAndSubcategory(transaction);
+    if (resolved.subcategory) return resolved.subcategory;
     const initCat = categories.find((c) => c.id === resolveInitialCat());
     const catalog = CATEGORIES_CATALOG.find(
       (c) => c.name.toLowerCase() === initCat?.name?.toLowerCase()
@@ -436,7 +525,18 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
       return noteVal;
     }
     return '';
-  });
+  };
+
+  const [type, setType] = useState<'expense' | 'income' | 'transfer'>(
+    transaction.type || 'expense'
+  );
+  const [amountStr, setAmountStr] = useState<string>(transaction.amount.toString());
+  const [accountId, setAccountId] = useState<string>(resolveInitialAcc());
+  const [toAccountId, setToAccountId] = useState<string | null>(transaction.to_account_id || null);
+  const [accPickerTarget, setAccPickerTarget] = useState<'from' | 'to'>('from');
+  const [categoryId, setCategoryId] = useState<string | undefined>(resolveInitialCat());
+  const [note, setNote] = useState<string>(transaction.note || '');
+  const [selectedSubcat, setSelectedSubcat] = useState<string>(resolveInitialSubcat());
 
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [isAccPickerOpen, setIsAccPickerOpen] = useState(false);
@@ -446,28 +546,14 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
   React.useEffect(() => {
     const initialAccId = resolveInitialAcc();
     const initialCatId = resolveInitialCat();
+    const initialSub = resolveInitialSubcat();
     setType(transaction.type || 'expense');
     setAmountStr(transaction.amount.toString());
     setAccountId(initialAccId);
     setToAccountId(transaction.to_account_id || null);
     setCategoryId(initialCatId);
     setNote(transaction.note || '');
-
-    const resolvedCat = categories.find((c) => c.id === initialCatId);
-    const catCatalog = CATEGORIES_CATALOG.find(
-      (c) => c.name.toLowerCase() === resolvedCat?.name?.toLowerCase()
-    );
-    const noteVal = transaction.note;
-    if (
-      noteVal &&
-      catCatalog?.subcategories.some(
-        (sc) => sc.toLowerCase() === noteVal.toLowerCase()
-      )
-    ) {
-      setSelectedSubcat(noteVal);
-    } else {
-      setSelectedSubcat('');
-    }
+    setSelectedSubcat(initialSub);
 
     setIsPickerOpen(false);
     setIsAccPickerOpen(false);
@@ -478,7 +564,22 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
   const defaultCat = (type === 'transfer' || transaction.type === 'transfer')
     ? (transferCat || categories[0])
     : categories[0];
-  const selectedAcc = accounts.find((a) => a.id === accountId) || accounts[0];
+  const selectedAcc =
+    accounts.find((a) => a.id === accountId) ||
+    (transaction.account_name
+      ? accounts.find((a) => {
+          const tName = transaction.account_name!.toLowerCase();
+          const aName = a.name.toLowerCase();
+          return (
+            aName === tName ||
+            aName.includes(tName) ||
+            tName.includes(aName) ||
+            (tName.includes('едок') && aName.includes('едок')) ||
+            (tName.includes('влад') && aName.includes('влад'))
+          );
+        })
+      : null) ||
+    accounts[0];
   const selectedToAcc = toAccountId
     ? accounts.find((a) => a.id === toAccountId)
     : accounts.find((a) => a.id !== accountId && a.group_name !== 'Кредиты') || null;
