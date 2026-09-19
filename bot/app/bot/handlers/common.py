@@ -53,6 +53,18 @@ SUBCATEGORY_MAPPING = {
     "здоровье кота": ("Кот", "🐾", "Здоровье кота"),
 }
 
+SUBCATEGORY_KEYWORDS = [
+    (("кафе", "ресторан", "фастфуд", "вкусно", "макдоналдс", "бургер", "додо", "теремок", "шоколадниц", "food factory", "столов", "булочн", "пекарн", "kfc", "ростикс"), ("Еда", "🍽️", "Кафе")),
+    (("кофе", "starbucks", "surf", "кофейн", "двойной эспрессо", "капучино", "латте", "раф"), ("Еда", "☕", "Кофе")),
+    (("самокат",), ("Еда", "🛴", "Самокат")),
+    (("наланч", "на ланч"), ("Еда", "🍱", "НаЛанч")),
+    (("такси", "яндекс go", "яндекс такси", "uber"), ("Транспорт", "🚕", "Такси")),
+    (("каршеринг", "делимобиль", "ситидрайв", "белка"), ("Транспорт", "🚙", "Каршеринг")),
+    (("метро", "автобус", "троллейбус", "трамвай", "подорожник"), ("Транспорт", "🚌", "Общественный транспорт")),
+    (("бензин", "лукойл", "газпром", "роснефть", "азс", "заправка", "татнефть"), ("Машина", "⛽", "Бензин")),
+    (("аптека", "лекарств", "ригла", "горздрав", "вита", "еаптека"), ("Здоровье", "💊", "Лекарства")),
+]
+
 def format_category_display(cat_name: Optional[str], cat_icon: Optional[str], note: Optional[str] = None) -> str:
     name_low = (cat_name or "").lower().strip()
     note_low = (note or "").lower().strip()
@@ -61,8 +73,14 @@ def format_category_display(cat_name: Optional[str], cat_icon: Optional[str], no
         parent, icon, sub = SUBCATEGORY_MAPPING[name_low]
         return f"{icon} {parent} · {sub}"
 
+    # Check exact subcategory mapping
     for sub_key, (parent, icon, sub) in SUBCATEGORY_MAPPING.items():
         if parent.lower() == name_low and (sub_key in note_low or note_low in sub_key):
+            return f"{icon} {parent} · {sub}"
+
+    # Check semantic keyword matching (e.g. "Вкусно — и точка" -> "🍽️ Еда · Кафе")
+    for keywords, (parent, icon, sub) in SUBCATEGORY_KEYWORDS:
+        if parent.lower() == name_low and any(kw in note_low for kw in keywords):
             return f"{icon} {parent} · {sub}"
 
     icon = cat_icon or "📦"

@@ -80,13 +80,13 @@ class AIParserService:
             for a in account_names:
                 if "озон" in a.lower() or "ozon" in a.lower():
                     return a
-        if "влад" in cleaned or "едок" in cleaned or "совместн" in cleaned:
+        if any(w in cleaned for w in ["влад", "едок", "совместн", "общ", "на еду", "общая", "общей"]):
             for a in account_names:
-                if "влад" in a.lower() or "едок" in a.lower() or "совместн" in a.lower():
+                if any(w in a.lower() for w in ["влад", "едок", "совместн", "общ"]):
                     return a
         if "т-банк" in cleaned or "тбанк" in cleaned or "тиньк" in cleaned or "tinkoff" in cleaned:
             for a in account_names:
-                if "т-банк" in a.lower() or "black" in a.lower():
+                if "black" in a.lower() or ("т-банк" in a.lower() and "едок" not in a.lower()):
                     return a
         if "налич" in cleaned or "налом" in cleaned or "нал " in cleaned:
             for a in account_names:
