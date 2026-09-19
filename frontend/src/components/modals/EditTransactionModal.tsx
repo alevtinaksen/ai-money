@@ -18,6 +18,7 @@ interface EditTransactionModalProps {
     id: string;
     amount: number;
     account_id: string;
+    to_account_id?: string;
     category_id?: string;
     type: 'expense' | 'income' | 'transfer';
     note?: string;
@@ -243,9 +244,8 @@ export function resolveCategoryAndSubcategory(tx: {
     );
     if (matchingSub) {
       const icon =
-        tx.category_icon && tx.category_icon !== '📦'
-          ? tx.category_icon
-          : SUBCATEGORY_ICONS[matchingSub] || cat.icon;
+        SUBCATEGORY_ICONS[matchingSub] ||
+        (tx.category_icon && tx.category_icon !== '📦' ? tx.category_icon : cat.icon);
       return {
         mainCategory: cat.name,
         subcategory: matchingSub,
@@ -268,9 +268,8 @@ export function resolveCategoryAndSubcategory(tx: {
       );
       if (exactSub) {
         const icon =
-          tx.category_icon && tx.category_icon !== '📦'
-            ? tx.category_icon
-            : SUBCATEGORY_ICONS[exactSub] || catalogItem.icon;
+          SUBCATEGORY_ICONS[exactSub] ||
+          (tx.category_icon && tx.category_icon !== '📦' ? tx.category_icon : catalogItem.icon);
         return {
           mainCategory: catalogItem.name,
           subcategory: exactSub,
@@ -285,9 +284,8 @@ export function resolveCategoryAndSubcategory(tx: {
       );
       if (partialSub) {
         const icon =
-          tx.category_icon && tx.category_icon !== '📦'
-            ? tx.category_icon
-            : SUBCATEGORY_ICONS[partialSub] || catalogItem.icon;
+          SUBCATEGORY_ICONS[partialSub] ||
+          (tx.category_icon && tx.category_icon !== '📦' ? tx.category_icon : catalogItem.icon);
         return {
           mainCategory: catalogItem.name,
           subcategory: partialSub,
@@ -316,9 +314,8 @@ export function resolveCategoryAndSubcategory(tx: {
       );
       if (matched) {
         const icon =
-          tx.category_icon && tx.category_icon !== '📦'
-            ? tx.category_icon
-            : SUBCATEGORY_ICONS[matched] || cat.icon;
+          SUBCATEGORY_ICONS[matched] ||
+          (tx.category_icon && tx.category_icon !== '📦' ? tx.category_icon : cat.icon);
         return {
           mainCategory: cat.name,
           subcategory: matched,
@@ -358,6 +355,7 @@ interface EditTransactionContentProps {
     id: string;
     amount: number;
     account_id: string;
+    to_account_id?: string;
     category_id?: string;
     type: 'expense' | 'income' | 'transfer';
     note?: string;
@@ -419,6 +417,8 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
   );
   const [amountStr, setAmountStr] = useState<string>(transaction.amount.toString());
   const [accountId, setAccountId] = useState<string>(resolveInitialAcc());
+  const [toAccountId, setToAccountId] = useState<string | null>(transaction.to_account_id || null);
+  const [accPickerTarget, setAccPickerTarget] = useState<'from' | 'to'>('from');
   const [categoryId, setCategoryId] = useState<string | undefined>(resolveInitialCat());
   const [note, setNote] = useState<string>(transaction.note || '');
   const [selectedSubcat, setSelectedSubcat] = useState<string>(() => {
@@ -449,6 +449,7 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
     setType(transaction.type || 'expense');
     setAmountStr(transaction.amount.toString());
     setAccountId(initialAccId);
+    setToAccountId(transaction.to_account_id || null);
     setCategoryId(initialCatId);
     setNote(transaction.note || '');
 
@@ -478,6 +479,9 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
     ? (transferCat || categories[0])
     : categories[0];
   const selectedAcc = accounts.find((a) => a.id === accountId) || accounts[0];
+  const selectedToAcc = toAccountId
+    ? accounts.find((a) => a.id === toAccountId)
+    : accounts.find((a) => a.id !== accountId && a.group_name !== 'Кредиты') || null;
   const selectedCat = categories.find((c) => c.id === categoryId) || defaultCat;
 
   // Resolve matching catalog entry for categories and subcategories
@@ -527,6 +531,7 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
       id: transaction.id,
       amount: parsedAmount,
       account_id: accountId,
+      to_account_id: type === 'transfer' ? (toAccountId || selectedToAcc?.id || undefined) : undefined,
       category_id: categoryId,
       type,
       note: finalNote,
@@ -572,32 +577,74 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
 
       {/* Center Form Area */}
       <div className="space-y-6 max-w-sm mx-auto w-full mt-auto mb-auto">
-        {/* Row 1: Account Pill & Date Pill */}
-        <div className="flex items-center justify-between">
-          {/* Account Pill */}
-          <button
-            type="button"
-            onClick={() => {
-              onHaptic?.('light');
-              setIsAccPickerOpen(!isAccPickerOpen);
-            }}
-            className="inline-flex items-center space-x-2 bg-white dark:bg-[#1E1F26] px-4 py-2.5 rounded-full shadow-sm border border-gray-100 dark:border-gray-800 active:scale-[0.98] transition-all"
-          >
-            <span className="text-lg">{selectedAcc?.icon || '💳'}</span>
-            <div className="text-left">
-              <span className="text-[14px] font-semibold text-[#111827] dark:text-white block leading-tight">
-                {selectedAcc?.name || 'Счёт'}
-              </span>
-              <span className="text-[11px] text-[#9CA3AF] dark:text-gray-400 block leading-none mt-0.5">
-                {selectedAcc ? (selectedAcc.balance / 1000).toFixed(2) : 0} тыс. ₽
-              </span>
+        {/* Row 1: Account Selector(s) & Date Pill */}
+        <div className="flex items-center justify-between gap-2">
+          {type === 'transfer' ? (
+            <div className="flex items-center space-x-1.5 flex-1 min-w-0">
+              {/* From Account Pill */}
+              <button
+                type="button"
+                onClick={() => {
+                  onHaptic?.('light');
+                  setAccPickerTarget('from');
+                  setIsAccPickerOpen(true);
+                  setIsPickerOpen(false);
+                }}
+                className="inline-flex items-center space-x-1.5 bg-white dark:bg-[#1E1F26] px-3 py-2 rounded-full shadow-sm border border-gray-100 dark:border-gray-800 active:scale-[0.98] transition-all flex-1 min-w-0"
+              >
+                <span className="text-base flex-shrink-0">{selectedAcc?.icon || '💳'}</span>
+                <span className="text-[13px] font-semibold text-[#111827] dark:text-white truncate">
+                  {selectedAcc?.name || 'Откуда'}
+                </span>
+              </button>
+
+              <span className="text-gray-400 dark:text-gray-500 font-bold text-xs flex-shrink-0">➔</span>
+
+              {/* To Account Pill */}
+              <button
+                type="button"
+                onClick={() => {
+                  onHaptic?.('light');
+                  setAccPickerTarget('to');
+                  setIsAccPickerOpen(true);
+                  setIsPickerOpen(false);
+                }}
+                className="inline-flex items-center space-x-1.5 bg-white dark:bg-[#1E1F26] px-3 py-2 rounded-full shadow-sm border border-gray-100 dark:border-gray-800 active:scale-[0.98] transition-all flex-1 min-w-0"
+              >
+                <span className="text-base flex-shrink-0">{selectedToAcc?.icon || '🪙'}</span>
+                <span className="text-[13px] font-semibold text-[#111827] dark:text-white truncate">
+                  {selectedToAcc?.name || 'Куда'}
+                </span>
+              </button>
             </div>
-          </button>
+          ) : (
+            /* Account Pill */
+            <button
+              type="button"
+              onClick={() => {
+                onHaptic?.('light');
+                setAccPickerTarget('from');
+                setIsAccPickerOpen(!isAccPickerOpen);
+                setIsPickerOpen(false);
+              }}
+              className="inline-flex items-center space-x-2 bg-white dark:bg-[#1E1F26] px-4 py-2.5 rounded-full shadow-sm border border-gray-100 dark:border-gray-800 active:scale-[0.98] transition-all"
+            >
+              <span className="text-lg">{selectedAcc?.icon || '💳'}</span>
+              <div className="text-left">
+                <span className="text-[14px] font-semibold text-[#111827] dark:text-white block leading-tight">
+                  {selectedAcc?.name || 'Счёт'}
+                </span>
+                <span className="text-[11px] text-[#9CA3AF] dark:text-gray-400 block leading-none mt-0.5">
+                  {selectedAcc ? (selectedAcc.balance / 1000).toFixed(2) : 0} тыс. ₽
+                </span>
+              </div>
+            </button>
+          )}
 
           {/* Date Pill */}
-          <div className="inline-flex items-center space-x-2 bg-white dark:bg-[#1E1F26] px-4 py-2.5 rounded-full shadow-sm border border-gray-100 dark:border-gray-800 text-[#111827] dark:text-white">
-            <CalendarOutlined className="text-[14px] text-[#9CA3AF] dark:text-gray-400" />
-            <span className="text-[14px] font-semibold">{dateLabel}</span>
+          <div className="inline-flex items-center space-x-1.5 bg-white dark:bg-[#1E1F26] px-3.5 py-2.5 rounded-full shadow-sm border border-gray-100 dark:border-gray-800 text-[#111827] dark:text-white flex-shrink-0">
+            <CalendarOutlined className="text-[13px] text-[#9CA3AF] dark:text-gray-400" />
+            <span className="text-[13px] font-semibold">{dateLabel}</span>
           </div>
         </div>
 
@@ -824,16 +871,30 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
 
         {/* Account Picker Dropdown Sheet */}
         {isAccPickerOpen && (
-          <div className="bg-white dark:bg-[#1E1F26] rounded-2xl p-3 shadow-lg border border-gray-100 dark:border-gray-800 max-h-52 overflow-y-auto space-y-1 animate-slide-up">
+          <div className="bg-white dark:bg-[#1E1F26] rounded-2xl p-3 shadow-lg border border-gray-100 dark:border-gray-800 max-h-56 overflow-y-auto space-y-1 animate-slide-up">
+            <div className="flex items-center justify-between px-2 pb-1.5 text-[12px] font-bold text-gray-400 uppercase tracking-wider">
+              <span>{accPickerTarget === 'to' ? 'Счёт зачисления' : 'Счёт списания'}</span>
+              <button
+                type="button"
+                onClick={() => setIsAccPickerOpen(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-white"
+              >
+                <CloseOutlined className="text-[12px]" />
+              </button>
+            </div>
             {accounts
-              .filter((a) => a.group_name !== 'Кредиты')
+              .filter((a) => a.group_name !== 'Кредиты' && (accPickerTarget === 'to' ? a.id !== accountId : true))
               .map((a) => (
                 <button
                   key={a.id}
                   type="button"
                   onClick={() => {
                     onHaptic?.('light');
-                    setAccountId(a.id);
+                    if (accPickerTarget === 'to') {
+                      setToAccountId(a.id);
+                    } else {
+                      setAccountId(a.id);
+                    }
                     setIsAccPickerOpen(false);
                   }}
                   className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-left hover:bg-gray-50 dark:hover:bg-gray-800"

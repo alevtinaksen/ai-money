@@ -22,10 +22,15 @@ SYSTEM_PROMPT_TEMPLATE = """Ты — интеллектуальный финан
 2. Для каждой операции определи:
    - amount: число (float), сумма операции. ВАЖНО: если сумма записана через математическое выражение со знаком плюс (например: «1104+1104+137» или «500+250»), ОБЯЗАТЕЛЬНО сложи эти числа и запиши в amount единую итоговую сумму сложения (например: 2345.0)!
    - type: 'expense' (расход), 'income' (доход), или 'transfer' (перевод между счетами).
-   - category_name: выбери наиболее подходящую категорию из списка доступных категорий. Для переводов используй категорию «Переводы».
-   - account_name: если упомянут счёт или сервис («Озон» -> «Озон Банк», «Альфа» -> «Карта Альфа (Основной)», «Т-Банк» / «Тинькофф» -> «Т-Банк Black», «наличные» -> «Наличные (Психотерапевт)», «с Владом» -> «Влад и Алина - Едоки (Т-Банк)»), сопоставь с доступными счетами.
-   - to_account_name: если это перевод, укажи счет зачисления.
-   - note: краткое описание покупки или действия («Озон», «Кофе», «Аптека», «Зарплата», «Такси»).
+     * ВХОДЯЩИЕ ПЕРЕВОДЫ («перевод от подруги/друга/мамы», «скинули 500», «перевели мне 500», «пришли деньги») — это СТРОГО type: 'income' (доход), category_name: 'Переводы (получено)' или 'Зарплата'.
+     * НАКОПЛЕНИЯ С ПОКУПКИ («накопления с покупки 37», «округление», «копилка») — это СТРОГО type: 'transfer' со счета карты на счет «Инвесткопилка (Альфа)», category_name: 'Накопления', note: 'Накопления с покупки'.
+     * ПЕРЕВОД МЕЖДУ СВОИМИ СЧЕТАМИ («перевела 5000 с альфы на тинькофф») — type: 'transfer', category_name: 'Переводы'.
+   - category_name: выбери наиболее подходящую категорию. 
+     * Заведения общепита («Теремок», «Шоколадница», «Вкусно и точка», «Бургер Кинг», «Додо», «Кафе», «Кофейня», «Dream kids») — это ВСЕГДА «Еда».
+     * Доставка продуктов («Самокат», «Вкусвилл», «Перекресток») — «Еда» (подкатегория «Самокат»).
+   - account_name: если упомянут счёт или сервис («Озон» -> «Озон Банк», «Альфа» -> «Карта Альфа (Основной)», «Т-Банк» / «Тинькофф» -> «Т-Банк Black», «наличные» -> «Наличные (Психотерапевт)», «с Владом» -> «Влад и Алина - Едоки (Т-Банк)», «копилка» -> «Инвесткопилка (Альфа)»), сопоставь с доступными счетами.
+   - to_account_name: если это перевод (transfer), укажи счет зачисления (например «Инвесткопилка (Альфа)»).
+   - note: краткое описание покупки или действия («Теремок», «Кофе», «Перевод от подруги», «Накопления с покупки», «Самокат», «Озон»).
 3. Если пользователь не назвал сумму операции (например: «Запиши маникюр», «Такси», «Обед с коллегами») или сумма неразборчива:
    - transactions оставь пустым: []
    - заполни поле "pending":
@@ -230,8 +235,54 @@ class AIParserService:
     ) -> AIParsedResult:
         cleaned = text.replace(",", ".").lower()
 
-        # Check for transfer keyword
-        if "перевод" in cleaned or "перевел" in cleaned or "перевела" in cleaned:
+        # 1. Check for incoming transfers from friend/other person
+        is_incoming_transfer = any(
+            w in cleaned for w in [
+                "перевод от", "скинули", "перевели мне", "пришли деньги",
+                "перевод от подруги", "перевод от друга", "вернули долг"
+            ]
+        )
+        if is_incoming_transfer:
+            amt_match = re.search(r"(\d+(?:\.\d+)?)", cleaned)
+            amount = float(amt_match.group(1)) if amt_match else 0.0
+            if amount > 0:
+                acc = AIParserService.match_account_name(cleaned, account_names) or (account_names[0] if account_names else "Основной")
+                note = "Перевод от подруги" if "подруг" in cleaned else ("Перевод от друга" if "друг" in cleaned else "Входящий перевод")
+                return AIParsedResult(
+                    transactions=[
+                        AIParsedTransaction(
+                            amount=amount,
+                            type="income",
+                            category_name="Переводы (получено)",
+                            account_name=acc,
+                            to_account_name=None,
+                            note=note
+                        )
+                    ]
+                )
+
+        # 2. Check for savings / roundups from purchases
+        if "накоплен" in cleaned or "округлен" in cleaned:
+            amt_match = re.search(r"(\d+(?:\.\d+)?)", cleaned)
+            amount = float(amt_match.group(1)) if amt_match else 0.0
+            if amount > 0:
+                from_acc = AIParserService.match_account_name(cleaned, account_names) or (account_names[0] if account_names else "Основной")
+                to_acc = next((a for a in account_names if "инвест" in a.lower() or "копилк" in a.lower() or "накоп" in a.lower()), None)
+                return AIParsedResult(
+                    transactions=[
+                        AIParsedTransaction(
+                            amount=amount,
+                            type="transfer",
+                            category_name="Накопления",
+                            account_name=from_acc,
+                            to_account_name=to_acc or (account_names[1] if len(account_names) > 1 else None),
+                            note="Накопления с покупки"
+                        )
+                    ]
+                )
+
+        # 3. Check for transfer keyword between own accounts
+        if ("перевод" in cleaned or "перевел" in cleaned or "перевела" in cleaned) and not is_incoming_transfer:
             amt_match = re.search(r"(\d+(?:\.\d+)?)", cleaned)
             amount = float(amt_match.group(1)) if amt_match else 0.0
             if amount > 0:
@@ -266,7 +317,7 @@ class AIParserService:
             matched_cat = "Покупки"
             suggested_amounts = [500.0, 1000.0, 1500.0, 2000.0, 2500.0, 3000.0]
 
-            if any(w in clause for w in ["кофе", "обед", "ужин", "бургер", "кафе", "ресторан", "самокат", "вкусвилл", "еда"]):
+            if any(w in clause for w in ["теремок", "кофе", "обед", "ужин", "бургер", "кафе", "ресторан", "самокат", "вкусвилл", "еда", "шоколадниц", "додо", "макдоналдс", "ростикс", "кфс", "kfc", "dream kids"]):
                 matched_cat = "Еда"
                 suggested_amounts = [250.0, 350.0, 500.0, 800.0, 1200.0]
             elif any(w in clause for w in ["маникюр", "педикюр", "брови", "волосы", "стрижка", "косметика"]):

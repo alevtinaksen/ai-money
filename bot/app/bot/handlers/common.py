@@ -20,6 +20,54 @@ from app.bot.state import (
     USER_ACTIVE_PENDING
 )
 
+SUBCATEGORY_MAPPING = {
+    "самокат": ("Еда", "🛴", "Самокат"),
+    "кафе": ("Еда", "🍽️", "Кафе"),
+    "кофе": ("Еда", "☕", "Кофе"),
+    "наланч": ("Еда", "🍱", "НаЛанч"),
+    "такси": ("Транспорт", "🚕", "Такси"),
+    "каршеринг": ("Транспорт", "🚙", "Каршеринг"),
+    "общественный транспорт": ("Транспорт", "🚌", "Общественный транспорт"),
+    "поезд": ("Транспорт", "🚆", "Поезд"),
+    "бензин": ("Машина", "⛽", "Бензин"),
+    "то авто": ("Машина", "🔧", "ТО авто"),
+    "парковка": ("Машина", "🅿️", "Парковка"),
+    "кредит за авто": ("Машина", "📑", "Кредит за авто"),
+    "одежда": ("Покупки", "👗", "Одежда"),
+    "электроника": ("Покупки", "💻", "Электроника"),
+    "бытовая химия": ("Покупки", "🧼", "Бытовая химия"),
+    "товары для хобби": ("Покупки", "🎨", "Товары для хобби"),
+    "кино": ("Развлечения", "🍿", "Кино"),
+    "игры": ("Развлечения", "🎮", "Игры"),
+    "вечеринки": ("Развлечения", "🎉", "Вечеринки"),
+    "лекарства": ("Здоровье", "💊", "Лекарства"),
+    "врачи": ("Здоровье", "🩺", "Врачи"),
+    "психотерапевт": ("Здоровье", "🧠", "Психотерапевт"),
+    "аренда": ("Жилье", "🔑", "Аренда"),
+    "жкх": ("Жилье", "💡", "ЖКХ"),
+    "ремонт": ("Жилье", "🔨", "Ремонт"),
+    "внешний вид": ("Личное", "💄", "Внешний вид"),
+    "привычки": ("Личное", "☕", "Привычки"),
+    "спорт": ("Личное", "🏃", "Спорт"),
+    "корм для кота": ("Кот", "🐟", "Корм для кота"),
+    "здоровье кота": ("Кот", "🐾", "Здоровье кота"),
+}
+
+def format_category_display(cat_name: Optional[str], cat_icon: Optional[str], note: Optional[str] = None) -> str:
+    name_low = (cat_name or "").lower().strip()
+    note_low = (note or "").lower().strip()
+
+    if name_low in SUBCATEGORY_MAPPING:
+        parent, icon, sub = SUBCATEGORY_MAPPING[name_low]
+        return f"{icon} {parent} · {sub}"
+
+    for sub_key, (parent, icon, sub) in SUBCATEGORY_MAPPING.items():
+        if parent.lower() == name_low and (sub_key in note_low or note_low in sub_key):
+            return f"{icon} {parent} · {sub}"
+
+    icon = cat_icon or "📦"
+    return f"{icon} {cat_name or 'Без категории'}"
+
 async def update_user_mini_app_sync(bot: Bot, chat_id: int, user_id: int, db) -> str:
     """Updates Telegram chat menu button and returns sync hash for inline buttons."""
     sync_hash = await FinanceService.get_user_sync_hash(db, user_id)
@@ -244,14 +292,23 @@ async def process_and_save_transactions(user_id: int, text: str, bot: Bot, chat_
 
             type_symbol = "💸 Расход" if tx_data.type == "expense" else ("💰 Доход" if tx_data.type == "income" else "🔄 Перевод")
             acc_icon = target_acc.icon if target_acc else "💳"
-            cat_icon = target_cat.icon if target_cat else "📦"
+            category_line = format_category_display(target_cat.name if target_cat else None, target_cat.icon if target_cat else None, tx_data.note)
 
             msg_text = (
                 f"✅ **{type_symbol} записан:**\n\n"
                 f"💵 **Сумма:** {tx_data.amount:,.2f} ₽\n"
-                f"📁 **Категория:** {cat_icon} {target_cat.name if target_cat else 'Без категории'}\n"
-                f"💳 **Счёт:** {acc_icon} {target_acc.name if target_acc else 'Основной'}\n"
+                f"📁 **Категория:** {category_line}\n"
             )
+
+            if tx_data.type == "transfer":
+                acc_from = target_acc.name if target_acc else 'Основной'
+                acc_to = target_to_acc.name if target_to_acc else 'Счёт зачисления'
+                to_icon = target_to_acc.icon if target_to_acc else '🪙'
+                msg_text += f"💳 **Счёт списания:** {acc_icon} {acc_from}\n"
+                msg_text += f"📥 **Счёт зачисления:** {to_icon} {acc_to}\n"
+            else:
+                msg_text += f"💳 **Счёт:** {acc_icon} {target_acc.name if target_acc else 'Основной'}\n"
+
             if tx_data.note:
                 msg_text += f"📝 **Заметка:** {tx_data.note}\n"
 
@@ -330,20 +387,33 @@ async def send_updated_tx_card(bot: Bot, chat_id: int, user_id: int, tx: Transac
         res_cat = await db.execute(stmt_cat)
         cat = res_cat.scalar_one_or_none()
 
+        stmt_to_acc = None
+        to_acc = None
+        if tx.type == "transfer" and tx.to_account_id:
+            stmt_to = select(Account).where(Account.id == tx.to_account_id)
+            res_to = await db.execute(stmt_to)
+            to_acc = res_to.scalar_one_or_none()
+
         sync_hash = await update_user_mini_app_sync(bot, chat_id, user_id, db)
 
         type_symbol = "💸 Расход" if tx.type == "expense" else ("💰 Доход" if tx.type == "income" else "🔄 Перевод")
         acc_icon = acc.icon if acc else "💳"
-        cat_icon = cat.icon if cat else "📦"
         acc_name = acc.name if acc else "Счёт"
-        cat_name = cat.name if cat else "Без категории"
+        category_line = format_category_display(cat.name if cat else None, cat.icon if cat else None, tx.note)
 
         msg_text = (
             f"✅ **{type_symbol} ({prefix}):**\n\n"
             f"💵 **Сумма:** {float(tx.amount):,.2f} ₽\n"
-            f"📁 **Категория:** {cat_icon} {cat_name}\n"
-            f"💳 **Счёт:** {acc_icon} {acc_name}\n"
+            f"📁 **Категория:** {category_line}\n"
         )
+        if tx.type == "transfer":
+            to_icon = to_acc.icon if to_acc else '🪙'
+            to_name = to_acc.name if to_acc else 'Счёт зачисления'
+            msg_text += f"💳 **Счёт списания:** {acc_icon} {acc_name}\n"
+            msg_text += f"📥 **Счёт зачисления:** {to_icon} {to_name}\n"
+        else:
+            msg_text += f"💳 **Счёт:** {acc_icon} {acc_name}\n"
+
         if tx.note:
             msg_text += f"📝 **Заметка:** {tx.note}\n"
         if acc:

@@ -28,6 +28,27 @@ interface DashboardScreenProps {
   onHaptic?: (style?: 'light' | 'medium' | 'heavy') => void;
 }
 
+function formatCardDate(dateStr?: string): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const now = new Date();
+  const isToday =
+    d.getDate() === now.getDate() &&
+    d.getMonth() === now.getMonth() &&
+    d.getFullYear() === now.getFullYear();
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday =
+    d.getDate() === yesterday.getDate() &&
+    d.getMonth() === yesterday.getMonth() &&
+    d.getFullYear() === yesterday.getFullYear();
+
+  if (isToday) return 'Сегодня';
+  if (isYesterday) return 'Вчера';
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+}
+
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   summary,
   accounts,
@@ -444,21 +465,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
           {/* Transactions List */}
           <div className="space-y-2">
-            {/* Centered Date Header above cards */}
-            <div className="text-center text-[12px] font-medium text-[#9CA3AF] dark:text-gray-400">
-              {monthTransactions.length > 0 && monthTransactions[0].created_at
-                ? new Date(monthTransactions[0].created_at).toLocaleDateString('ru-RU', {
-                    day: 'numeric',
-                    month: 'long',
-                  })
-                : new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
-            </div>
-
             {/* Horizontal / Stacked Transaction Cards */}
-            <div className="flex items-center space-x-3 overflow-x-auto no-scrollbar pb-2">
+            <div className="flex items-center space-x-3 overflow-x-auto no-scrollbar pb-2 pt-1">
               {monthTransactions.length > 0 ? (
                 monthTransactions.map((tx) => {
                   const resolved = resolveCategoryAndSubcategory(tx);
+                  const dateTag = formatCardDate(tx.created_at);
                   return (
                     <button
                       key={tx.id}
@@ -467,15 +479,22 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         onHaptic?.('light');
                         onSelectTransaction?.(tx);
                       }}
-                      className="flex-shrink-0 bg-white dark:bg-[#1E1F26] rounded-[22px] px-4 py-3 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center space-x-3 min-w-[170px] text-left active:scale-[0.98] transition-all"
+                      className="flex-shrink-0 bg-white dark:bg-[#1E1F26] rounded-[22px] px-4 py-3 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center space-x-3 min-w-[180px] text-left active:scale-[0.98] transition-all"
                     >
-                      <div className="text-2xl">{resolved.icon}</div>
-                      <div>
-                        <div className="text-[14px] font-semibold text-[#111827] dark:text-white leading-tight truncate max-w-[160px]">
-                          {resolved.displayTitle}
+                      <div className="text-2xl flex-shrink-0">{resolved.icon}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between space-x-1.5">
+                          <div className="text-[14px] font-semibold text-[#111827] dark:text-white leading-tight truncate">
+                            {resolved.displayTitle}
+                          </div>
+                          {dateTag && (
+                            <span className="text-[10px] font-medium text-[#9CA3AF] dark:text-gray-400 bg-gray-50 dark:bg-gray-800 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                              {dateTag}
+                            </span>
+                          )}
                         </div>
                         <div
-                          className={`text-[13px] font-bold mt-0.5 ${
+                          className={`text-[13px] font-bold mt-1 ${
                             tx.type === 'expense'
                               ? 'text-[#FF4B55]'
                               : tx.type === 'income'

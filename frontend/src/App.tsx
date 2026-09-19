@@ -160,6 +160,7 @@ export const App: React.FC = () => {
   // Handle adding transaction
   const handleAddTransaction = async (data: {
     account_id: string;
+    to_account_id?: string;
     category_id: string;
     amount: number;
     type: TransactionType;
@@ -171,7 +172,14 @@ export const App: React.FC = () => {
     let updatedAccounts: Account[] = [];
     setAccounts((prev) => {
       updatedAccounts = prev.map((acc) => {
-        if (acc.id === data.account_id) {
+        if (data.type === 'transfer') {
+          if (acc.id === data.account_id) {
+            return { ...acc, balance: Math.round((acc.balance - data.amount) * 100) / 100 };
+          }
+          if (acc.id === data.to_account_id) {
+            return { ...acc, balance: Math.round((acc.balance + data.amount) * 100) / 100 };
+          }
+        } else if (acc.id === data.account_id) {
           const newBal =
             data.type === 'expense'
               ? acc.balance - data.amount
@@ -190,6 +198,7 @@ export const App: React.FC = () => {
       id: `tx-${Date.now()}`,
       user_id: 143702968,
       account_id: data.account_id,
+      to_account_id: data.to_account_id,
       category_id: data.category_id,
       amount: data.amount,
       type: data.type,
@@ -234,6 +243,7 @@ export const App: React.FC = () => {
     id: string;
     amount: number;
     account_id: string;
+    to_account_id?: string;
     category_id?: string;
     type: 'expense' | 'income' | 'transfer';
     note?: string;
@@ -249,12 +259,26 @@ export const App: React.FC = () => {
     setAccounts((prev) => {
       updatedAccounts = prev.map((acc) => {
         let bal = acc.balance;
-        if (acc.id === oldTx.account_id) {
-          bal = oldTx.type === 'expense' ? bal + oldTx.amount : bal - oldTx.amount;
+        // Revert old transaction effect
+        if (oldTx.type === 'expense' && acc.id === oldTx.account_id) {
+          bal += oldTx.amount;
+        } else if (oldTx.type === 'income' && acc.id === oldTx.account_id) {
+          bal -= oldTx.amount;
+        } else if (oldTx.type === 'transfer') {
+          if (acc.id === oldTx.account_id) bal += oldTx.amount;
+          if (acc.id === oldTx.to_account_id) bal -= oldTx.amount;
         }
-        if (acc.id === data.account_id) {
-          bal = data.type === 'expense' ? bal - data.amount : bal + data.amount;
+
+        // Apply new transaction effect
+        if (data.type === 'expense' && acc.id === data.account_id) {
+          bal -= data.amount;
+        } else if (data.type === 'income' && acc.id === data.account_id) {
+          bal += data.amount;
+        } else if (data.type === 'transfer') {
+          if (acc.id === data.account_id) bal -= data.amount;
+          if (acc.id === data.to_account_id) bal += data.amount;
         }
+
         return { ...acc, balance: Math.round(bal * 100) / 100 };
       });
       saveStoredAccounts(updatedAccounts);
@@ -268,6 +292,7 @@ export const App: React.FC = () => {
               ...tx,
               amount: data.amount,
               account_id: data.account_id,
+              to_account_id: data.to_account_id ?? tx.to_account_id,
               account_name:
                 (updatedAccounts.length ? updatedAccounts : accounts).find(
                   (a) => a.id === data.account_id

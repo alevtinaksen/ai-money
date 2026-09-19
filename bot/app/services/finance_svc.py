@@ -234,9 +234,17 @@ class FinanceService:
                 old_acc.balance = float(old_acc.balance) + float(tx.amount)
             elif tx.type == "income":
                 old_acc.balance = float(old_acc.balance) - float(tx.amount)
+            elif tx.type == "transfer" and tx.to_account_id:
+                old_acc.balance = float(old_acc.balance) + float(tx.amount)
+                stmt_to = select(Account).where(Account.id == tx.to_account_id)
+                res_to = await db.execute(stmt_to)
+                old_to_acc = res_to.scalar_one_or_none()
+                if old_to_acc:
+                    old_to_acc.balance = float(old_to_acc.balance) - float(tx.amount)
 
         # Apply new fields
         new_account_id = data.get("account_id") or tx.account_id
+        new_to_account_id = data.get("to_account_id", tx.to_account_id)
         new_amount = float(data.get("amount") if data.get("amount") is not None else tx.amount)
         new_type = data.get("type") or tx.type
 
@@ -249,8 +257,16 @@ class FinanceService:
                 new_acc.balance = float(new_acc.balance) - new_amount
             elif new_type == "income":
                 new_acc.balance = float(new_acc.balance) + new_amount
+            elif new_type == "transfer" and new_to_account_id:
+                new_acc.balance = float(new_acc.balance) - new_amount
+                stmt_new_to = select(Account).where(Account.id == new_to_account_id)
+                res_new_to = await db.execute(stmt_new_to)
+                new_to_acc = res_new_to.scalar_one_or_none()
+                if new_to_acc:
+                    new_to_acc.balance = float(new_to_acc.balance) + new_amount
 
         tx.account_id = new_account_id
+        tx.to_account_id = new_to_account_id
         tx.amount = new_amount
         tx.type = new_type
         if "category_id" in data:
