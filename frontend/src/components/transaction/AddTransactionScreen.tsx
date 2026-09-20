@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   CloseOutlined,
   SwapOutlined,
@@ -8,6 +8,7 @@ import {
 } from '@ant-design/icons';
 import { Account, Category, TransactionType } from '../../types';
 import { CustomNumpad } from '../keypad/CustomNumpad';
+import { AccountSelectSheet } from '../modals/AccountSelectSheet';
 
 interface AddTransactionScreenProps {
   onClose: () => void;
@@ -16,9 +17,10 @@ interface AddTransactionScreenProps {
   selectedAccount: Account;
   initialType?: TransactionType;
   initialCategoryId?: string;
-  onOpenAccountSelect: () => void;
+  onOpenAccountSelect?: () => void;
   onSubmit: (tx: {
     account_id: string;
+    to_account_id?: string;
     category_id: string;
     amount: number;
     type: TransactionType;
@@ -29,16 +31,29 @@ interface AddTransactionScreenProps {
 
 export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
   onClose,
+  accounts,
   categories,
   selectedAccount,
   initialType,
   initialCategoryId,
-  onOpenAccountSelect,
   onSubmit,
-  onHaptic
+  onHaptic,
 }) => {
   const [amountStr, setAmountStr] = useState('');
   const [txType, setTxType] = useState<TransactionType>(initialType || 'expense');
+  const [isAmountError, setIsAmountError] = useState(false);
+
+  // Source and Destination accounts
+  const [fromAccount, setFromAccount] = useState<Account>(selectedAccount);
+  const [toAccount, setToAccount] = useState<Account>(() => {
+    const other = accounts.find((a) => a.id !== selectedAccount.id);
+    return other || selectedAccount;
+  });
+
+  // Account selector modal state ('from' | 'to' | null)
+  const [accountPickerTarget, setAccountPickerTarget] = useState<'from' | 'to' | null>(null);
+
+  // Selected Category
   const [selectedCategory, setSelectedCategory] = useState<Category>(() => {
     if (initialType === 'transfer' || initialCategoryId) {
       const match = categories.find(
@@ -56,54 +71,177 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
       icon: '🍔',
       color: '#FEE2E2',
       sort_order: 1,
-      user_id: 143702968
+      user_id: 143702968,
     };
   });
+
   const [note, setNote] = useState('');
   const [dateLabel, setDateLabel] = useState('Сегодня');
 
-  // Put selected category at the first place among all badges
-  const orderedCategories = React.useMemo(() => {
+  // Find transfer category helper
+  const transferCategory = useMemo(() => {
+    return categories.find(
+      (c) => c.name.toLowerCase().includes('перевод') || c.icon === '💸'
+    );
+  }, [categories]);
+
+  // Order categories: selected first, and if transfer mode, prioritize transfer category
+  const orderedCategories = useMemo(() => {
     const selected = categories.find((c) => c.id === selectedCategory.id);
     const others = categories.filter((c) => c.id !== selectedCategory.id);
     return selected ? [selected, ...others] : categories;
   }, [categories, selectedCategory.id]);
 
-  // Keypad handlers
-  const handleDigit = (digit: string) => {
+  // Keypad / Typing handlers
+  const handleDigit = useCallback((digit: string) => {
     onHaptic?.('light');
-    if (amountStr.length > 9) return;
-    if (amountStr === '0') {
-      setAmountStr(digit);
-    } else {
-      setAmountStr((prev) => prev + digit);
-    }
-  };
+    setIsAmountError(false);
+    setAmountStr((prev) => {
+      if (prev.length > 9) return prev;
+      if (prev === '0') return digit;
+      return prev + digit;
+    });
+  }, [onHaptic]);
 
-  const handleDelete = () => {
+  const handleDelete = useCallback(() => {
     onHaptic?.('medium');
+    setIsAmountError(false);
     setAmountStr((prev) => prev.slice(0, -1));
-  };
+  }, [onHaptic]);
 
-  const handleComma = () => {
+  const handleComma = useCallback(() => {
     onHaptic?.('light');
-    if (!amountStr.includes(',')) {
-      setAmountStr((prev) => (prev === '' ? '0,' : prev + ','));
-    }
-  };
+    setIsAmountError(false);
+    setAmountStr((prev) => {
+      if (prev.includes(',')) return prev;
+      return prev === '' ? '0,' : prev + ',';
+    });
+  }, [onHaptic]);
 
-  const handleSubmit = () => {
-    onHaptic?.('heavy');
+  // Swap accounts for transfers
+  const handleSwapAccounts = useCallback(() => {
+    onHaptic?.('medium');
+    setFromAccount((prevFrom) => {
+      const nextFrom = toAccount;
+      setToAccount(prevFrom);
+      return nextFrom;
+    });
+  }, [onHaptic, toAccount]);
+
+  // Submit transaction
+  const handleSubmit = useCallback(() => {
     const parsedAmount = parseFloat(amountStr.replace(',', '.')) || 0;
-    if (parsedAmount <= 0) return;
+    if (parsedAmount <= 0) {
+      onHaptic?.('heavy');
+      setIsAmountError(true);
+      setTimeout(() => setIsAmountError(false), 900);
+      return;
+    }
+
+    if (txType === 'transfer' && fromAccount.id === toAccount.id) {
+      onHaptic?.('heavy');
+      // If accounts are identical, pick a different one
+      const diff = accounts.find((a) => a.id !== fromAccount.id);
+      if (diff) {
+        setToAccount(diff);
+      } else {
+        alert('Пожалуйста, выберите разные счета для перевода');
+        return;
+      }
+    }
+
+    onHaptic?.('heavy');
+
+    const finalNote = note.trim() || (
+      txType === 'transfer'
+        ? `Перевод на ${toAccount.name}`
+        : selectedCategory.name
+    );
+
+    const finalCatId = txType === 'transfer' && transferCategory
+      ? transferCategory.id
+      : selectedCategory.id;
 
     onSubmit({
-      account_id: selectedAccount.id,
-      category_id: selectedCategory.id,
+      account_id: fromAccount.id,
+      to_account_id: txType === 'transfer' ? toAccount.id : undefined,
+      category_id: finalCatId,
       amount: parsedAmount,
       type: txType,
-      note: note.trim() || selectedCategory.name,
+      note: finalNote,
     });
+  }, [
+    amountStr,
+    fromAccount.id,
+    toAccount.id,
+    toAccount.name,
+    txType,
+    note,
+    selectedCategory.name,
+    selectedCategory.id,
+    transferCategory,
+    accounts,
+    onSubmit,
+    onHaptic,
+  ]);
+
+  // Physical keyboard listener for desktop
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+        if (e.key === 'Escape') {
+          (activeEl as HTMLElement).blur();
+        } else if (e.key === 'Enter') {
+          handleSubmit();
+        }
+        return;
+      }
+
+      if (e.key >= '0' && e.key <= '9') {
+        e.preventDefault();
+        handleDigit(e.key);
+      } else if (e.key === '.' || e.key === ',') {
+        e.preventDefault();
+        handleComma();
+      } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        handleDelete();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSubmit();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleDigit, handleComma, handleDelete, handleSubmit, onClose]);
+
+  // Mode switcher handler
+  const setMode = useCallback((type: TransactionType) => {
+    onHaptic?.('light');
+    setTxType(type);
+    if (type === 'transfer') {
+      if (transferCategory) setSelectedCategory(transferCategory);
+    } else if (selectedCategory.icon === '💸' || selectedCategory.name.toLowerCase().includes('перевод')) {
+      const regularCat = categories.find((c) => c.type === type && !c.name.toLowerCase().includes('перевод'));
+      if (regularCat) setSelectedCategory(regularCat);
+    }
+  }, [categories, onHaptic, selectedCategory, transferCategory]);
+
+  // Category click handler
+  const handleCategorySelect = (cat: Category) => {
+    onHaptic?.('light');
+    setSelectedCategory(cat);
+    const isTransferCat = cat.name.toLowerCase().includes('перевод') || cat.icon === '💸';
+    if (isTransferCat) {
+      setTxType('transfer');
+    } else if (txType === 'transfer') {
+      setTxType(cat.type === 'income' ? 'income' : 'expense');
+    }
   };
 
   // Format account balance for pill (e.g. 5,52 тыс. ₽)
@@ -118,7 +256,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
 
   return (
     <div className="fixed inset-0 z-40 bg-[#F6F7FB] dark:bg-[#121318] flex flex-col justify-between animate-fade-in select-none transition-colors">
-      {/* Top Bar with Close and Transfer */}
+      {/* Top Bar */}
       <div className="px-5 pt-12 pb-3 flex items-center justify-between">
         <button
           type="button"
@@ -131,21 +269,22 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
           <CloseOutlined className="text-[18px]" />
         </button>
 
+        {/* Header Title / Mode Indicator */}
+        <div className="text-center">
+          <span className="text-[15px] font-semibold text-[#111827] dark:text-white">
+            {txType === 'transfer' ? 'Перевод между счетами' : txType === 'income' ? 'Новый доход' : 'Новый расход'}
+          </span>
+        </div>
+
+        {/* Quick Transfer Toggle at Top-Right */}
         <button
           type="button"
           onClick={() => {
-            onHaptic?.('light');
-            const nextType = txType === 'transfer' ? 'expense' : 'transfer';
-            setTxType(nextType);
-            if (nextType === 'transfer') {
-              const transferCat = categories.find(
-                (c) => c.name.toLowerCase().includes('перевод') || c.icon === '💸'
-              );
-              if (transferCat) setSelectedCategory(transferCat);
-            }
+            setMode(txType === 'transfer' ? 'expense' : 'transfer');
           }}
-          className={`w-10 h-10 rounded-full bg-white dark:bg-[#1A1B20] shadow-sm flex items-center justify-center text-[#4B5563] dark:text-[#A0A5B5] active:bg-[#F3F4F6] dark:active:bg-[#252730] border border-gray-100 dark:border-[#252730] ${
-            txType === 'transfer' ? 'ring-2 ring-[#2B5BFF] text-[#2B5BFF]' : ''
+          title={txType === 'transfer' ? 'Перейти к расходу' : 'Перейти к переводу'}
+          className={`w-10 h-10 rounded-full bg-white dark:bg-[#1A1B20] shadow-sm flex items-center justify-center text-[#4B5563] dark:text-[#A0A5B5] active:bg-[#F3F4F6] dark:active:bg-[#252730] border border-gray-100 dark:border-[#252730] transition-all ${
+            txType === 'transfer' ? 'ring-2 ring-[#2B5BFF] text-[#2B5BFF] bg-blue-50 dark:bg-[#1E2540]' : ''
           }`}
         >
           <SwapOutlined className="text-[18px]" />
@@ -153,56 +292,133 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col justify-between px-5 pt-2 pb-3 max-w-lg mx-auto w-full">
+      <div className="flex-1 flex flex-col justify-between px-5 pt-1 pb-2 max-w-lg mx-auto w-full">
         <div>
-          {/* Account Pill & Date Pill */}
-          <div className="flex items-center justify-between gap-3 mb-6">
-            {/* Account Selector Pill */}
-            <button
-              type="button"
-              onClick={() => {
-                onHaptic?.('light');
-                onOpenAccountSelect();
-              }}
-              className="flex items-center space-x-2.5 bg-white dark:bg-[#1A1B20] px-4 py-2 rounded-[22px] shadow-sm active:scale-[0.98] transition-all border border-gray-100 dark:border-[#252730] max-w-[200px] sm:max-w-[240px] min-w-0"
-            >
-              <span className="text-xl shrink-0">{selectedAccount.icon || '❤️'}</span>
-              <div className="text-left min-w-0 flex-1">
-                <div className="text-[14px] font-semibold text-[#111827] dark:text-white leading-tight truncate">
-                  {selectedAccount.name}
-                </div>
-                <div className="text-[12px] text-[#9CA3AF] dark:text-[#8E92A4] font-medium leading-tight whitespace-nowrap">
-                  {formatCompactBalance(selectedAccount.balance)}
-                </div>
+          {/* Account Selection Area */}
+          {txType === 'transfer' ? (
+            /* Dual Account Picker for Transfers */
+            <div className="mb-4">
+              <div className="flex items-center gap-2">
+                {/* Source Account (Откуда) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onHaptic?.('light');
+                    setAccountPickerTarget('from');
+                  }}
+                  className="flex-1 min-w-0 flex items-center space-x-2.5 bg-white dark:bg-[#1A1B20] px-3.5 py-2.5 rounded-[22px] shadow-sm active:scale-[0.98] transition-all border border-gray-100 dark:border-[#252730]"
+                >
+                  <span className="text-2xl shrink-0">{fromAccount.icon || '💳'}</span>
+                  <div className="text-left min-w-0 flex-1">
+                    <div className="text-[10px] text-[#9CA3AF] dark:text-[#8E92A4] font-medium uppercase tracking-wider leading-none mb-1">
+                      Списать с
+                    </div>
+                    <div className="text-[13px] font-semibold text-[#111827] dark:text-white leading-tight truncate">
+                      {fromAccount.name}
+                    </div>
+                    <div className="text-[11px] text-[#9CA3AF] dark:text-[#8E92A4] font-medium leading-tight whitespace-nowrap mt-0.5">
+                      {formatCompactBalance(fromAccount.balance)}
+                    </div>
+                  </div>
+                </button>
+
+                {/* Swap Button */}
+                <button
+                  type="button"
+                  onClick={handleSwapAccounts}
+                  title="Поменять счета местами"
+                  className="w-10 h-10 rounded-full bg-white dark:bg-[#1A1B20] border border-gray-100 dark:border-[#252730] flex items-center justify-center text-[#2B5BFF] shadow-sm shrink-0 active:scale-90 hover:bg-blue-50 dark:hover:bg-[#252738] transition-all"
+                >
+                  <SwapOutlined className="text-[18px]" />
+                </button>
+
+                {/* Destination Account (Куда) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onHaptic?.('light');
+                    setAccountPickerTarget('to');
+                  }}
+                  className="flex-1 min-w-0 flex items-center space-x-2.5 bg-white dark:bg-[#1A1B20] px-3.5 py-2.5 rounded-[22px] shadow-sm active:scale-[0.98] transition-all border border-gray-100 dark:border-[#252730]"
+                >
+                  <span className="text-2xl shrink-0">{toAccount.icon || '💳'}</span>
+                  <div className="text-left min-w-0 flex-1">
+                    <div className="text-[10px] text-[#9CA3AF] dark:text-[#8E92A4] font-medium uppercase tracking-wider leading-none mb-1">
+                      Перевести на
+                    </div>
+                    <div className="text-[13px] font-semibold text-[#111827] dark:text-white leading-tight truncate">
+                      {toAccount.name}
+                    </div>
+                    <div className="text-[11px] text-[#9CA3AF] dark:text-[#8E92A4] font-medium leading-tight whitespace-nowrap mt-0.5">
+                      {formatCompactBalance(toAccount.balance)}
+                    </div>
+                  </div>
+                </button>
               </div>
-            </button>
 
-            {/* Date Pill */}
-            <button
-              type="button"
-              onClick={() => {
-                onHaptic?.('light');
-                setDateLabel(dateLabel === 'Сегодня' ? 'Вчера' : 'Сегодня');
-              }}
-              className="flex items-center space-x-2 bg-white dark:bg-[#1A1B20] px-4 py-2.5 rounded-[22px] shadow-sm active:scale-[0.98] transition-all border border-gray-100 dark:border-[#252730]"
-            >
-              <CalendarOutlined className="text-[14px] text-[#6B7280] dark:text-[#8E92A4]" />
-              <span className="text-[14px] font-medium text-[#374151] dark:text-white">
-                {dateLabel}
-              </span>
-            </button>
-          </div>
-
-          {/* Amount Display with [- +] Toggle */}
-          <div className="flex items-center justify-between my-6 px-1">
-            {/* [- +] Toggle Pill */}
-            <div className="flex items-center bg-white dark:bg-[#1A1B20] rounded-full p-1 shadow-sm border border-gray-100 dark:border-[#252730]">
+              {/* Date button below dual pills */}
+              <div className="flex items-center justify-end mt-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onHaptic?.('light');
+                    setDateLabel(dateLabel === 'Сегодня' ? 'Вчера' : 'Сегодня');
+                  }}
+                  className="flex items-center space-x-2 bg-white dark:bg-[#1A1B20] px-3.5 py-1.5 rounded-[18px] shadow-sm active:scale-[0.98] transition-all border border-gray-100 dark:border-[#252730]"
+                >
+                  <CalendarOutlined className="text-[13px] text-[#6B7280] dark:text-[#8E92A4]" />
+                  <span className="text-[13px] font-medium text-[#374151] dark:text-white">
+                    {dateLabel}
+                  </span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Single Account Pill + Date Pill for Expense/Income */
+            <div className="flex items-center justify-between gap-3 mb-5">
               <button
                 type="button"
                 onClick={() => {
                   onHaptic?.('light');
-                  setTxType('expense');
+                  setAccountPickerTarget('from');
                 }}
+                className="flex items-center space-x-2.5 bg-white dark:bg-[#1A1B20] px-4 py-2 rounded-[22px] shadow-sm active:scale-[0.98] transition-all border border-gray-100 dark:border-[#252730] max-w-[200px] sm:max-w-[240px] min-w-0"
+              >
+                <span className="text-xl shrink-0">{fromAccount.icon || '❤️'}</span>
+                <div className="text-left min-w-0 flex-1">
+                  <div className="text-[14px] font-semibold text-[#111827] dark:text-white leading-tight truncate">
+                    {fromAccount.name}
+                  </div>
+                  <div className="text-[12px] text-[#9CA3AF] dark:text-[#8E92A4] font-medium leading-tight whitespace-nowrap">
+                    {formatCompactBalance(fromAccount.balance)}
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onHaptic?.('light');
+                  setDateLabel(dateLabel === 'Сегодня' ? 'Вчера' : 'Сегодня');
+                }}
+                className="flex items-center space-x-2 bg-white dark:bg-[#1A1B20] px-4 py-2.5 rounded-[22px] shadow-sm active:scale-[0.98] transition-all border border-gray-100 dark:border-[#252730]"
+              >
+                <CalendarOutlined className="text-[14px] text-[#6B7280] dark:text-[#8E92A4]" />
+                <span className="text-[14px] font-medium text-[#374151] dark:text-white">
+                  {dateLabel}
+                </span>
+              </button>
+            </div>
+          )}
+
+          {/* Amount Display with 3-Mode Toggle [− | + | ⇄] */}
+          <div className="flex items-center justify-between my-5 px-1">
+            {/* Segmented Mode Pill */}
+            <div className="flex items-center bg-white dark:bg-[#1A1B20] rounded-full p-1 shadow-sm border border-gray-100 dark:border-[#252730] gap-1">
+              <button
+                type="button"
+                onClick={() => setMode('expense')}
+                title="Расход"
                 className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-lg transition-all ${
                   txType === 'expense'
                     ? 'bg-[#FF4B55] text-white shadow-sm'
@@ -214,10 +430,8 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
 
               <button
                 type="button"
-                onClick={() => {
-                  onHaptic?.('light');
-                  setTxType('income');
-                }}
+                onClick={() => setMode('income')}
+                title="Доход"
                 className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-lg transition-all ${
                   txType === 'income'
                     ? 'bg-[#34C759] text-white shadow-sm'
@@ -226,12 +440,39 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
               >
                 +
               </button>
+
+              <button
+                type="button"
+                onClick={() => setMode('transfer')}
+                title="Перевод между счетами"
+                className={`w-9 h-9 rounded-full flex items-center justify-center text-[15px] font-bold transition-all ${
+                  txType === 'transfer'
+                    ? 'bg-[#2B5BFF] text-white shadow-sm'
+                    : 'text-[#9CA3AF] dark:text-[#8E92A4] hover:text-[#4B5563]'
+                }`}
+              >
+                <SwapOutlined />
+              </button>
             </div>
 
-            {/* Big Amount Text with Animated Blue Cursor */}
-            <div className="flex items-center space-x-1">
+            {/* Big Amount Text with Blue Cursor and Shake feedback */}
+            <div
+              className={`flex items-center space-x-1 cursor-text transition-all ${
+                isAmountError ? 'animate-bounce text-red-500 scale-105' : ''
+              }`}
+              onClick={() => {
+                // Focus desktop attention or provide hint
+                onHaptic?.('light');
+              }}
+            >
               <span className="w-0.5 h-10 bg-[#2B5BFF] animate-pulse rounded-full" />
-              <span className="text-[44px] font-bold tracking-tight text-[#111827] dark:text-white">
+              <span
+                className={`text-[42px] sm:text-[46px] font-bold tracking-tight leading-none ${
+                  isAmountError
+                    ? 'text-red-500'
+                    : 'text-[#111827] dark:text-white'
+                }`}
+              >
                 {displayAmount}
               </span>
               <div className="w-10 h-10 rounded-full bg-white dark:bg-[#1A1B20] shadow-sm flex items-center justify-center text-[#6B7280] dark:text-[#8E92A4] font-medium text-lg ml-1 border border-gray-100 dark:border-[#252730]">
@@ -241,17 +482,14 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
           </div>
 
           {/* Categories Horizontal Carousel */}
-          <div className="mb-6 overflow-x-auto no-scrollbar flex items-center space-x-2.5 py-1">
+          <div className="mb-5 overflow-x-auto no-scrollbar flex items-center space-x-2.5 py-1">
             {orderedCategories.map((cat) => {
               const isSelected = selectedCategory.id === cat.id;
               return (
                 <button
                   key={cat.id}
                   type="button"
-                  onClick={() => {
-                    onHaptic?.('light');
-                    setSelectedCategory(cat);
-                  }}
+                  onClick={() => handleCategorySelect(cat)}
                   className={`flex items-center space-x-2 px-4 py-2.5 rounded-full whitespace-nowrap transition-all shadow-sm ${
                     isSelected
                       ? 'bg-white dark:bg-[#1E2337] ring-2 ring-[#2B5BFF] text-[#111827] dark:text-white font-semibold'
@@ -273,7 +511,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                 type="text"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="Описание"
+                placeholder={txType === 'transfer' ? `Перевод на ${toAccount.name}` : 'Описание'}
                 className="w-full bg-transparent text-[15px] font-normal text-[#111827] dark:text-white placeholder-[#9CA3AF] dark:placeholder-[#5E6272] focus:outline-none"
               />
             </div>
@@ -281,7 +519,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
             <button
               type="button"
               onClick={handleSubmit}
-              className="w-13 h-13 p-3 rounded-full bg-[#2B5BFF] text-white flex items-center justify-center shadow-[0_4px_16px_rgba(43,91,255,0.4)] active:scale-95 transition-all"
+              className="w-13 h-13 p-3 rounded-full bg-[#2B5BFF] text-white flex items-center justify-center shadow-[0_4px_16px_rgba(43,91,255,0.4)] active:scale-95 transition-all hover:brightness-105"
             >
               <CheckOutlined className="text-[22px]" />
             </button>
@@ -289,13 +527,41 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
         </div>
       </div>
 
-      {/* iOS Keyboard */}
+      {/* Virtual Keypad */}
       <CustomNumpad
         onDigit={handleDigit}
         onDelete={handleDelete}
         onComma={handleComma}
         onHaptic={() => onHaptic?.('light')}
       />
+
+      {/* Internal Account Picker Sheet */}
+      <AccountSelectSheet
+        isOpen={accountPickerTarget !== null}
+        onClose={() => setAccountPickerTarget(null)}
+        accounts={accounts}
+        selectedAccountId={accountPickerTarget === 'to' ? toAccount.id : fromAccount.id}
+        onSelectAccount={(acc) => {
+          if (accountPickerTarget === 'from') {
+            setFromAccount(acc);
+            // If from == to in transfer mode, auto-switch toAccount to a different account
+            if (acc.id === toAccount.id) {
+              const alt = accounts.find((a) => a.id !== acc.id);
+              if (alt) setToAccount(alt);
+            }
+          } else if (accountPickerTarget === 'to') {
+            setToAccount(acc);
+            // If to == from in transfer mode, auto-switch fromAccount to a different account
+            if (acc.id === fromAccount.id) {
+              const alt = accounts.find((a) => a.id !== acc.id);
+              if (alt) setFromAccount(alt);
+            }
+          }
+          setAccountPickerTarget(null);
+        }}
+        onHaptic={() => onHaptic?.('light')}
+      />
     </div>
   );
 };
+

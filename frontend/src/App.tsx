@@ -194,6 +194,7 @@ export const App: React.FC = () => {
 
     const cat = categories.find((c) => c.id === data.category_id);
     const targetAcc = accounts.find((a) => a.id === data.account_id);
+    const toAcc = data.to_account_id ? accounts.find((a) => a.id === data.to_account_id) : undefined;
     const newTx: Transaction = {
       id: `tx-${Date.now()}`,
       user_id: 143702968,
@@ -202,11 +203,11 @@ export const App: React.FC = () => {
       category_id: data.category_id,
       amount: data.amount,
       type: data.type,
-      note: data.note,
+      note: data.note || (data.type === 'transfer' && toAcc ? toAcc.name : (cat?.name || '')),
       created_at: new Date().toISOString(),
       account_name: targetAcc?.name || 'Карта Альфа',
-      category_name: cat?.name,
-      category_icon: cat?.icon || '📦',
+      category_name: data.type === 'transfer' ? 'Переводы' : (cat?.name || 'Расход'),
+      category_icon: data.type === 'transfer' ? '💸' : (cat?.icon || '📦'),
     };
 
     setSummary((prev) => {
