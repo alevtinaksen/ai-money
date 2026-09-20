@@ -105,25 +105,29 @@ async def safe_send_message(bot: Bot, chat_id: int, text: str, reply_markup=None
     try:
         await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup, parse_mode=parse_mode)
     except Exception as e:
-        logger.warning(f"safe_send_message failed with parse_mode={parse_mode}: {e}. Retrying with plain text...")
+        logger.warning(f"safe_send_message primary send failed: {e}. Retrying with sanitized markup...")
         clean_text = re.sub(r"[*_`\[\]]", "", text)
-        await bot.send_message(chat_id=chat_id, text=clean_text, reply_markup=reply_markup)
+        try:
+            await bot.send_message(chat_id=chat_id, text=clean_text, reply_markup=reply_markup)
+        except Exception as e2:
+            logger.error(f"Failed with reply_markup ({e2}). Sending text without reply_markup.", exc_info=True)
+            # Never let a transaction confirmation fail to deliver because of markup!
+            await bot.send_message(chat_id=chat_id, text=clean_text)
 
 async def update_user_mini_app_sync(bot: Bot, chat_id: int, user_id: int, db) -> str:
-    """Updates Telegram chat menu button and returns sync hash for inline buttons."""
-    sync_hash = await FinanceService.get_user_sync_hash(db, user_id)
+    """Updates Telegram chat menu button with clean WebApp URL."""
     if settings.WEBAPP_URL and not settings.WEBAPP_URL.startswith("http://localhost"):
         try:
             await bot.set_chat_menu_button(
                 chat_id=chat_id,
                 menu_button=MenuButtonWebApp(
                     text="📊 Бюджет",
-                    web_app=WebAppInfo(url=f"{settings.WEBAPP_URL}{sync_hash}")
+                    web_app=WebAppInfo(url=settings.WEBAPP_URL)
                 )
             )
-        except Exception:
-            pass
-    return sync_hash
+        except Exception as e:
+            logger.warning(f"Failed to update chat menu button: {e}")
+    return ""
 
 async def handle_user_input(user_id: int, text: str, bot: Bot, chat_id: int):
     """Unified entry point for both text and voice transcribed messages."""

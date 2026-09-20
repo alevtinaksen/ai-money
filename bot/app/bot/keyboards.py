@@ -27,9 +27,9 @@ def get_transaction_inline_kb(tx_id: str, sync_hash: str = "") -> InlineKeyboard
         ]
     ]
     if settings.WEBAPP_URL and not settings.WEBAPP_URL.startswith("http://localhost"):
-        url = f"{settings.WEBAPP_URL}{sync_hash}" if sync_hash else settings.WEBAPP_URL
+        base_url = settings.WEBAPP_URL.rstrip("/")
         buttons.append([
-            InlineKeyboardButton(text="📱 Открыть в приложении", web_app=WebAppInfo(url=url))
+            InlineKeyboardButton(text="📱 Открыть в приложении", web_app=WebAppInfo(url=f"{base_url}/#tx={tx_id}"))
         ])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 

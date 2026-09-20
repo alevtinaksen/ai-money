@@ -1,8 +1,11 @@
 import io
+import logging
 from aiogram import Router, F, Bot
 from aiogram.types import Message
 from app.services.ai_parser import AIParserService
 from app.bot.handlers.common import handle_user_input
+
+logger = logging.getLogger(__name__)
 
 router = Router()
 
@@ -34,4 +37,5 @@ async def handle_voice_message(message: Message, bot: Bot):
             pass
 
     except Exception as e:
+        logger.error(f"Voice message handling failed: {e}", exc_info=True)
         await status_msg.edit_text(f"⚠️ Ошибка обработки аудио: {str(e)}")
