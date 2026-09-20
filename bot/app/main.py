@@ -78,9 +78,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="AI Money API",
     description="Backend API for Telegram Mini App and AI Finance Bot",
-    version="1.0.0",
+    version="1.0.2",
     lifespan=lifespan
 )
+
 
 # Enable CORS for Mini App web requests
 app.add_middleware(
