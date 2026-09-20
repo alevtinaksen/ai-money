@@ -126,6 +126,11 @@ class AIParserService:
         try:
             import speech_recognition as sr
             from pydub import AudioSegment
+            try:
+                import imageio_ffmpeg
+                AudioSegment.converter = imageio_ffmpeg.get_ffmpeg_exe()
+            except Exception as ffmpeg_err:
+                logger.warning(f"Could not configure imageio_ffmpeg: {ffmpeg_err}")
 
             audio_seg = AudioSegment.from_file(io.BytesIO(audio_bytes))
             wav_io = io.BytesIO()

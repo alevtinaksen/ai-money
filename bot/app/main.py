@@ -23,17 +23,30 @@ dp.include_router(receipt.router)
 dp.include_router(callbacks.router)
 dp.include_router(text.router)
 
+async def poll_bot_forever(bot_instance: Bot, dispatcher: Dispatcher):
+    """Supervisor loop that keeps Telegram polling alive and reconnects on drops/conflicts."""
+    while True:
+        try:
+            logger.info("Starting Telegram Bot polling...")
+            await dispatcher.start_polling(bot_instance, handle_signals=False)
+        except asyncio.CancelledError:
+            logger.info("Telegram Bot polling task cancelled.")
+            break
+        except Exception as e:
+            logger.error(f"Telegram Bot polling error: {e}. Reconnecting in 5 seconds...", exc_info=True)
+            await asyncio.sleep(5)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 1. Startup: initialize database tables
     logger.info("Initializing database...")
     await init_db()
 
-    # 2. Start Bot Polling if real token provided
+    # 2. Start Bot Polling with supervisor loop if real token provided
     bot_task = None
     if bot:
-        logger.info("Starting Telegram Bot polling in background...")
-        bot_task = asyncio.create_task(dp.start_polling(bot))
+        logger.info("Starting Telegram Bot polling supervisor in background...")
+        bot_task = asyncio.create_task(poll_bot_forever(bot, dp))
     else:
         logger.warning("BOT_TOKEN is not configured or is default mock token. Telegram Bot polling skipped.")
 

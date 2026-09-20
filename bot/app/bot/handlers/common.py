@@ -1,8 +1,11 @@
 import re
 import uuid
+import logging
 from typing import List, Optional
 from aiogram import Bot
 from aiogram.types import MenuButtonWebApp, WebAppInfo
+
+logger = logging.getLogger(__name__)
 from sqlalchemy import select
 from app.core.database import AsyncSessionLocal
 from app.core.config import settings
@@ -94,6 +97,14 @@ def format_category_display(cat_name: Optional[str], cat_icon: Optional[str], no
 
     icon = cat_icon or "📦"
     return f"{icon} {cat_name or 'Без категории'}"
+
+async def safe_send_message(bot: Bot, chat_id: int, text: str, reply_markup=None, parse_mode: Optional[str] = "Markdown"):
+    try:
+        await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup, parse_mode=parse_mode)
+    except Exception as e:
+        logger.warning(f"safe_send_message failed with parse_mode={parse_mode}: {e}. Retrying with plain text...")
+        clean_text = re.sub(r"[*_`\[\]]", "", text)
+        await bot.send_message(chat_id=chat_id, text=clean_text, reply_markup=reply_markup)
 
 async def update_user_mini_app_sync(bot: Bot, chat_id: int, user_id: int, db) -> str:
     """Updates Telegram chat menu button and returns sync hash for inline buttons."""
@@ -346,7 +357,8 @@ async def process_and_save_transactions(user_id: int, text: str, bot: Bot, chat_
 
             msg_text += f"\n*Остаток на счете: {float(target_acc.balance):,.2f} ₽*"
 
-            await bot.send_message(
+            await safe_send_message(
+                bot=bot,
                 chat_id=chat_id,
                 text=msg_text,
                 reply_markup=get_transaction_inline_kb(saved_tx.id, sync_hash),
@@ -379,7 +391,8 @@ async def process_and_save_transactions(user_id: int, text: str, bot: Bot, chat_
             )
 
             last_saved_id = saved_records[-1][0].id
-            await bot.send_message(
+            await safe_send_message(
+                bot=bot,
                 chat_id=chat_id,
                 text=msg_text,
                 reply_markup=get_transaction_inline_kb(last_saved_id, sync_hash),
