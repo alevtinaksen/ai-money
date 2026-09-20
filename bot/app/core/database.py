@@ -20,6 +20,8 @@ def create_engine_and_session(url: str):
     connect_args = {}
     if target_url.startswith("sqlite"):
         connect_args = {"check_same_thread": False}
+    else:
+        connect_args = {"ssl": "require"}
 
     eng = create_async_engine(
         target_url,

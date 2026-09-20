@@ -13,6 +13,6 @@ services:
       - key: WEBAPP_URL
         value: https://ai-money-ten.vercel.app/
       - key: DATABASE_URL
-        value: sqlite+aiosqlite:///./finance.db
+        value: postgresql://postgres.ytmlywuyhllwfhkkracb:AiMoney2026!@aws-1-eu-west-1.pooler.supabase.com:5432/postgres
       - key: PYTHONPATH
         value: .
