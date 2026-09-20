@@ -5,8 +5,10 @@ import {
   CalendarOutlined,
   DownOutlined,
   CheckOutlined,
+  SwapOutlined,
 } from '@ant-design/icons';
 import { Transaction, Account, Category } from '../../types';
+import { resolveAccountBankAndName } from '../../utils/bankUtils';
 
 interface EditTransactionModalProps {
   isOpen: boolean;
@@ -634,6 +636,9 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
     : accounts.find((a) => a.id !== accountId && a.group_name !== 'Кредиты') || null;
   const selectedCat = categories.find((c) => c.id === categoryId) || defaultCat;
 
+  const resolvedAcc = React.useMemo(() => selectedAcc ? resolveAccountBankAndName(selectedAcc) : null, [selectedAcc]);
+  const resolvedToAcc = React.useMemo(() => selectedToAcc ? resolveAccountBankAndName(selectedToAcc) : null, [selectedToAcc]);
+
   // Resolve matching catalog entry for categories and subcategories
   const activeCatalog =
     CATEGORIES_CATALOG.find((c) => c.name.toLowerCase() === selectedCat?.name?.toLowerCase()) ||
@@ -744,11 +749,27 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
               >
                 <span className="text-base flex-shrink-0">{selectedAcc?.icon || '💳'}</span>
                 <span className="text-[13px] font-semibold text-[#111827] dark:text-white truncate">
-                  {selectedAcc?.name || 'Откуда'}
+                  {resolvedAcc?.cleanName || selectedAcc?.name || 'Откуда'}
                 </span>
               </button>
 
-              <span className="text-gray-400 dark:text-gray-500 font-bold text-xs flex-shrink-0">➔</span>
+              {/* Two-way Swap Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  onHaptic?.('medium');
+                  const oldFrom = accountId;
+                  const oldTo = toAccountId;
+                  if (oldTo) {
+                    setAccountId(oldTo);
+                    setToAccountId(oldFrom);
+                  }
+                }}
+                title="Поменять счета местами"
+                className="w-7 h-7 rounded-full bg-white dark:bg-[#1E1F26] border border-gray-200 dark:border-gray-700 shadow-sm flex items-center justify-center text-[#2B5BFF] flex-shrink-0 active:scale-90 hover:bg-blue-50 dark:hover:bg-[#2A2B36] transition-all"
+              >
+                <SwapOutlined className="text-[12px]" />
+              </button>
 
               {/* To Account Pill */}
               <button
@@ -763,7 +784,7 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
               >
                 <span className="text-base flex-shrink-0">{selectedToAcc?.icon || '🪙'}</span>
                 <span className="text-[13px] font-semibold text-[#111827] dark:text-white truncate">
-                  {selectedToAcc?.name || 'Куда'}
+                  {resolvedToAcc?.cleanName || selectedToAcc?.name || 'Куда'}
                 </span>
               </button>
             </div>
@@ -781,9 +802,16 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
             >
               <span className="text-lg flex-shrink-0">{selectedAcc?.icon || '💳'}</span>
               <div className="text-left min-w-0 flex-1">
-                <span className="text-[14px] font-semibold text-[#111827] dark:text-white block leading-tight truncate">
-                  {selectedAcc?.name || 'Счёт'}
-                </span>
+                <div className="flex items-center gap-1.5 leading-tight truncate">
+                  {resolvedAcc?.bank && (
+                    <span className="text-[9px] font-semibold px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-[#4B5563] dark:text-gray-300 shrink-0">
+                      {resolvedAcc.bank.shortName}
+                    </span>
+                  )}
+                  <span className="text-[14px] font-semibold text-[#111827] dark:text-white truncate">
+                    {resolvedAcc?.cleanName || selectedAcc?.name || 'Счёт'}
+                  </span>
+                </div>
                 <span className="text-[11px] text-[#9CA3AF] dark:text-gray-400 block leading-none mt-0.5 whitespace-nowrap">
                   {selectedAcc ? (selectedAcc.balance / 1000).toFixed(2) : 0} тыс. ₽
                 </span>

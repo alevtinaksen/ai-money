@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, ConfigDict
 class AccountBase(BaseModel):
     name: str
     group_name: str = "Личное"
+    bank_name: Optional[str] = None
     balance: float = 0.0
     currency: str = "RUB"
     icon: str = "💳"
@@ -19,6 +20,7 @@ class AccountCreate(AccountBase):
 class AccountUpdate(BaseModel):
     name: Optional[str] = None
     group_name: Optional[str] = None
+    bank_name: Optional[str] = None
     balance: Optional[float] = None
     currency: Optional[str] = None
     icon: Optional[str] = None

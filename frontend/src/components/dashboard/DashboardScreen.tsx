@@ -7,6 +7,7 @@ import {
   RightOutlined,
   ScanOutlined,
   AudioOutlined,
+  CheckOutlined,
 } from '@ant-design/icons';
 import { DashboardSummary, Account, Category, Transaction } from '../../types';
 
@@ -45,6 +46,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 }) => {
   const [selectedDate, setSelectedDate] = useState(() => new Date(2026, 8, 1)); // Default to September 2026
   const [categoryMode, setCategoryMode] = useState<'expense' | 'income'>('expense');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showRefreshToast, setShowRefreshToast] = useState(false);
 
   const totalAccountsBalance = accounts
     .filter((acc) => acc.group_name !== 'Кредиты')
@@ -289,14 +292,26 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         <div className="flex items-center space-x-3 text-[#374151] dark:text-gray-300">
           <button
             type="button"
-            onClick={() => {
+            disabled={isRefreshing}
+            onClick={async () => {
               onHaptic?.('light');
-              onRefresh?.();
+              setIsRefreshing(true);
+              try {
+                await onRefresh?.();
+                setShowRefreshToast(true);
+                setTimeout(() => setShowRefreshToast(false), 2200);
+              } finally {
+                setTimeout(() => setIsRefreshing(false), 700);
+              }
             }}
-            className="p-1 hover:text-black dark:hover:text-white transition-colors active:rotate-180 transition-transform duration-300"
-            title="Обновить"
+            className="p-1 hover:text-black dark:hover:text-white transition-colors"
+            title="Синхронизировать с сервером"
           >
-            <ReloadOutlined className="text-[18px] text-[#4B5563] dark:text-gray-300" />
+            <ReloadOutlined
+              className={`text-[18px] text-[#4B5563] dark:text-gray-300 transition-all ${
+                isRefreshing ? 'animate-spin text-[#2B5BFF]' : 'active:rotate-180 duration-300'
+              }`}
+            />
           </button>
           <button
             type="button"
@@ -311,6 +326,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Refresh Feedback Toast */}
+      {showRefreshToast && (
+        <div className="fixed top-12 left-1/2 -translate-x-1/2 z-50 bg-[#111827]/90 dark:bg-white/90 text-white dark:text-[#111827] text-xs font-semibold px-4 py-2 rounded-full shadow-lg backdrop-blur-md animate-fade-in flex items-center space-x-2 border border-white/10 dark:border-black/10 pointer-events-none">
+          <CheckOutlined className="text-emerald-400 text-sm" />
+          <span>Данные синхронизированы</span>
+        </div>
+      )}
 
       {/* Main Center Content */}
       <div className="flex-1 px-5 max-w-lg mx-auto w-full">

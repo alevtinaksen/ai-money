@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CloseOutlined, EditOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons';
 import { Account } from '../../types';
+import { BANK_OPTIONS, resolveAccountBankAndName } from '../../utils/bankUtils';
 
 interface EditAccountModalProps {
   isOpen: boolean;
@@ -11,7 +12,24 @@ interface EditAccountModalProps {
   onHaptic?: (style?: 'light' | 'medium' | 'heavy') => void;
 }
 
-const EMOJI_OPTIONS = ['❤️', '💛', '💙', '💳', '💵', '👥', '📈', '🪙', '🏺', '🛏️', '🏠', '🚗', '📑'];
+const EMOJI_CATEGORIES = [
+  {
+    title: 'Деньги & Финансы',
+    emojis: ['💳', '💵', '🪙', '💰', '🏦', '💎', '📈', '📊', '🧾', '💼', '🏧', '🏷️'],
+  },
+  {
+    title: 'Жизнь & Еда',
+    emojis: ['🍎', '🍔', '🍕', '☕', '🛒', '🛍️', '🎁', '🏖️', '✈️', '🏠', '🔑', '💡'],
+  },
+  {
+    title: 'Авто & Техника',
+    emojis: ['🚗', '🚘', '⛽', '🔧', '🏎️', '📱', '💻', '⌚', '🎧', '🎮', '🚲', '🛴'],
+  },
+  {
+    title: 'Личное & Семья',
+    emojis: ['❤️', '💛', '💙', '💜', '👥', '👤', '🐱', '🐾', '🧘', '✨', '🎓', '👶'],
+  },
+];
 
 export const EditAccountModal: React.FC<EditAccountModalProps> = ({
   isOpen,
@@ -22,23 +40,30 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
   onHaptic,
 }) => {
   const [name, setName] = useState('');
+  const [bankName, setBankName] = useState<string>('');
   const [balanceStr, setBalanceStr] = useState('');
   const [groupName, setGroupName] = useState('Личное');
   const [icon, setIcon] = useState('💳');
+  const [customEmojiInput, setCustomEmojiInput] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (account) {
-      setName(account.name);
+      const resolved = resolveAccountBankAndName(account);
+      setName(resolved.cleanName);
+      setBankName(account.bank_name || resolved.bank?.name || '');
       setBalanceStr(account.balance.toString());
       setGroupName(account.group_name || 'Личное');
       setIcon(account.icon || '💳');
+      setCustomEmojiInput(account.icon || '');
     } else {
       setName('');
+      setBankName('');
       setBalanceStr('');
       setGroupName('Личное');
       setIcon('💳');
+      setCustomEmojiInput('💳');
     }
   }, [account, isOpen]);
 
@@ -50,6 +75,7 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
     onSave({
       id: account?.id,
       name: name.trim() || 'Новый счёт',
+      bank_name: bankName.trim() || undefined,
       balance: bal,
       group_name: groupName,
       icon,
@@ -66,8 +92,8 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in select-none transition-colors">
-      <div className="bg-white dark:bg-[#1A1B20] rounded-[32px] w-full max-w-sm p-6 shadow-2xl space-y-5 animate-slide-up border border-gray-100 dark:border-[#252730]">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in select-none transition-colors overflow-y-auto">
+      <div className="bg-white dark:bg-[#1A1B20] rounded-[32px] w-full max-w-sm p-6 shadow-2xl space-y-4 animate-slide-up border border-gray-100 dark:border-[#252730] my-auto">
         {/* Header */}
         <div className="flex items-center justify-between">
           <button
@@ -80,14 +106,14 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
           >
             <CloseOutlined className="text-[18px]" />
           </button>
-          <h3 className="text-[18px] font-bold text-[#111827] dark:text-white">
+          <h3 className="text-[17px] font-bold text-[#111827] dark:text-white">
             {account ? 'Редактировать счёт' : 'Новый счёт'}
           </h3>
-          <div className="w-9" /> {/* Spacer */}
+          <div className="w-9" />
         </div>
 
         {/* Center Circular Icon with Edit Pen */}
-        <div className="flex justify-center my-2">
+        <div className="flex justify-center my-1">
           <div className="relative">
             <button
               type="button"
@@ -109,39 +135,133 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
           </div>
         </div>
 
-        {/* Emoji Selector Carousel (if open) */}
+        {/* Full Emoji Picker with Custom Input (Apple style) */}
         {showEmojiPicker && (
-          <div className="bg-gray-50 dark:bg-[#20222A] p-2.5 rounded-2xl flex items-center space-x-2 overflow-x-auto no-scrollbar animate-fade-in border border-gray-100 dark:border-[#252730]">
-            {EMOJI_OPTIONS.map((e) => (
-              <button
-                key={e}
-                type="button"
-                onClick={() => {
-                  setIcon(e);
-                  setShowEmojiPicker(false);
-                }}
-                className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0 transition-all ${
-                  icon === e ? 'bg-white dark:bg-[#2E313D] shadow-sm ring-2 ring-blue-500' : 'hover:bg-white dark:hover:bg-[#252730]'
-                }`}
-              >
-                {e}
-              </button>
-            ))}
+          <div className="bg-gray-50 dark:bg-[#20222A] p-3 rounded-2xl animate-fade-in border border-gray-200/80 dark:border-[#2E313D] space-y-3">
+            {/* Custom Emoji Input */}
+            <div>
+              <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">
+                Или введите любой эмодзи с клавиатуры:
+              </label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={customEmojiInput}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setCustomEmojiInput(val);
+                    if (val) {
+                      // Grab the first grapheme/emoji
+                      const firstChar = Array.from(val)[0] || '💳';
+                      setIcon(firstChar);
+                    }
+                  }}
+                  placeholder="Вставьте любой эмодзи (🍏, 🏦, 💎...)"
+                  className="flex-1 bg-white dark:bg-[#1A1B20] border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-[14px] text-gray-900 dark:text-white focus:outline-none focus:border-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowEmojiPicker(false)}
+                  className="px-3 py-2 bg-[#2B5BFF] text-white text-xs font-bold rounded-xl"
+                >
+                  Готово
+                </button>
+              </div>
+            </div>
+
+            {/* Categorized Emojis */}
+            <div className="max-h-40 overflow-y-auto space-y-2.5 pr-1">
+              {EMOJI_CATEGORIES.map((cat, idx) => (
+                <div key={idx}>
+                  <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">
+                    {cat.title}
+                  </div>
+                  <div className="grid grid-cols-6 gap-1.5">
+                    {cat.emojis.map((e) => (
+                      <button
+                        key={e}
+                        type="button"
+                        onClick={() => {
+                          setIcon(e);
+                          setCustomEmojiInput(e);
+                          setShowEmojiPicker(false);
+                        }}
+                        className={`h-9 rounded-xl flex items-center justify-center text-xl transition-all ${
+                          icon === e
+                            ? 'bg-white dark:bg-[#2E313D] shadow-sm ring-2 ring-blue-500'
+                            : 'hover:bg-white dark:hover:bg-[#252730]'
+                        }`}
+                      >
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
         {/* Form Inputs */}
-        <div className="space-y-3.5">
-          {/* Account Name with Pen Icon */}
-          <div className="relative">
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Название счёта"
-              className="w-full bg-white dark:bg-[#20222A] border border-gray-200/90 dark:border-[#2E313D] rounded-2xl pl-10 pr-4 py-3 text-[15px] font-semibold text-gray-900 dark:text-white shadow-2xs focus:outline-none focus:border-blue-500"
-            />
-            <EditOutlined className="text-[14px] text-gray-400 absolute left-3.5 top-3.5" />
+        <div className="space-y-3">
+          {/* Account Name */}
+          <div>
+            <label className="text-[11px] font-bold text-gray-400 dark:text-[#8E92A4] uppercase tracking-wider block mb-1">
+              Название счёта
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Например: Основная карта, Копилка..."
+                className="w-full bg-white dark:bg-[#20222A] border border-gray-200/90 dark:border-[#2E313D] rounded-2xl pl-10 pr-4 py-2.5 text-[15px] font-semibold text-gray-900 dark:text-white shadow-2xs focus:outline-none focus:border-blue-500"
+              />
+              <EditOutlined className="text-[14px] text-gray-400 absolute left-3.5 top-3" />
+            </div>
+          </div>
+
+          {/* Bank Selector (Separated from Name) */}
+          <div>
+            <label className="text-[11px] font-bold text-gray-400 dark:text-[#8E92A4] uppercase tracking-wider block mb-1">
+              Банк (вынесен отдельно)
+            </label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {BANK_OPTIONS.map((b) => {
+                const isSelected = bankName.toLowerCase().includes(b.shortName.toLowerCase());
+                return (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => {
+                      onHaptic?.('light');
+                      setBankName(isSelected ? '' : b.name);
+                    }}
+                    className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all text-center border ${
+                      isSelected
+                        ? `${b.bg} ring-2 ring-blue-500 shadow-xs font-extrabold`
+                        : 'bg-gray-50 dark:bg-[#20222A] border-gray-200/70 dark:border-[#2E313D] text-gray-600 dark:text-[#A0A5B5]'
+                    }`}
+                  >
+                    {b.shortName}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => {
+                  onHaptic?.('light');
+                  setBankName('');
+                }}
+                className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all text-center border ${
+                  !bankName
+                    ? 'bg-gray-200 dark:bg-[#2E313D] text-gray-900 dark:text-white ring-2 ring-gray-400'
+                    : 'bg-gray-50 dark:bg-[#20222A] border-gray-200/70 dark:border-[#2E313D] text-gray-400'
+                }`}
+              >
+                Без банка
+              </button>
+            </div>
           </div>
 
           {/* Current Balance */}
@@ -155,7 +275,7 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
               value={balanceStr}
               onChange={(e) => setBalanceStr(e.target.value)}
               placeholder="0.00"
-              className="w-full bg-gray-50 dark:bg-[#20222A] border border-gray-200/80 dark:border-[#2E313D] rounded-2xl px-4 py-3 text-[18px] font-bold text-gray-900 dark:text-white focus:outline-none focus:border-blue-500"
+              className="w-full bg-gray-50 dark:bg-[#20222A] border border-gray-200/80 dark:border-[#2E313D] rounded-2xl px-4 py-2.5 text-[17px] font-bold text-gray-900 dark:text-white focus:outline-none focus:border-blue-500"
             />
           </div>
 
@@ -181,7 +301,7 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
                 type="button"
                 onClick={() => setGroupName('Общее (с Владом)')}
                 className={`py-2 px-1 rounded-xl text-xs font-bold transition-all text-center ${
-                  groupName === 'Общее (с Владом)'
+                  groupName === 'Общее (с Владом)' || groupName.includes('Общее')
                     ? 'bg-[#2B5BFF] text-white shadow-sm'
                     : 'bg-gray-100 dark:bg-[#252730] text-gray-600 dark:text-[#A0A5B5]'
                 }`}

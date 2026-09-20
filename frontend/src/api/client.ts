@@ -839,7 +839,69 @@ export async function fetchDashboard(initData: string): Promise<DashboardSummary
   };
 }
 
+export const STORAGE_USER_ACCOUNT_MODS_KEY = 'ai_money_user_account_mods';
+
+export interface UserAccountModification {
+  data: Partial<Account> | null;
+  timestamp: number;
+  status: 'updated' | 'created' | 'deleted';
+}
+
+export function getUserAccountMods(): Record<string, UserAccountModification> {
+  try {
+    const raw = localStorage.getItem(STORAGE_USER_ACCOUNT_MODS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function recordUserAccountMod(
+  accId: string,
+  data: Partial<Account> | null,
+  status: 'updated' | 'created' | 'deleted'
+) {
+  try {
+    const mods = getUserAccountMods();
+    mods[accId] = {
+      data,
+      timestamp: Date.now(),
+      status,
+    };
+    localStorage.setItem(STORAGE_USER_ACCOUNT_MODS_KEY, JSON.stringify(mods));
+  } catch (e) {
+    console.error('Failed to recordUserAccountMod:', e);
+  }
+}
+
+export function mergeAccountsWithLocalMods(rawAccounts: Account[]): Account[] {
+  const mods = getUserAccountMods();
+  const resultMap = new Map<string, Account>();
+
+  for (const acc of rawAccounts) {
+    if (!acc || !acc.id) continue;
+    const mod = mods[acc.id];
+    if (mod) {
+      if (mod.status === 'deleted') continue;
+      if (mod.status === 'updated' && mod.data) {
+        resultMap.set(acc.id, { ...acc, ...mod.data });
+        continue;
+      }
+    }
+    resultMap.set(acc.id, acc);
+  }
+
+  for (const [accId, mod] of Object.entries(mods)) {
+    if (mod.status === 'created' && mod.data && !resultMap.has(accId)) {
+      resultMap.set(accId, mod.data as Account);
+    }
+  }
+
+  return Array.from(resultMap.values()).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+}
+
 export async function fetchAccounts(initData: string): Promise<Account[]> {
+  let serverAccs: Account[] | null = null;
   try {
     if (API_BASE) {
       const res = await fetchWithTimeout(`${API_BASE}/api/accounts`, {
@@ -848,8 +910,7 @@ export async function fetchAccounts(initData: string): Promise<Account[]> {
       if (res.ok) {
         const accs = await res.json();
         if (Array.isArray(accs) && accs.length > 0) {
-          saveStoredAccounts(accs);
-          return accs;
+          serverAccs = accs;
         }
       }
     }
@@ -867,28 +928,23 @@ export async function fetchAccounts(initData: string): Promise<Account[]> {
     }
   } catch {}
 
-  // 2. Merge sync accounts if provided
-  const sync = getStoredSyncData();
-  if (sync?.accounts && sync.accounts.length > 0) {
-    currentAccounts = currentAccounts.map((acc) => {
-      const match = sync.accounts!.find(
-        (sa) => sa.id === acc.id || sa.name.toLowerCase() === acc.name.toLowerCase()
-      );
-      return match ? { ...acc, ...match } : acc;
-    });
-  }
+  const baseAccounts = serverAccs && serverAccs.length > 0 ? serverAccs : currentAccounts;
+
+  // 2. ALWAYS merge with user's local edits so local changes are never wiped!
+  let mergedAccounts = mergeAccountsWithLocalMods(baseAccounts);
 
   // 3. ALWAYS update balances with latest sync balances!
+  const sync = getStoredSyncData();
   const balances = sync?.balances;
   if (balances) {
-    currentAccounts = currentAccounts.map((acc) => {
+    mergedAccounts = mergedAccounts.map((acc) => {
       const newBal = balances[acc.name] ?? balances[acc.id];
       return newBal !== undefined ? { ...acc, balance: Number(newBal) } : acc;
     });
   }
 
-  saveStoredAccounts(currentAccounts);
-  return currentAccounts;
+  saveStoredAccounts(mergedAccounts);
+  return mergedAccounts;
 }
 
 export const STORAGE_CATEGORIES_KEY = 'ai_money_categories';
@@ -986,6 +1042,57 @@ export async function deleteTransactionAPI(
   } catch (e) {
     return true; // local fallback
   }
+}
+
+export async function createAccountAPI(
+  initData: string,
+  data: Partial<Account>
+): Promise<Account | null> {
+  try {
+    const res = await fetchWithTimeout(`${API_BASE}/api/accounts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `tma ${initData}`
+      },
+      body: JSON.stringify(data)
+    });
+    if (res.ok) return await res.json();
+  } catch (e) {}
+  return null;
+}
+
+export async function updateAccountAPI(
+  initData: string,
+  id: string,
+  data: Partial<Account>
+): Promise<Account | null> {
+  try {
+    const res = await fetchWithTimeout(`${API_BASE}/api/accounts/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `tma ${initData}`
+      },
+      body: JSON.stringify(data)
+    });
+    if (res.ok) return await res.json();
+  } catch (e) {}
+  return null;
+}
+
+export async function deleteAccountAPI(
+  initData: string,
+  id: string
+): Promise<boolean> {
+  try {
+    const res = await fetchWithTimeout(`${API_BASE}/api/accounts/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `tma ${initData}` }
+    });
+    return res.ok;
+  } catch (e) {}
+  return true;
 }
 
 export async function parseVoiceAPI(initData: string, audioBlob: Blob) {

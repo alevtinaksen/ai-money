@@ -7,6 +7,7 @@ import {
   SwapOutlined,
 } from '@ant-design/icons';
 import { Account } from '../../types';
+import { resolveAccountBankAndName } from '../../utils/bankUtils';
 
 interface AccountsScreenProps {
   onBack: () => void;
@@ -148,32 +149,40 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 {/* Accounts Horizontal / Vertical Pills */}
                 {isOpen && (
                   <div className="flex flex-col items-start gap-2.5">
-                    {groupAccs.map((acc) => (
-                      <button
-                        key={acc.id}
-                        type="button"
-                        onClick={() => {
-                          onHaptic?.('light');
-                          onSelectAccount?.(acc);
-                        }}
-                        title={acc.name}
-                        className={`inline-flex items-center max-w-full space-x-2.5 bg-white dark:bg-[#1E1F26] px-4 py-2.5 rounded-full shadow-sm border active:scale-[0.98] transition-all ${
-                          isCreditGroup ? 'border-red-100 dark:border-red-900/40 hover:border-red-200' : 'border-gray-100/80 dark:border-gray-800/80'
-                        }`}
-                      >
-                        <span className="text-base shrink-0">{acc.icon}</span>
-                        <span className="text-[14px] font-semibold text-[#111827] dark:text-white truncate max-w-[170px] sm:max-w-[280px] text-left">
-                          {acc.name}
-                        </span>
-                        <span className={`text-[14px] font-medium shrink-0 whitespace-nowrap ${isCreditGroup ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-[#6B7280] dark:text-gray-400'}`}>
-                          {isCreditGroup ? '-' : ''}{acc.balance.toLocaleString('ru-RU', {
-                            minimumFractionDigits: 0,
-                            maximumFractionDigits: 2,
-                          })}{' '}
-                          ₽
-                        </span>
-                      </button>
-                    ))}
+                    {groupAccs.map((acc) => {
+                      const resolved = resolveAccountBankAndName(acc);
+                      return (
+                        <button
+                          key={acc.id}
+                          type="button"
+                          onClick={() => {
+                            onHaptic?.('light');
+                            onSelectAccount?.(acc);
+                          }}
+                          title={acc.name}
+                          className={`inline-flex items-center max-w-full space-x-2.5 bg-white dark:bg-[#1E1F26] px-4 py-2.5 rounded-full shadow-sm border active:scale-[0.98] transition-all ${
+                            isCreditGroup ? 'border-red-100 dark:border-red-900/40 hover:border-red-200' : 'border-gray-100/80 dark:border-gray-800/80'
+                          }`}
+                        >
+                          <span className="text-base shrink-0">{acc.icon}</span>
+                          <span className="text-[14px] font-semibold text-[#111827] dark:text-white truncate max-w-[150px] sm:max-w-[240px] text-left">
+                            {resolved.cleanName}
+                          </span>
+                          {resolved.bank && (
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md leading-none ${resolved.bank.bg}`}>
+                              {resolved.bank.shortName}
+                            </span>
+                          )}
+                          <span className={`text-[14px] font-medium shrink-0 whitespace-nowrap ${isCreditGroup ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-[#6B7280] dark:text-gray-400'}`}>
+                            {isCreditGroup ? '-' : ''}{acc.balance.toLocaleString('ru-RU', {
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 2,
+                            })}{' '}
+                            ₽
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>

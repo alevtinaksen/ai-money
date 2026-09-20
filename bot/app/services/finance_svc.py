@@ -141,6 +141,34 @@ class FinanceService:
         return acc
 
     @staticmethod
+    async def update_account(db: AsyncSession, user_id: int, account_id: str, data: dict) -> Optional[Account]:
+        stmt = select(Account).where(Account.id == account_id, Account.user_id == user_id)
+        res = await db.execute(stmt)
+        acc = res.scalar_one_or_none()
+        if not acc:
+            return None
+
+        for key, val in data.items():
+            if val is not None and hasattr(acc, key):
+                setattr(acc, key, val)
+
+        await db.commit()
+        await db.refresh(acc)
+        return acc
+
+    @staticmethod
+    async def delete_account(db: AsyncSession, user_id: int, account_id: str) -> bool:
+        stmt = select(Account).where(Account.id == account_id, Account.user_id == user_id)
+        res = await db.execute(stmt)
+        acc = res.scalar_one_or_none()
+        if not acc:
+            return False
+
+        await db.delete(acc)
+        await db.commit()
+        return True
+
+    @staticmethod
     async def get_categories(db: AsyncSession, user_id: int) -> List[Category]:
         await FinanceService.ensure_user_seeded(db, user_id)
         stmt = select(Category).where(Category.user_id == user_id).order_by(Category.sort_order, Category.created_at)

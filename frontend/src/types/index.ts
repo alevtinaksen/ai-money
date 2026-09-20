@@ -5,6 +5,7 @@ export interface Account {
   user_id: number;
   name: string;
   group_name: string;
+  bank_name?: string;
   balance: number;
   currency: string;
   icon: string;

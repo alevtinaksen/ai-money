@@ -20,6 +20,7 @@ class Account(Base):
     user_id = Column(BigInteger, nullable=False, index=True)
     name = Column(String(100), nullable=False)
     group_name = Column(String(50), nullable=False, default="Личное")
+    bank_name = Column(String(50), nullable=True)
     balance = Column(Numeric(14, 2), nullable=False, default=0.00)
     currency = Column(String(10), nullable=False, default="RUB")
     icon = Column(String(20), default="💳")

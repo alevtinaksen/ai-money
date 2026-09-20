@@ -27,6 +27,8 @@ AsyncSessionLocal = async_sessionmaker(
     expire_on_commit=False
 )
 
+from sqlalchemy import text
+
 Base = declarative_base()
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -39,3 +41,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        try:
+            await conn.execute(text("ALTER TABLE accounts ADD COLUMN bank_name VARCHAR(50)"))
+        except Exception:
+            pass

@@ -6,9 +6,10 @@ import {
   CheckOutlined,
   RightOutlined,
 } from '@ant-design/icons';
-import { Account, Category, TransactionType } from '../../types';
+import { Account, Category, Transaction, TransactionType } from '../../types';
 import { CustomNumpad } from '../keypad/CustomNumpad';
 import { AccountSelectSheet } from '../modals/AccountSelectSheet';
+import { resolveAccountBankAndName } from '../../utils/bankUtils';
 
 interface AddTransactionScreenProps {
   onClose: () => void;
@@ -17,6 +18,7 @@ interface AddTransactionScreenProps {
   selectedAccount: Account;
   initialType?: TransactionType;
   initialCategoryId?: string;
+  recentTransactions?: Transaction[];
   onOpenAccountSelect?: () => void;
   onSubmit: (tx: {
     account_id: string;
@@ -36,6 +38,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
   selectedAccount,
   initialType,
   initialCategoryId,
+  recentTransactions = [],
   onSubmit,
   onHaptic,
 }) => {
@@ -49,6 +52,9 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
     const other = accounts.find((a) => a.id !== selectedAccount.id);
     return other || selectedAccount;
   });
+
+  const fromResolved = useMemo(() => resolveAccountBankAndName(fromAccount), [fromAccount]);
+  const toResolved = useMemo(() => resolveAccountBankAndName(toAccount), [toAccount]);
 
   // Account selector modal state ('from' | 'to' | null)
   const [accountPickerTarget, setAccountPickerTarget] = useState<'from' | 'to' | null>(null);
@@ -85,12 +91,95 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
     );
   }, [categories]);
 
-  // Order categories: selected first, and if transfer mode, prioritize transfer category
+  // Category popularity & user priority scoring:
+  // 1. Food / Groceries (top priority: 3000)
+  // 2. Car / Auto / Fuel (right behind Food: 2500)
+  // 3. Shopping / Cafe / Daily life (1600 - 1800)
+  // + Dynamic weight from actual transaction frequency & volume
+  const categoryScores = useMemo(() => {
+    const counts: Record<string, number> = {};
+    const amounts: Record<string, number> = {};
+
+    recentTransactions.forEach((tx) => {
+      if (tx.category_id) {
+        counts[tx.category_id] = (counts[tx.category_id] || 0) + 1;
+        amounts[tx.category_id] = (amounts[tx.category_id] || 0) + (tx.amount || 0);
+      }
+    });
+
+    const scores: Record<string, number> = {};
+
+    categories.forEach((cat) => {
+      const name = cat.name.toLowerCase();
+      let baseScore = 100;
+
+      if (name.includes('еда') || name.includes('продукт') || cat.icon === '🍔' || cat.icon === '🍏') {
+        baseScore = 3000;
+      } else if (
+        name.includes('авто') ||
+        name.includes('машин') ||
+        name.includes('бензин') ||
+        name.includes('то авто') ||
+        name.includes('заправк') ||
+        cat.icon === '🚗' ||
+        cat.icon === '⛽' ||
+        cat.icon === '🚘' ||
+        cat.icon === '🚙'
+      ) {
+        // High priority: Car right below Food
+        baseScore = 2500;
+      } else if (name.includes('покупк') || cat.icon === '🛍️' || cat.icon === '🛒') {
+        baseScore = 1800;
+      } else if (name.includes('кафе') || name.includes('ресторан') || cat.icon === '☕') {
+        baseScore = 1600;
+      } else if (name.includes('аптек') || name.includes('здоров')) {
+        baseScore = 1300;
+      } else if (name.includes('дом') || name.includes('коммун')) {
+        baseScore = 1200;
+      }
+
+      // Add dynamic usage weight: each transaction adds 100 pts, amount adds up to 1000 pts
+      const count = counts[cat.id] || 0;
+      const amount = amounts[cat.id] || 0;
+      const usageWeight = count * 100 + Math.min(amount / 50, 1000);
+
+      scores[cat.id] = baseScore + usageWeight;
+    });
+
+    return scores;
+  }, [categories, recentTransactions]);
+
+  // Order categories: selected first, transfer category first if transfer mode, then sorted by popularity
   const orderedCategories = useMemo(() => {
-    const selected = categories.find((c) => c.id === selectedCategory.id);
-    const others = categories.filter((c) => c.id !== selectedCategory.id);
-    return selected ? [selected, ...others] : categories;
-  }, [categories, selectedCategory.id]);
+    // Filter matching categories for current mode (expense vs income)
+    const matchingCats = categories.filter((c) => {
+      if (txType === 'transfer') return true;
+      return c.type === txType;
+    });
+
+    const targetList = matchingCats.length > 0 ? matchingCats : categories;
+
+    const sorted = [...targetList].sort((a, b) => {
+      if (txType === 'transfer') {
+        const aIsTransfer = a.name.toLowerCase().includes('перевод') || a.icon === '💸';
+        const bIsTransfer = b.name.toLowerCase().includes('перевод') || b.icon === '💸';
+        if (aIsTransfer && !bIsTransfer) return -1;
+        if (!aIsTransfer && bIsTransfer) return 1;
+      }
+
+      const scoreA = categoryScores[a.id] ?? 0;
+      const scoreB = categoryScores[b.id] ?? 0;
+      if (scoreA !== scoreB) return scoreB - scoreA;
+      return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+    });
+
+    const selected = sorted.find((c) => c.id === selectedCategory.id);
+    if (!selected) {
+      return [selectedCategory, ...sorted.filter((c) => c.id !== selectedCategory.id)];
+    }
+    const others = sorted.filter((c) => c.id !== selectedCategory.id);
+    return [selected, ...others];
+  }, [categories, categoryScores, selectedCategory, txType]);
 
   // Keypad / Typing handlers
   const handleDigit = useCallback((digit: string) => {
@@ -154,7 +243,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
 
     const finalNote = note.trim() || (
       txType === 'transfer'
-        ? `Перевод на ${toAccount.name}`
+        ? `Перевод на ${toResolved.cleanName}`
         : selectedCategory.name
     );
 
@@ -174,7 +263,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
     amountStr,
     fromAccount.id,
     toAccount.id,
-    toAccount.name,
+    toResolved.cleanName,
     txType,
     note,
     selectedCategory.name,
@@ -313,8 +402,15 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                     <div className="text-[10px] text-[#9CA3AF] dark:text-[#8E92A4] font-medium uppercase tracking-wider leading-none mb-1">
                       Списать с
                     </div>
-                    <div className="text-[13px] font-semibold text-[#111827] dark:text-white leading-tight truncate">
-                      {fromAccount.name}
+                    <div className="flex items-center gap-1.5 leading-tight truncate">
+                      {fromResolved.bank && (
+                        <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 dark:bg-[#252730] text-[#4B5563] dark:text-[#A0A5B5] shrink-0">
+                          {fromResolved.bank.shortName}
+                        </span>
+                      )}
+                      <span className="text-[13px] font-semibold text-[#111827] dark:text-white truncate">
+                        {fromResolved.cleanName}
+                      </span>
                     </div>
                     <div className="text-[11px] text-[#9CA3AF] dark:text-[#8E92A4] font-medium leading-tight whitespace-nowrap mt-0.5">
                       {formatCompactBalance(fromAccount.balance)}
@@ -346,8 +442,15 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                     <div className="text-[10px] text-[#9CA3AF] dark:text-[#8E92A4] font-medium uppercase tracking-wider leading-none mb-1">
                       Перевести на
                     </div>
-                    <div className="text-[13px] font-semibold text-[#111827] dark:text-white leading-tight truncate">
-                      {toAccount.name}
+                    <div className="flex items-center gap-1.5 leading-tight truncate">
+                      {toResolved.bank && (
+                        <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 dark:bg-[#252730] text-[#4B5563] dark:text-[#A0A5B5] shrink-0">
+                          {toResolved.bank.shortName}
+                        </span>
+                      )}
+                      <span className="text-[13px] font-semibold text-[#111827] dark:text-white truncate">
+                        {toResolved.cleanName}
+                      </span>
                     </div>
                     <div className="text-[11px] text-[#9CA3AF] dark:text-[#8E92A4] font-medium leading-tight whitespace-nowrap mt-0.5">
                       {formatCompactBalance(toAccount.balance)}
@@ -386,10 +489,17 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
               >
                 <span className="text-xl shrink-0">{fromAccount.icon || '❤️'}</span>
                 <div className="text-left min-w-0 flex-1">
-                  <div className="text-[14px] font-semibold text-[#111827] dark:text-white leading-tight truncate">
-                    {fromAccount.name}
+                  <div className="flex items-center gap-1.5 leading-tight truncate">
+                    {fromResolved.bank && (
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 dark:bg-[#252730] text-[#4B5563] dark:text-[#A0A5B5] shrink-0">
+                        {fromResolved.bank.shortName}
+                      </span>
+                    )}
+                    <span className="text-[14px] font-semibold text-[#111827] dark:text-white truncate">
+                      {fromResolved.cleanName}
+                    </span>
                   </div>
-                  <div className="text-[12px] text-[#9CA3AF] dark:text-[#8E92A4] font-medium leading-tight whitespace-nowrap">
+                  <div className="text-[12px] text-[#9CA3AF] dark:text-[#8E92A4] font-medium leading-tight whitespace-nowrap mt-0.5">
                     {formatCompactBalance(fromAccount.balance)}
                   </div>
                 </div>
@@ -511,7 +621,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                 type="text"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder={txType === 'transfer' ? `Перевод на ${toAccount.name}` : 'Описание'}
+                placeholder={txType === 'transfer' ? `Перевод на ${toResolved.cleanName}` : 'Описание'}
                 className="w-full bg-transparent text-[15px] font-normal text-[#111827] dark:text-white placeholder-[#9CA3AF] dark:placeholder-[#5E6272] focus:outline-none"
               />
             </div>

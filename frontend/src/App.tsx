@@ -12,6 +12,10 @@ import {
   saveStoredCategories,
   fetchCategories,
   recordUserTxMod,
+  recordUserAccountMod,
+  createAccountAPI,
+  updateAccountAPI,
+  deleteAccountAPI,
   INITIAL_ACCOUNTS,
   INITIAL_CATEGORIES,
 } from './api/client';
@@ -412,9 +416,10 @@ export const App: React.FC = () => {
   };
 
   // Handle saving account (edit or create)
-  const handleSaveAccount = (updated: Partial<Account> & { id?: string }) => {
+  const handleSaveAccount = async (updated: Partial<Account> & { id?: string }) => {
     hapticNotification('success');
     if (updated.id) {
+      recordUserAccountMod(updated.id, updated, 'updated');
       setAccounts((prev) => {
         const next = prev.map((a) => (a.id === updated.id ? { ...a, ...updated } : a));
         saveStoredAccounts(next);
@@ -423,12 +428,14 @@ export const App: React.FC = () => {
       if (selectedAccount.id === updated.id) {
         setSelectedAccount((prev) => ({ ...prev, ...updated }));
       }
+      await updateAccountAPI(initData, updated.id, updated);
     } else {
       const newAcc: Account = {
         id: `acc-${Date.now()}`,
         user_id: 143702968,
         name: updated.name || 'Новый счёт',
         group_name: updated.group_name || 'Личное',
+        bank_name: updated.bank_name,
         balance: updated.balance || 0,
         currency: 'RUB',
         icon: updated.icon || '💳',
@@ -436,17 +443,20 @@ export const App: React.FC = () => {
         is_default: false,
         sort_order: accounts.length + 1,
       };
+      recordUserAccountMod(newAcc.id, newAcc, 'created');
       setAccounts((prev) => {
         const next = [...prev, newAcc];
         saveStoredAccounts(next);
         return next;
       });
+      await createAccountAPI(initData, newAcc);
     }
   };
 
   // Handle deleting account
-  const handleDeleteAccount = (id: string) => {
+  const handleDeleteAccount = async (id: string) => {
     hapticNotification('warning');
+    recordUserAccountMod(id, null, 'deleted');
     setAccounts((prev) => {
       const next = prev.filter((a) => a.id !== id);
       saveStoredAccounts(next);
@@ -456,6 +466,7 @@ export const App: React.FC = () => {
       return next;
     });
     setIsEditAccountOpen(false);
+    await deleteAccountAPI(initData, id);
   };
 
   // Handle receipt photo pick
@@ -603,6 +614,7 @@ export const App: React.FC = () => {
           categories={categories}
           selectedAccount={selectedAccount}
           initialType={addTxInitialType}
+          recentTransactions={summary?.recent_transactions || []}
           onOpenAccountSelect={() => setIsAccountSheetOpen(true)}
           onSubmit={handleAddTransaction}
           onHaptic={hapticImpact}
