@@ -72,7 +72,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     icon: '🛍️',
     color: '#FCE7F3',
     sort_order: 3,
-    subcategories: ['Одежда', 'Электроника', 'Бытовая химия', 'Товары для хобби'],
+    subcategories: ['Дом', 'Бытовая химия', 'Одежда', 'Электроника', 'Товары для хобби'],
   },
   // 4. Развлечения (3 подкатегорий)
   {
