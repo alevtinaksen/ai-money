@@ -488,6 +488,14 @@ export const App: React.FC = () => {
     hapticNotification('success');
     localStorage.clear();
     setCategories(INITIAL_CATEGORIES);
+    setSummary({
+      total_balance: 0,
+      period_label: 'Сентябрь',
+      period_income: 0,
+      period_expense: 0,
+      categories: [],
+      recent_transactions: [],
+    });
     loadData();
     setCurrentScreen('dashboard');
   };
