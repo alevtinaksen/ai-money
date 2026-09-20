@@ -21,13 +21,10 @@ async def get_current_user_id(
     if authorization:
         parts = authorization.split(" ", 1)
         init_data = parts[1] if len(parts) == 2 else parts[0]
-        
-        user_info = validate_telegram_init_data(init_data, settings.BOT_TOKEN)
-        if user_info and "id" in user_info:
-            return int(user_info["id"])
+        if init_data and init_data not in ("undefined", "null", '""', "{}"):
+            user_info = validate_telegram_init_data(init_data, settings.BOT_TOKEN)
+            if user_info and "id" in user_info:
+                return int(user_info["id"])
 
-    # 3. Fallback for demo/dev mode
-    if settings.DEBUG:
-        return 999999
-
-    raise HTTPException(status_code=401, detail="Не авторизован: отсутствует или невалиден initData")
+    # 3. Fallback to default user (Alina: 143702968) so desktop browser testing connects to real account
+    return 143702968

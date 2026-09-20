@@ -1,6 +1,19 @@
 import { Account, Category, Transaction, DashboardSummary } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://ai-money-bot-0y05.onrender.com';
+
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 4500): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timer);
+    return res;
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
+  }
+}
 
 // Initial state faithfully matching screenshots
 export const INITIAL_ACCOUNTS: Account[] = [
@@ -355,13 +368,21 @@ export function saveStoredAccounts(accounts: Account[]) {
 export async function fetchDashboard(initData: string): Promise<DashboardSummary> {
   try {
     if (API_BASE) {
-      const res = await fetch(`${API_BASE}/api/analytics/dashboard`, {
+      const res = await fetchWithTimeout(`${API_BASE}/api/analytics/dashboard`, {
         headers: { Authorization: `tma ${initData}` }
       });
-      if (res.ok) return await res.json();
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.recent_transactions !== undefined) {
+          saveStoredSyncData({
+            recent_transactions: data.recent_transactions
+          });
+          return data;
+        }
+      }
     }
   } catch (e) {
-    // Return mock data
+    // Fallback to local cached data
   }
 
   let currentAccounts = INITIAL_ACCOUNTS;
@@ -455,13 +476,15 @@ export async function fetchDashboard(initData: string): Promise<DashboardSummary
 export async function fetchAccounts(initData: string): Promise<Account[]> {
   try {
     if (API_BASE) {
-      const res = await fetch(`${API_BASE}/api/accounts`, {
+      const res = await fetchWithTimeout(`${API_BASE}/api/accounts`, {
         headers: { Authorization: `tma ${initData}` }
       });
       if (res.ok) {
         const accs = await res.json();
-        saveStoredAccounts(accs);
-        return accs;
+        if (Array.isArray(accs) && accs.length > 0) {
+          saveStoredAccounts(accs);
+          return accs;
+        }
       }
     }
   } catch (e) {
@@ -539,7 +562,7 @@ export async function createTransactionAPI(
   }
 ): Promise<Transaction> {
   try {
-    const res = await fetch(`${API_BASE}/api/transactions`, {
+    const res = await fetchWithTimeout(`${API_BASE}/api/transactions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -553,7 +576,7 @@ export async function createTransactionAPI(
   }
   return {
     id: `tx-${Date.now()}`,
-    user_id: 999999,
+    user_id: 143702968,
     account_id: data.account_id,
     category_id: data.category_id,
     amount: data.amount,
@@ -569,7 +592,7 @@ export async function updateTransactionAPI(
   data: Partial<Transaction>
 ): Promise<Transaction | null> {
   try {
-    const res = await fetch(`${API_BASE}/api/transactions/${id}`, {
+    const res = await fetchWithTimeout(`${API_BASE}/api/transactions/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -589,7 +612,7 @@ export async function deleteTransactionAPI(
   id: string
 ): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE}/api/transactions/${id}`, {
+    const res = await fetchWithTimeout(`${API_BASE}/api/transactions/${id}`, {
       method: 'DELETE',
       headers: { Authorization: `tma ${initData}` }
     });
