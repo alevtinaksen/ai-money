@@ -35,7 +35,20 @@ def create_engine_and_session(url: str):
     )
     return eng, sess_maker
 
-engine, AsyncSessionLocal = create_engine_and_session(settings.DATABASE_URL)
+_engine, _session_maker = create_engine_and_session(settings.DATABASE_URL)
+
+class _EngineProxy:
+    def __getattr__(self, name):
+        return getattr(_engine, name)
+
+class _SessionLocalProxy:
+    def __call__(self, *args, **kwargs):
+        return _session_maker(*args, **kwargs)
+    def __getattr__(self, name):
+        return getattr(_session_maker, name)
+
+engine = _EngineProxy()
+AsyncSessionLocal = _SessionLocalProxy()
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:
@@ -45,16 +58,16 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 async def init_db():
-    global engine, AsyncSessionLocal
+    global _engine, _session_maker
     try:
-        async with engine.begin() as conn:
+        async with _engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         logger.info("Database initialized successfully with primary DATABASE_URL")
     except Exception as e:
         logger.error(f"Primary database connection failed ({e}). Falling back to local SQLite to prevent startup crash.", exc_info=True)
         fallback_url = "sqlite+aiosqlite:///./finance.db"
-        engine, AsyncSessionLocal = create_engine_and_session(fallback_url)
-        async with engine.begin() as conn:
+        _engine, _session_maker = create_engine_and_session(fallback_url)
+        async with _engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         logger.info("Fallback SQLite database initialized successfully.")
 

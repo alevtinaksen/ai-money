@@ -684,9 +684,22 @@ export function recordUserTxMod(
   }
 }
 
+export function deleteUserTxMod(txId: string) {
+  try {
+    const mods = getUserTxMods();
+    if (mods[txId]) {
+      delete mods[txId];
+      localStorage.setItem(STORAGE_USER_MODS_KEY, JSON.stringify(mods));
+    }
+  } catch (e) {
+    console.error('Failed to deleteUserTxMod:', e);
+  }
+}
+
 export function mergeWithLocalMods(rawTransactions: any[]): any[] {
   const mods = getUserTxMods();
   const resultMap = new Map<string, any>();
+  const now = Date.now();
 
   // 1. Process base/server transactions, applying local edits or deletions
   for (const tx of rawTransactions) {
@@ -706,13 +719,17 @@ export function mergeWithLocalMods(rawTransactions: any[]): any[] {
     resultMap.set(tx.id, tx);
   }
 
-  // 2. Preserve locally created or updated transactions that aren't yet in resultMap
+  // 2. Preserve locally created or updated transactions that aren't yet in resultMap (only if recent < 3 mins)
   for (const [txId, mod] of Object.entries(mods)) {
+    // If mod is older than 3 minutes, remove stale entry to avoid ghost transactions
+    if (now - (mod.timestamp || 0) > 180000) {
+      deleteUserTxMod(txId);
+      continue;
+    }
     if (mod.status !== 'deleted' && mod.data && !resultMap.has(txId)) {
       resultMap.set(txId, mod.data);
     }
   }
-
 
   // 3. Sort by created_at descending
   return Array.from(resultMap.values()).sort((a, b) => {
@@ -751,24 +768,16 @@ export async function fetchDashboard(initData: string): Promise<DashboardSummary
     }
   } catch {}
 
-  const sync = getStoredSyncData();
-  const balances = sync?.balances;
-  if (balances) {
-    currentAccounts = currentAccounts.map(acc => {
-      const newBal = balances[acc.name] ?? balances[acc.id];
-      return newBal !== undefined ? { ...acc, balance: Number(newBal) } : acc;
-    });
-  }
-
+  const toRub = (a: Account) => (a.currency === 'USD' ? a.balance * 90 : a.currency === 'EUR' ? a.balance * 98 : a.balance);
   const total = currentAccounts
     .filter(a => a.group_name !== 'Кредиты')
-    .reduce((sum, a) => sum + a.balance, 0);
+    .reduce((sum, a) => sum + toRub(a), 0);
 
   // Source list: if server responded, start with server list; else start with cached local sync
   const baseTxs = serverTxs && serverTxs.length > 0
     ? serverTxs
-    : (sync?.recent_transactions && sync.recent_transactions.length > 0
-      ? sync.recent_transactions
+    : (getStoredSyncData()?.recent_transactions && getStoredSyncData()!.recent_transactions!.length > 0
+      ? getStoredSyncData()!.recent_transactions!
       : INITIAL_RECENT_TRANSACTIONS);
 
   // Apply smart merge with local user edits
@@ -875,32 +884,6 @@ export function recordUserAccountMod(
   }
 }
 
-export function mergeAccountsWithLocalMods(rawAccounts: Account[]): Account[] {
-  const mods = getUserAccountMods();
-  const resultMap = new Map<string, Account>();
-
-  for (const acc of rawAccounts) {
-    if (!acc || !acc.id) continue;
-    const mod = mods[acc.id];
-    if (mod) {
-      if (mod.status === 'deleted') continue;
-      if (mod.status === 'updated' && mod.data) {
-        resultMap.set(acc.id, { ...acc, ...mod.data });
-        continue;
-      }
-    }
-    resultMap.set(acc.id, acc);
-  }
-
-  for (const [accId, mod] of Object.entries(mods)) {
-    if (mod.status === 'created' && mod.data && !resultMap.has(accId)) {
-      resultMap.set(accId, mod.data as Account);
-    }
-  }
-
-  return Array.from(resultMap.values()).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-}
-
 export async function fetchAccounts(initData: string): Promise<Account[]> {
   let serverAccs: Account[] | null = null;
   try {
@@ -919,7 +902,13 @@ export async function fetchAccounts(initData: string): Promise<Account[]> {
     // Fallback
   }
 
-  // 1. Load accounts from storage or INITIAL_ACCOUNTS
+  // 1. If server responded, SERVER IS THE ABSOLUTE SINGLE SOURCE OF TRUTH!
+  if (serverAccs && serverAccs.length > 0) {
+    saveStoredAccounts(serverAccs);
+    return serverAccs;
+  }
+
+  // 2. Load accounts from storage or INITIAL_ACCOUNTS ONLY if server is offline
   let currentAccounts = INITIAL_ACCOUNTS;
   try {
     const cached = localStorage.getItem(STORAGE_ACCOUNTS_KEY);
@@ -929,23 +918,7 @@ export async function fetchAccounts(initData: string): Promise<Account[]> {
     }
   } catch {}
 
-  const baseAccounts = serverAccs && serverAccs.length > 0 ? serverAccs : currentAccounts;
-
-  // 2. ALWAYS merge with user's local edits so local changes are never wiped!
-  let mergedAccounts = mergeAccountsWithLocalMods(baseAccounts);
-
-  // 3. ALWAYS update balances with latest sync balances!
-  const sync = getStoredSyncData();
-  const balances = sync?.balances;
-  if (balances) {
-    mergedAccounts = mergedAccounts.map((acc) => {
-      const newBal = balances[acc.name] ?? balances[acc.id];
-      return newBal !== undefined ? { ...acc, balance: Number(newBal) } : acc;
-    });
-  }
-
-  saveStoredAccounts(mergedAccounts);
-  return mergedAccounts;
+  return currentAccounts;
 }
 
 export const STORAGE_CATEGORIES_KEY = 'ai_money_categories';

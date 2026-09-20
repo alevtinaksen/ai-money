@@ -340,6 +340,20 @@ async def process_and_save_transactions(user_id: int, text: str, bot: Bot, chat_
 
         if len(saved_records) == 1:
             saved_tx, target_acc, target_cat, target_to_acc, tx_data = saved_records[0]
+            if target_acc:
+                try:
+                    await db.refresh(target_acc)
+                except Exception:
+                    fresh_accs = await FinanceService.get_accounts(db, user_id)
+                    for a in fresh_accs:
+                        if a.id == target_acc.id:
+                            target_acc = a
+                            break
+            if target_to_acc:
+                try:
+                    await db.refresh(target_to_acc)
+                except Exception:
+                    pass
             type_symbol = "💸 Расход" if tx_data.type == "expense" else ("💰 Доход" if tx_data.type == "income" else "🔄 Перевод")
             acc_icon = target_acc.icon if target_acc else "💳"
             category_line = format_category_display(target_cat.name if target_cat else None, target_cat.icon if target_cat else None, tx_data.note)

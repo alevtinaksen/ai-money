@@ -12,6 +12,7 @@ import {
   saveStoredCategories,
   fetchCategories,
   recordUserTxMod,
+  deleteUserTxMod,
   recordUserAccountMod,
   createAccountAPI,
   updateAccountAPI,
@@ -241,6 +242,7 @@ export const App: React.FC = () => {
 
     const serverTx = await createTransactionAPI(initData, data);
     if (serverTx && serverTx.id && serverTx.id !== newTx.id) {
+      deleteUserTxMod(newTx.id);
       setSummary((prev) => {
         const updated = prev.recent_transactions.map((t) =>
           t.id === newTx.id ? { ...t, id: serverTx.id } : t
@@ -250,6 +252,12 @@ export const App: React.FC = () => {
       });
       recordUserTxMod(serverTx.id, { ...newTx, id: serverTx.id }, 'created');
     }
+    try {
+      const freshAccs = await fetchAccounts(initData);
+      if (freshAccs && freshAccs.length > 0) {
+        setAccounts(freshAccs);
+      }
+    } catch {}
   };
 
 
@@ -369,6 +377,12 @@ export const App: React.FC = () => {
 
     setEditingTransaction(null);
     await updateTransactionAPI(initData, data.id, data);
+    try {
+      const freshAccs = await fetchAccounts(initData);
+      if (freshAccs && freshAccs.length > 0) {
+        setAccounts(freshAccs);
+      }
+    } catch {}
   };
 
   // Delete transaction and restore balance
@@ -430,6 +444,12 @@ export const App: React.FC = () => {
     setEditingTransaction(null);
     recordUserTxMod(id, null, 'deleted');
     await deleteTransactionAPI(initData, id);
+    try {
+      const freshAccs = await fetchAccounts(initData);
+      if (freshAccs && freshAccs.length > 0) {
+        setAccounts(freshAccs);
+      }
+    } catch {}
   };
 
   // Handle saving account (edit or create)

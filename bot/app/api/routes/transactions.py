@@ -8,7 +8,55 @@ from app.services.finance_svc import FinanceService
 import logging
 logger = logging.getLogger(__name__)
 
+from typing import List
+from sqlalchemy import select, desc
+from app.models.models import Transaction
+
 router = APIRouter()
+
+@router.get("", response_model=List[TransactionResponse])
+async def list_transactions(
+    limit: int = 50,
+    offset: int = 0,
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    stmt = (
+        select(Transaction)
+        .where(Transaction.user_id == user_id)
+        .order_by(desc(Transaction.created_at))
+        .limit(limit)
+        .offset(offset)
+    )
+    res = await db.execute(stmt)
+    tx_list = res.scalars().all()
+
+    accounts = await FinanceService.get_accounts(db, user_id)
+    categories = await FinanceService.get_categories(db, user_id)
+    acc_map = {a.id: a for a in accounts}
+    cat_map = {c.id: c for c in categories}
+
+    result = []
+    for tx in tx_list:
+        acc = acc_map.get(tx.account_id)
+        cat = cat_map.get(tx.category_id)
+        result.append(
+            TransactionResponse(
+                id=tx.id,
+                user_id=tx.user_id,
+                account_id=tx.account_id,
+                to_account_id=tx.to_account_id,
+                category_id=tx.category_id,
+                amount=float(tx.amount),
+                type=tx.type,
+                note=tx.note,
+                created_at=tx.created_at,
+                account_name=acc.name if acc else None,
+                category_name=cat.name if cat else None,
+                category_icon=cat.icon if cat else None,
+            )
+        )
+    return result
 
 @router.post("", response_model=TransactionResponse)
 async def create_transaction(

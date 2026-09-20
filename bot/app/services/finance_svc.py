@@ -341,7 +341,11 @@ class FinanceService:
         accounts = await FinanceService.get_accounts(db, user_id)
         categories = await FinanceService.get_categories(db, user_id)
         
-        total_balance = sum(float(a.balance) for a in accounts)
+        total_balance = sum(
+            float(a.balance) * (90.0 if a.currency == "USD" else (98.0 if a.currency == "EUR" else 1.0))
+            for a in accounts
+            if a.group_name != "Кредиты"
+        )
 
         # Query recent transactions
         stmt = select(Transaction).where(Transaction.user_id == user_id).order_by(desc(Transaction.created_at)).limit(20)
