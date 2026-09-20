@@ -37,13 +37,27 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     setOpenGroups((prev) => ({ ...prev, [group]: !prev[group] }));
   };
 
+  // Convert foreign currencies to rubles for total sums
+  const toRub = (a: Account) => (a.currency === 'USD' ? a.balance * 90 : a.currency === 'EUR' ? a.balance * 98 : a.balance);
+
   const assetsBalance = accounts
     .filter((a) => a.group_name !== 'Кредиты')
-    .reduce((acc, a) => acc + a.balance, 0);
+    .reduce((acc, a) => acc + toRub(a), 0);
 
   const creditBalance = accounts
     .filter((a) => a.group_name === 'Кредиты')
     .reduce((acc, a) => acc + a.balance, 0);
+
+  // Currency formatting helper
+  const formatAccountBalance = (val: number, currency: string = 'RUB') => {
+    const isWhole = Math.abs(val % 1) < 0.001;
+    const formatted = val.toLocaleString('ru-RU', {
+      minimumFractionDigits: isWhole ? 0 : 2,
+      maximumFractionDigits: 2,
+    });
+    const symbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '₽';
+    return `${formatted} ${symbol}`;
+  };
 
   // Group accounts by group_name
   const groupedAccounts = accounts.reduce((acc, a) => {
@@ -52,6 +66,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     acc[grp].push(a);
     return acc;
   }, {} as Record<string, Account[]>);
+
 
   return (
     <div className="min-h-screen bg-[#F6F7FB] dark:bg-[#121318] text-[#111827] dark:text-white flex flex-col justify-between pb-10 select-none animate-fade-in relative transition-colors duration-200">
@@ -111,7 +126,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
           {Object.entries(groupedAccounts).map(([groupName, groupAccs]) => {
             const isOpen = openGroups[groupName] ?? true;
             const isCreditGroup = groupName === 'Кредиты';
-            const groupSum = groupAccs.reduce((sum, a) => sum + a.balance, 0);
+            const groupSum = groupAccs.reduce((sum, a) => sum + toRub(a), 0);
 
             return (
               <div key={groupName} className="space-y-3">
@@ -174,11 +189,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                             </span>
                           )}
                           <span className={`text-[14px] font-medium shrink-0 whitespace-nowrap ${isCreditGroup ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-[#6B7280] dark:text-gray-400'}`}>
-                            {isCreditGroup ? '-' : ''}{acc.balance.toLocaleString('ru-RU', {
-                              minimumFractionDigits: 0,
-                              maximumFractionDigits: 2,
-                            })}{' '}
-                            ₽
+                            {isCreditGroup ? '-' : ''}{formatAccountBalance(acc.balance, acc.currency)}
                           </span>
                         </button>
                       );
@@ -188,6 +199,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
               </div>
             );
           })}
+
         </div>
       </div>
 

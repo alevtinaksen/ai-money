@@ -265,10 +265,10 @@ export const App: React.FC = () => {
     id: string;
     amount: number;
     account_id: string;
-    to_account_id?: string;
-    category_id?: string;
+    to_account_id?: string | null;
+    category_id?: string | null;
     type: 'expense' | 'income' | 'transfer';
-    note?: string;
+    note?: string | null;
     created_at?: string;
   }) => {
     hapticNotification('success');
@@ -596,6 +596,7 @@ export const App: React.FC = () => {
           accounts={accounts}
           categories={categories}
           onSelectTransaction={handleSelectTransaction}
+          onUpdateTransaction={handleSaveEditedTransaction}
           onOpenAddTransaction={() => {
             setAddTxInitialType('expense');
             setIsAddTxOpen(true);
