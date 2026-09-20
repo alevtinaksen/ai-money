@@ -148,8 +148,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       },
     ];
 
-    // If both today and yesterday are empty, also append latest active day so screen is not empty
-    if (todayTxs.length === 0 && yesterdayTxs.length === 0 && olderDaysMap.size > 0) {
+    // If today has no transactions yet, also show the previous active day (e.g. Позавчера, 19 сент) so history is immediately visible
+    if (todayTxs.length === 0 && olderDaysMap.size > 0) {
       const sortedOlderKeys = Array.from(olderDaysMap.keys()).sort((a, b) => b.localeCompare(a));
       const latestOlder = olderDaysMap.get(sortedOlderKeys[0]);
       if (latestOlder && latestOlder.transactions.length > 0) {

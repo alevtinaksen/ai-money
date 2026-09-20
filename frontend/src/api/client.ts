@@ -773,12 +773,23 @@ export async function fetchDashboard(initData: string): Promise<DashboardSummary
     .filter(a => a.group_name !== 'Кредиты')
     .reduce((sum, a) => sum + toRub(a), 0);
 
-  // Source list: if server responded, start with server list; else start with cached local sync
-  const baseTxs = serverTxs && serverTxs.length > 0
-    ? serverTxs
-    : (getStoredSyncData()?.recent_transactions && getStoredSyncData()!.recent_transactions!.length > 0
-      ? getStoredSyncData()!.recent_transactions!
-      : INITIAL_RECENT_TRANSACTIONS);
+  // Source list: preserve full history by combining server transactions with initial/cached transactions
+  const txMap = new Map<string, any>();
+  for (const t of INITIAL_RECENT_TRANSACTIONS) {
+    if (t && t.id) txMap.set(t.id, t);
+  }
+  const localSync = getStoredSyncData()?.recent_transactions;
+  if (Array.isArray(localSync)) {
+    for (const t of localSync) {
+      if (t && t.id) txMap.set(t.id, t);
+    }
+  }
+  if (Array.isArray(serverTxs)) {
+    for (const t of serverTxs) {
+      if (t && t.id) txMap.set(t.id, t);
+    }
+  }
+  const baseTxs = Array.from(txMap.values());
 
   // Apply smart merge with local user edits
   const rawRecent = mergeWithLocalMods(baseTxs);
