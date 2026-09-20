@@ -1107,3 +1107,17 @@ export async function parseVoiceAPI(initData: string, audioBlob: Blob) {
   if (!res.ok) throw new Error('Ошибка распознавания голоса');
   return await res.json();
 }
+
+export async function parseTextAPI(initData: string, text: string) {
+  const res = await fetch(`${API_BASE}/api/ai/parse-text`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `tma ${initData}`,
+    },
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) throw new Error('Ошибка распознавания текста');
+  return await res.json();
+}
+

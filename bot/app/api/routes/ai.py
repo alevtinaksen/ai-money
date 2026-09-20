@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
@@ -7,6 +8,7 @@ from app.schemas.finance import AIParsedResult
 from app.services.ai_parser import AIParserService
 from app.services.finance_svc import FinanceService
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 class TextParseRequest(BaseModel):
@@ -47,4 +49,5 @@ async def parse_voice(
         result = await AIParserService.parse_financial_text(transcribed_text, acc_names, cat_names)
         return result
     except Exception as e:
+        logger.error(f"Error in parse_voice: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

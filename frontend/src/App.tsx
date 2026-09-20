@@ -679,21 +679,71 @@ export const App: React.FC = () => {
         onHaptic={hapticImpact}
       />
 
-      {/* Voice Recognition Overlay (Pixel-perfect matching Screenshot 5) */}
+      {/* Voice Recognition Overlay */}
       <VoiceOverlay
         isOpen={isVoiceOpen}
         onClose={() => setIsVoiceOpen(false)}
         selectedAccount={selectedAccount}
+        accounts={accounts}
+        categories={categories}
         onVoiceSuccess={(res) => {
           if (res.transactions && res.transactions.length > 0) {
             hapticNotification('success');
             res.transactions.forEach((tx: any) => {
+              // Resolve category
+              let matchedCatId = categories[0]?.id;
+              if (tx.category_id) {
+                matchedCatId = tx.category_id;
+              } else if (tx.category_name) {
+                const found = categories.find(
+                  (c) =>
+                    c.name.toLowerCase() === tx.category_name.toLowerCase() ||
+                    c.name.toLowerCase().includes(tx.category_name.toLowerCase()) ||
+                    tx.category_name.toLowerCase().includes(c.name.toLowerCase())
+                );
+                if (found) matchedCatId = found.id;
+              }
+
+              // Resolve source account
+              let matchedAccId = selectedAccount.id;
+              if (tx.account_id) {
+                matchedAccId = tx.account_id;
+              } else if (tx.account_name) {
+                const foundAcc = accounts.find(
+                  (a) =>
+                    a.name.toLowerCase() === tx.account_name.toLowerCase() ||
+                    a.name.toLowerCase().includes(tx.account_name.toLowerCase()) ||
+                    tx.account_name.toLowerCase().includes(a.name.toLowerCase())
+                );
+                if (foundAcc) matchedAccId = foundAcc.id;
+              }
+
+              // Resolve destination account for transfers
+              let matchedToAccId: string | undefined = undefined;
+              if (tx.type === 'transfer') {
+                if (tx.to_account_id) {
+                  matchedToAccId = tx.to_account_id;
+                } else if (tx.to_account_name) {
+                  const foundTo = accounts.find(
+                    (a) =>
+                      a.id !== matchedAccId &&
+                      (a.name.toLowerCase().includes(tx.to_account_name.toLowerCase()) ||
+                       tx.to_account_name.toLowerCase().includes(a.name.toLowerCase()))
+                  );
+                  if (foundTo) matchedToAccId = foundTo.id;
+                }
+                if (!matchedToAccId) {
+                  matchedToAccId = accounts.find((a) => a.id !== matchedAccId)?.id;
+                }
+              }
+
               handleAddTransaction({
-                account_id: selectedAccount.id,
-                category_id: categories[0].id,
+                account_id: matchedAccId,
+                to_account_id: matchedToAccId,
+                category_id: matchedCatId,
                 amount: tx.amount,
                 type: tx.type || 'expense',
-                note: tx.note || 'Голосовой расход',
+                note: tx.note || 'Голосовой ввод',
               });
             });
           }
