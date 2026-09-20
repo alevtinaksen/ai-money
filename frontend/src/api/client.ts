@@ -649,19 +649,91 @@ export function saveStoredAccounts(accounts: Account[]) {
   }
 }
 
+export const STORAGE_USER_MODS_KEY = 'ai_money_user_tx_mods';
+
+export interface UserTxModification {
+  data: Partial<Transaction> | null;
+  timestamp: number;
+  status: 'updated' | 'created' | 'deleted';
+}
+
+export function getUserTxMods(): Record<string, UserTxModification> {
+  try {
+    const raw = localStorage.getItem(STORAGE_USER_MODS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function recordUserTxMod(
+  txId: string,
+  data: Partial<Transaction> | null,
+  status: 'updated' | 'created' | 'deleted'
+) {
+  try {
+    const mods = getUserTxMods();
+    mods[txId] = {
+      data,
+      timestamp: Date.now(),
+      status,
+    };
+    localStorage.setItem(STORAGE_USER_MODS_KEY, JSON.stringify(mods));
+  } catch (e) {
+    console.error('Failed to recordUserTxMod:', e);
+  }
+}
+
+export function mergeWithLocalMods(rawTransactions: any[]): any[] {
+  const mods = getUserTxMods();
+  const resultMap = new Map<string, any>();
+
+  // 1. Process base/server transactions, applying local edits or deletions
+  for (const tx of rawTransactions) {
+    if (!tx || !tx.id) continue;
+    const mod = mods[tx.id];
+    if (mod) {
+      if (mod.status === 'deleted') {
+        // User explicitly deleted this transaction locally, do NOT revive it!
+        continue;
+      }
+      if (mod.status === 'updated' && mod.data) {
+        // User edited this transaction locally, override server attributes with user's latest edits!
+        resultMap.set(tx.id, { ...tx, ...mod.data });
+        continue;
+      }
+    }
+    resultMap.set(tx.id, tx);
+  }
+
+  // 2. Preserve locally created transactions that aren't yet returned by the server
+  for (const [txId, mod] of Object.entries(mods)) {
+    if (mod.status === 'created' && mod.data && !resultMap.has(txId)) {
+      resultMap.set(txId, mod.data);
+    }
+  }
+
+  // 3. Sort by created_at descending
+  return Array.from(resultMap.values()).sort((a, b) => {
+    const timeA = new Date(a.created_at || 0).getTime();
+    const timeB = new Date(b.created_at || 0).getTime();
+    return timeB - timeA;
+  });
+}
+
 export async function fetchDashboard(initData: string): Promise<DashboardSummary> {
+  let serverTxs: any[] | null = null;
+  let serverDash: any = null;
+
   try {
     if (API_BASE) {
       const res = await fetchWithTimeout(`${API_BASE}/api/analytics/dashboard`, {
         headers: { Authorization: `tma ${initData}` }
       });
       if (res.ok) {
-        const data = await res.json();
-        if (data && Array.isArray(data.recent_transactions) && data.recent_transactions.length > 0) {
-          saveStoredSyncData({
-            recent_transactions: data.recent_transactions
-          });
-          return data;
+        serverDash = await res.json();
+        if (serverDash && Array.isArray(serverDash.recent_transactions)) {
+          serverTxs = serverDash.recent_transactions;
         }
       }
     }
@@ -691,9 +763,15 @@ export async function fetchDashboard(initData: string): Promise<DashboardSummary
     .filter(a => a.group_name !== 'Кредиты')
     .reduce((sum, a) => sum + a.balance, 0);
 
-  const rawRecent = sync?.recent_transactions && sync.recent_transactions.length > 0
-    ? sync.recent_transactions
-    : INITIAL_RECENT_TRANSACTIONS;
+  // Source list: if server responded, start with server list; else start with cached local sync
+  const baseTxs = serverTxs && serverTxs.length > 0
+    ? serverTxs
+    : (sync?.recent_transactions && sync.recent_transactions.length > 0
+      ? sync.recent_transactions
+      : INITIAL_RECENT_TRANSACTIONS);
+
+  // Apply smart merge with local user edits
+  const rawRecent = mergeWithLocalMods(baseTxs);
 
   const recent: Transaction[] = rawRecent.map((t: any) => {
     const matchedAcc = currentAccounts.find(
@@ -723,6 +801,7 @@ export async function fetchDashboard(initData: string): Promise<DashboardSummary
       id: t.id || `tx-${Date.now()}`,
       user_id: t.user_id || 143702968,
       account_id: accId,
+      to_account_id: t.to_account_id,
       category_id: catId,
       amount: Number(t.amount) || 0,
       type: t.type || 'expense',
@@ -734,12 +813,15 @@ export async function fetchDashboard(initData: string): Promise<DashboardSummary
     };
   });
 
+  // Always keep stored sync data up to date with merged results
+  saveStoredSyncData({ recent_transactions: recent });
+
   const expenseTotal = recent.filter((t) => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
   const incomeTotal = recent.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
 
   return {
     total_balance: total,
-    period_label: 'Сентябрь 2026',
+    period_label: serverDash?.period_label || 'Сентябрь 2026',
     period_income: incomeTotal,
     period_expense: expenseTotal,
     categories: INITIAL_CATEGORIES.map(c => {

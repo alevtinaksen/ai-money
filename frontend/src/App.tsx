@@ -11,6 +11,7 @@ import {
   saveStoredAccounts,
   saveStoredCategories,
   fetchCategories,
+  recordUserTxMod,
   INITIAL_ACCOUNTS,
   INITIAL_CATEGORIES,
 } from './api/client';
@@ -210,6 +211,8 @@ export const App: React.FC = () => {
       category_icon: data.type === 'transfer' ? '💸' : (cat?.icon || '📦'),
     };
 
+    recordUserTxMod(newTx.id, newTx, 'created');
+
     setSummary((prev) => {
       const updatedTxs = [newTx, ...prev.recent_transactions];
       const newExp = updatedTxs.filter((t) => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
@@ -294,25 +297,32 @@ export const App: React.FC = () => {
     });
 
     setSummary((prev) => {
-      const updatedTxs = prev.recent_transactions.map((tx) =>
-        tx.id === data.id
-          ? {
-              ...tx,
-              amount: data.amount,
-              account_id: data.account_id,
-              to_account_id: data.to_account_id ?? tx.to_account_id,
-              account_name:
-                (updatedAccounts.length ? updatedAccounts : accounts).find(
-                  (a) => a.id === data.account_id
-                )?.name || tx.account_name,
-              category_id: data.category_id,
-              type: data.type,
-              note: data.note,
-              category_name: cat?.name || tx.category_name,
-              category_icon: cat?.icon || tx.category_icon || '📦',
-            }
-          : tx
-      );
+      let modifiedTx: Transaction | null = null;
+      const updatedTxs = prev.recent_transactions.map((tx) => {
+        if (tx.id === data.id) {
+          modifiedTx = {
+            ...tx,
+            amount: data.amount,
+            account_id: data.account_id,
+            to_account_id: data.to_account_id ?? tx.to_account_id,
+            account_name:
+              (updatedAccounts.length ? updatedAccounts : accounts).find(
+                (a) => a.id === data.account_id
+              )?.name || tx.account_name,
+            category_id: data.category_id,
+            type: data.type,
+            note: data.note,
+            category_name: cat?.name || tx.category_name,
+            category_icon: cat?.icon || tx.category_icon || '📦',
+          };
+          return modifiedTx;
+        }
+        return tx;
+      });
+
+      if (modifiedTx) {
+        recordUserTxMod(data.id, modifiedTx, 'updated');
+      }
 
       const newExp = updatedTxs
         .filter((t) => t.type === 'expense')
@@ -397,6 +407,7 @@ export const App: React.FC = () => {
     });
 
     setEditingTransaction(null);
+    recordUserTxMod(id, null, 'deleted');
     await deleteTransactionAPI(initData, id);
   };
 
