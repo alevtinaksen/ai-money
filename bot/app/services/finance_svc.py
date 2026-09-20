@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import List, Optional, Tuple
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,6 +9,17 @@ from app.schemas.finance import (
     TransactionCreate, DashboardSummary, CategoryStat,
     TransactionResponse
 )
+
+def to_dec(val) -> Decimal:
+    if val is None:
+        return Decimal("0.00")
+    if isinstance(val, Decimal):
+        return val
+    try:
+        return Decimal(str(round(float(val), 2)))
+    except Exception:
+        return Decimal("0.00")
+
 
 DEFAULT_ACCOUNTS = [
     # Личное (Альфа)
@@ -196,11 +208,11 @@ class FinanceService:
             raise ValueError("Счёт списания не найден")
 
         # 2. Update balances
-        amt = float(data.amount)
+        amt = to_dec(data.amount)
         if data.type == "expense":
-            account.balance = float(account.balance) - amt
+            account.balance = to_dec(account.balance) - amt
         elif data.type == "income":
-            account.balance = float(account.balance) + amt
+            account.balance = to_dec(account.balance) + amt
         elif data.type == "transfer":
             if not data.to_account_id:
                 raise ValueError("Для перевода необходимо указать счет зачисления")
@@ -209,8 +221,8 @@ class FinanceService:
             to_account = res_to.scalar_one_or_none()
             if not to_account:
                 raise ValueError("Счёт зачисления не найден")
-            account.balance = float(account.balance) - amt
-            to_account.balance = float(to_account.balance) + amt
+            account.balance = to_dec(account.balance) - amt
+            to_account.balance = to_dec(to_account.balance) + amt
 
         # 3. Create transaction record
         tx = Transaction(
@@ -242,18 +254,18 @@ class FinanceService:
         res_acc = await db.execute(stmt_acc)
         acc = res_acc.scalar_one_or_none()
         if acc:
-            tx_amt = float(tx.amount)
+            tx_amt = to_dec(tx.amount)
             if tx.type == "expense":
-                acc.balance = float(acc.balance) + tx_amt
+                acc.balance = to_dec(acc.balance) + tx_amt
             elif tx.type == "income":
-                acc.balance = float(acc.balance) - tx_amt
+                acc.balance = to_dec(acc.balance) - tx_amt
             elif tx.type == "transfer" and tx.to_account_id:
-                acc.balance = float(acc.balance) + tx_amt
+                acc.balance = to_dec(acc.balance) + tx_amt
                 stmt_to = select(Account).where(Account.id == tx.to_account_id)
                 res_to = await db.execute(stmt_to)
                 to_acc = res_to.scalar_one_or_none()
                 if to_acc:
-                    to_acc.balance = float(to_acc.balance) - tx_amt
+                    to_acc.balance = to_dec(to_acc.balance) - tx_amt
 
         await db.delete(tx)
         await db.commit()
@@ -272,23 +284,23 @@ class FinanceService:
         res_acc = await db.execute(stmt_acc)
         old_acc = res_acc.scalar_one_or_none()
         if old_acc:
-            old_amt = float(tx.amount)
+            old_amt = to_dec(tx.amount)
             if tx.type == "expense":
-                old_acc.balance = float(old_acc.balance) + old_amt
+                old_acc.balance = to_dec(old_acc.balance) + old_amt
             elif tx.type == "income":
-                old_acc.balance = float(old_acc.balance) - old_amt
+                old_acc.balance = to_dec(old_acc.balance) - old_amt
             elif tx.type == "transfer" and tx.to_account_id:
-                old_acc.balance = float(old_acc.balance) + old_amt
+                old_acc.balance = to_dec(old_acc.balance) + old_amt
                 stmt_to = select(Account).where(Account.id == tx.to_account_id)
                 res_to = await db.execute(stmt_to)
                 old_to_acc = res_to.scalar_one_or_none()
                 if old_to_acc:
-                    old_to_acc.balance = float(old_to_acc.balance) - old_amt
+                    old_to_acc.balance = to_dec(old_to_acc.balance) - old_amt
 
         # Apply new fields
         new_account_id = data.get("account_id") or tx.account_id
         new_to_account_id = data.get("to_account_id", tx.to_account_id)
-        new_amount = float(data.get("amount") if data.get("amount") is not None else tx.amount)
+        new_amount = to_dec(data.get("amount") if data.get("amount") is not None else tx.amount)
         new_type = data.get("type") or tx.type
 
         # Apply new balance
@@ -297,16 +309,16 @@ class FinanceService:
         new_acc = res_new_acc.scalar_one_or_none()
         if new_acc:
             if new_type == "expense":
-                new_acc.balance = float(new_acc.balance) - new_amount
+                new_acc.balance = to_dec(new_acc.balance) - new_amount
             elif new_type == "income":
-                new_acc.balance = float(new_acc.balance) + new_amount
+                new_acc.balance = to_dec(new_acc.balance) + new_amount
             elif new_type == "transfer" and new_to_account_id:
-                new_acc.balance = float(new_acc.balance) - new_amount
+                new_acc.balance = to_dec(new_acc.balance) - new_amount
                 stmt_new_to = select(Account).where(Account.id == new_to_account_id)
                 res_new_to = await db.execute(stmt_new_to)
                 new_to_acc = res_new_to.scalar_one_or_none()
                 if new_to_acc:
-                    new_to_acc.balance = float(new_to_acc.balance) + new_amount
+                    new_to_acc.balance = to_dec(new_to_acc.balance) + new_amount
 
         tx.account_id = new_account_id
         tx.to_account_id = new_to_account_id

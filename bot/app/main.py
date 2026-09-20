@@ -78,7 +78,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="AI Money API",
     description="Backend API for Telegram Mini App and AI Finance Bot",
-    version="1.0.2",
+    version="1.0.3",
     lifespan=lifespan
 )
 
@@ -101,7 +101,12 @@ app.include_router(ai.router, prefix="/api/ai", tags=["AI"])
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "app": "AI Money"}
+    return {"status": "ok", "app": "AI Money", "version": "1.0.3"}
+
+@app.get("/version")
+@app.get("/api/version")
+async def get_version():
+    return {"version": "1.0.3", "status": "ok"}
 
 # Mount frontend Mini App build
 import os

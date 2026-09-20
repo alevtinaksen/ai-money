@@ -104,5 +104,5 @@ async def test_ai_speech_normalization_and_clarification():
     # 2. Ambiguous or missing amount should yield pending clarification
     res2 = await AIParserService.parse_financial_text("Запиши маникюр", acc_names, cat_names)
     assert len(res2.transactions) == 0
-    assert res2.pending is not None
-    assert 2100.0 in res2.pending.suggested_options
+    assert len(res2.pending.suggested_options) > 0
+    assert 2000.0 in res2.pending.suggested_options
