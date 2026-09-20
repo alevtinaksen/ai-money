@@ -146,12 +146,12 @@ export const App: React.FC = () => {
     window.addEventListener('pageshow', handleSync);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // Heartbeat sync every 8 seconds when app is active/visible
+    // Heartbeat sync every 3 seconds when app is active/visible
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         loadData();
       }
-    }, 8000);
+    }, 3000);
 
     return () => {
       window.removeEventListener('hashchange', handleSync);
@@ -170,6 +170,7 @@ export const App: React.FC = () => {
     amount: number;
     type: TransactionType;
     note: string;
+    client_id: string;
   }) => {
     hapticNotification('success');
     setIsAddTxOpen(false);
@@ -239,6 +240,7 @@ export const App: React.FC = () => {
 
     await createTransactionAPI(initData, data);
   };
+
 
   // Handle click on a transaction to view/edit (matching media_1789730678657.png)
   const handleSelectTransaction = (tx: Transaction) => {
@@ -480,6 +482,7 @@ export const App: React.FC = () => {
       amount: 850,
       type: 'expense',
       note: 'Чек: Продукты',
+      client_id: crypto.randomUUID(),
     });
   };
 
@@ -752,6 +755,7 @@ export const App: React.FC = () => {
                 amount: tx.amount,
                 type: tx.type || 'expense',
                 note: tx.note || 'Голосовой ввод',
+                client_id: crypto.randomUUID(),
               });
             });
           }

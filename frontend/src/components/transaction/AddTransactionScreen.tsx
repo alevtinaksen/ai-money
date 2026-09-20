@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   CloseOutlined,
   SwapOutlined,
@@ -27,6 +27,7 @@ interface AddTransactionScreenProps {
     amount: number;
     type: TransactionType;
     note: string;
+    client_id: string;
   }) => void;
   onHaptic?: (style?: 'light' | 'medium' | 'heavy') => void;
 }
@@ -45,6 +46,11 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
   const [amountStr, setAmountStr] = useState('');
   const [txType, setTxType] = useState<TransactionType>(initialType || 'expense');
   const [isAmountError, setIsAmountError] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Unique idempotency key per form open — regenerated each time screen mounts
+  const clientIdRef = useRef<string>(crypto.randomUUID());
+
+
 
   // Source and Destination accounts
   const [fromAccount, setFromAccount] = useState<Account>(selectedAccount);
@@ -219,6 +225,9 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
 
   // Submit transaction
   const handleSubmit = useCallback(() => {
+    // Prevent double-tap / double-submit
+    if (isSubmitting) return;
+
     const parsedAmount = parseFloat(amountStr.replace(',', '.')) || 0;
     if (parsedAmount <= 0) {
       onHaptic?.('heavy');
@@ -239,6 +248,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
       }
     }
 
+    setIsSubmitting(true);
     onHaptic?.('heavy');
 
     const finalNote = note.trim() || (
@@ -258,8 +268,10 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
       amount: parsedAmount,
       type: txType,
       note: finalNote,
+      client_id: clientIdRef.current,
     });
   }, [
+    isSubmitting,
     amountStr,
     fromAccount.id,
     toAccount.id,
@@ -273,6 +285,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
     onSubmit,
     onHaptic,
   ]);
+
 
   // Physical keyboard listener for desktop
   useEffect(() => {
@@ -629,7 +642,12 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
             <button
               type="button"
               onClick={handleSubmit}
-              className="w-13 h-13 p-3 rounded-full bg-[#2B5BFF] text-white flex items-center justify-center shadow-[0_4px_16px_rgba(43,91,255,0.4)] active:scale-95 transition-all hover:brightness-105"
+              disabled={isSubmitting}
+              className={`w-13 h-13 p-3 rounded-full text-white flex items-center justify-center shadow-[0_4px_16px_rgba(43,91,255,0.4)] active:scale-95 transition-all ${
+                isSubmitting
+                  ? 'bg-[#9CA3AF] opacity-60 cursor-not-allowed'
+                  : 'bg-[#2B5BFF] hover:brightness-105'
+              }`}
             >
               <CheckOutlined className="text-[22px]" />
             </button>

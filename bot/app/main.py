@@ -36,6 +36,19 @@ async def poll_bot_forever(bot_instance: Bot, dispatcher: Dispatcher):
             logger.error(f"Telegram Bot polling error: {e}. Reconnecting in 5 seconds...", exc_info=True)
             await asyncio.sleep(5)
 
+async def keepalive_loop():
+    """Ping our own /health endpoint every 10 minutes so Render free tier doesn't spin down."""
+    import httpx
+    await asyncio.sleep(60)  # wait for server to fully start
+    while True:
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(f"http://localhost:{settings.PORT}/health", timeout=10)
+                logger.info(f"Keepalive ping: {resp.status_code}")
+        except Exception as e:
+            logger.warning(f"Keepalive ping failed: {e}")
+        await asyncio.sleep(600)  # 10 minutes
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 1. Startup: initialize database tables
@@ -50,9 +63,13 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning("BOT_TOKEN is not configured or is default mock token. Telegram Bot polling skipped.")
 
+    # 3. Start keepalive loop (prevents Render free tier from sleeping)
+    keepalive_task = asyncio.create_task(keepalive_loop())
+
     yield
 
-    # 3. Shutdown
+    # 4. Shutdown
+    keepalive_task.cancel()
     if bot_task:
         bot_task.cancel()
         if bot:

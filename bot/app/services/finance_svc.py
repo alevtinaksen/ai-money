@@ -177,18 +177,35 @@ class FinanceService:
 
     @staticmethod
     async def create_transaction(db: AsyncSession, user_id: int, data: TransactionCreate) -> Transaction:
-        # 1. Fetch account
+        # 0. Idempotency: if client_id already exists, return the existing transaction
+        if data.client_id:
+            stmt_check = select(Transaction).where(
+                Transaction.user_id == user_id,
+                Transaction.client_id == data.client_id
+            )
+            res_check = await db.execute(stmt_check)
+            existing = res_check.scalar_one_or_none()
+            if existing:
+                return existing
+
+        # 1. Fetch account (for validation only)
         stmt = select(Account).where(Account.id == data.account_id, Account.user_id == user_id)
         res = await db.execute(stmt)
         account = res.scalar_one_or_none()
         if not account:
             raise ValueError("Счёт списания не найден")
 
-        # 2. Update balances
+        # 2. Update balances atomically (no read-modify-write race condition)
         if data.type == "expense":
-            account.balance = float(account.balance) - float(data.amount)
+            await db.execute(
+                update(Account).where(Account.id == data.account_id)
+                .values(balance=Account.balance - data.amount)
+            )
         elif data.type == "income":
-            account.balance = float(account.balance) + float(data.amount)
+            await db.execute(
+                update(Account).where(Account.id == data.account_id)
+                .values(balance=Account.balance + data.amount)
+            )
         elif data.type == "transfer":
             if not data.to_account_id:
                 raise ValueError("Для перевода необходимо указать счет зачисления")
@@ -197,12 +214,19 @@ class FinanceService:
             to_account = res_to.scalar_one_or_none()
             if not to_account:
                 raise ValueError("Счёт зачисления не найден")
-            account.balance = float(account.balance) - float(data.amount)
-            to_account.balance = float(to_account.balance) + float(data.amount)
+            await db.execute(
+                update(Account).where(Account.id == data.account_id)
+                .values(balance=Account.balance - data.amount)
+            )
+            await db.execute(
+                update(Account).where(Account.id == data.to_account_id)
+                .values(balance=Account.balance + data.amount)
+            )
 
         # 3. Create transaction record
         tx = Transaction(
             user_id=user_id,
+            client_id=data.client_id,
             account_id=data.account_id,
             to_account_id=data.to_account_id,
             category_id=data.category_id,
@@ -224,22 +248,26 @@ class FinanceService:
         if not tx:
             return False
 
-        # Revert balances
-        stmt_acc = select(Account).where(Account.id == tx.account_id)
-        res_acc = await db.execute(stmt_acc)
-        acc = res_acc.scalar_one_or_none()
-        if acc:
-            if tx.type == "expense":
-                acc.balance = float(acc.balance) + float(tx.amount)
-            elif tx.type == "income":
-                acc.balance = float(acc.balance) - float(tx.amount)
-            elif tx.type == "transfer" and tx.to_account_id:
-                acc.balance = float(acc.balance) + float(tx.amount)
-                stmt_to = select(Account).where(Account.id == tx.to_account_id)
-                res_to = await db.execute(stmt_to)
-                to_acc = res_to.scalar_one_or_none()
-                if to_acc:
-                    to_acc.balance = float(to_acc.balance) - float(tx.amount)
+        # Revert balances atomically
+        if tx.type == "expense":
+            await db.execute(
+                update(Account).where(Account.id == tx.account_id)
+                .values(balance=Account.balance + tx.amount)
+            )
+        elif tx.type == "income":
+            await db.execute(
+                update(Account).where(Account.id == tx.account_id)
+                .values(balance=Account.balance - tx.amount)
+            )
+        elif tx.type == "transfer" and tx.to_account_id:
+            await db.execute(
+                update(Account).where(Account.id == tx.account_id)
+                .values(balance=Account.balance + tx.amount)
+            )
+            await db.execute(
+                update(Account).where(Account.id == tx.to_account_id)
+                .values(balance=Account.balance - tx.amount)
+            )
 
         await db.delete(tx)
         await db.commit()
@@ -253,22 +281,26 @@ class FinanceService:
         if not tx:
             return None
 
-        # Revert old balance
-        stmt_acc = select(Account).where(Account.id == tx.account_id)
-        res_acc = await db.execute(stmt_acc)
-        old_acc = res_acc.scalar_one_or_none()
-        if old_acc:
-            if tx.type == "expense":
-                old_acc.balance = float(old_acc.balance) + float(tx.amount)
-            elif tx.type == "income":
-                old_acc.balance = float(old_acc.balance) - float(tx.amount)
-            elif tx.type == "transfer" and tx.to_account_id:
-                old_acc.balance = float(old_acc.balance) + float(tx.amount)
-                stmt_to = select(Account).where(Account.id == tx.to_account_id)
-                res_to = await db.execute(stmt_to)
-                old_to_acc = res_to.scalar_one_or_none()
-                if old_to_acc:
-                    old_to_acc.balance = float(old_to_acc.balance) - float(tx.amount)
+        # Revert old balance atomically
+        if tx.type == "expense":
+            await db.execute(
+                update(Account).where(Account.id == tx.account_id)
+                .values(balance=Account.balance + tx.amount)
+            )
+        elif tx.type == "income":
+            await db.execute(
+                update(Account).where(Account.id == tx.account_id)
+                .values(balance=Account.balance - tx.amount)
+            )
+        elif tx.type == "transfer" and tx.to_account_id:
+            await db.execute(
+                update(Account).where(Account.id == tx.account_id)
+                .values(balance=Account.balance + tx.amount)
+            )
+            await db.execute(
+                update(Account).where(Account.id == tx.to_account_id)
+                .values(balance=Account.balance - tx.amount)
+            )
 
         # Apply new fields
         new_account_id = data.get("account_id") or tx.account_id
@@ -276,22 +308,26 @@ class FinanceService:
         new_amount = float(data.get("amount") if data.get("amount") is not None else tx.amount)
         new_type = data.get("type") or tx.type
 
-        # Apply new balance
-        stmt_new_acc = select(Account).where(Account.id == new_account_id)
-        res_new_acc = await db.execute(stmt_new_acc)
-        new_acc = res_new_acc.scalar_one_or_none()
-        if new_acc:
-            if new_type == "expense":
-                new_acc.balance = float(new_acc.balance) - new_amount
-            elif new_type == "income":
-                new_acc.balance = float(new_acc.balance) + new_amount
-            elif new_type == "transfer" and new_to_account_id:
-                new_acc.balance = float(new_acc.balance) - new_amount
-                stmt_new_to = select(Account).where(Account.id == new_to_account_id)
-                res_new_to = await db.execute(stmt_new_to)
-                new_to_acc = res_new_to.scalar_one_or_none()
-                if new_to_acc:
-                    new_to_acc.balance = float(new_to_acc.balance) + new_amount
+        # Apply new balance atomically
+        if new_type == "expense":
+            await db.execute(
+                update(Account).where(Account.id == new_account_id)
+                .values(balance=Account.balance - new_amount)
+            )
+        elif new_type == "income":
+            await db.execute(
+                update(Account).where(Account.id == new_account_id)
+                .values(balance=Account.balance + new_amount)
+            )
+        elif new_type == "transfer" and new_to_account_id:
+            await db.execute(
+                update(Account).where(Account.id == new_account_id)
+                .values(balance=Account.balance - new_amount)
+            )
+            await db.execute(
+                update(Account).where(Account.id == new_to_account_id)
+                .values(balance=Account.balance + new_amount)
+            )
 
         tx.account_id = new_account_id
         tx.to_account_id = new_to_account_id

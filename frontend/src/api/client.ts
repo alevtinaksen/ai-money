@@ -981,6 +981,7 @@ export async function createTransactionAPI(
     type: 'expense' | 'income' | 'transfer';
     note?: string;
     to_account_id?: string;
+    client_id?: string;
   }
 ): Promise<Transaction> {
   try {

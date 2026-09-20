@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from sqlalchemy import (
     Column, String, BigInteger, Numeric, Boolean,
-    ForeignKey, DateTime, Integer, Text
+    ForeignKey, DateTime, Integer, Text, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
 from app.core.database import Base
@@ -52,6 +52,7 @@ class Transaction(Base):
 
     id = Column(String(36), primary_key=True, default=gen_uuid_str)
     user_id = Column(BigInteger, nullable=False, index=True)
+    client_id = Column(String(36), nullable=True, index=True)  # Idempotency key from frontend
     account_id = Column(String(36), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False)
     to_account_id = Column(String(36), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
     category_id = Column(String(36), ForeignKey("categories.id", ondelete="SET NULL"), nullable=True)
@@ -63,3 +64,8 @@ class Transaction(Base):
     account = relationship("Account", foreign_keys=[account_id], back_populates="transactions")
     to_account = relationship("Account", foreign_keys=[to_account_id])
     category = relationship("Category", back_populates="transactions")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "client_id", name="uq_transaction_user_client"),
+    )
+
