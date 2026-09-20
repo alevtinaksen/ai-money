@@ -982,8 +982,10 @@ export async function createTransactionAPI(
     note?: string;
     to_account_id?: string;
     client_id?: string;
+    created_at?: string;
   }
 ): Promise<Transaction> {
+
   try {
     const res = await fetchWithTimeout(`${API_BASE}/api/transactions`, {
       method: 'POST',

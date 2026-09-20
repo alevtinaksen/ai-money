@@ -171,6 +171,7 @@ export const App: React.FC = () => {
     type: TransactionType;
     note: string;
     client_id: string;
+    created_at?: string;
   }) => {
     hapticNotification('success');
     setIsAddTxOpen(false);
@@ -210,7 +211,7 @@ export const App: React.FC = () => {
       amount: data.amount,
       type: data.type,
       note: data.note || (data.type === 'transfer' && toAcc ? toAcc.name : (cat?.name || '')),
-      created_at: new Date().toISOString(),
+      created_at: data.created_at || new Date().toISOString(),
       account_name: targetAcc?.name || 'Карта Альфа',
       category_name: data.type === 'transfer' ? 'Переводы' : (cat?.name || 'Расход'),
       category_icon: data.type === 'transfer' ? '💸' : (cat?.icon || '📦'),
@@ -257,6 +258,7 @@ export const App: React.FC = () => {
     category_id?: string;
     type: 'expense' | 'income' | 'transfer';
     note?: string;
+    created_at?: string;
   }) => {
     hapticNotification('success');
     setIsEditTxOpen(false);
@@ -318,10 +320,12 @@ export const App: React.FC = () => {
             category_id: data.category_id,
             type: data.type,
             note: data.note,
+            created_at: data.created_at || tx.created_at,
             category_name: cat?.name || tx.category_name,
             category_icon: cat?.icon || tx.category_icon || '📦',
           };
           return modifiedTx;
+
         }
         return tx;
       });

@@ -519,10 +519,12 @@ interface EditTransactionContentProps {
     category_id?: string;
     type: 'expense' | 'income' | 'transfer';
     note?: string;
+    created_at?: string;
   }) => void;
   onDelete: (id: string) => void;
   onHaptic?: (type: 'light' | 'medium' | 'heavy') => void;
 }
+
 
 const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
   onClose,
@@ -620,6 +622,16 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
   const [categoryId, setCategoryId] = useState<string | undefined>(resolveInitialCat());
   const [note, setNote] = useState<string>(transaction.note || '');
   const [selectedSubcat, setSelectedSubcat] = useState<string>(resolveInitialSubcat());
+  const [selectedDate, setSelectedDate] = useState<Date>(() =>
+    transaction.created_at ? new Date(transaction.created_at) : new Date()
+  );
+
+  const toInputValue = (date: Date): string => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
 
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [isAccPickerOpen, setIsAccPickerOpen] = useState(false);
@@ -637,6 +649,7 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
     setCategoryId(initialCatId);
     setNote(transaction.note || '');
     setSelectedSubcat(initialSub);
+    setSelectedDate(transaction.created_at ? new Date(transaction.created_at) : new Date());
 
     setIsPickerOpen(false);
     setIsAccPickerOpen(false);
@@ -722,6 +735,7 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
       category_id: categoryId,
       type,
       note: finalNote,
+      created_at: selectedDate.toISOString(),
     });
   };
 
@@ -731,9 +745,9 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
     onClose();
   };
 
-  // Format date for pill: "7 мая"
-  const dateObj = transaction.created_at ? new Date(transaction.created_at) : new Date();
-  const dateLabel = dateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+  // Format date for pill: "21 сент."
+  const dateLabel = selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-between bg-[#F6F7FB] dark:bg-[#121318] px-5 pt-12 pb-8 animate-fade-in select-none transition-colors duration-200">
@@ -851,11 +865,26 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
             </button>
           )}
 
-          {/* Date Pill */}
-          <div className="inline-flex items-center space-x-1.5 bg-white dark:bg-[#1E1F26] px-3.5 py-2.5 rounded-full shadow-sm border border-gray-100 dark:border-gray-800 text-[#111827] dark:text-white flex-shrink-0">
-            <CalendarOutlined className="text-[13px] text-[#9CA3AF] dark:text-gray-400" />
-            <span className="text-[13px] font-semibold">{dateLabel}</span>
+          {/* Date Pill with real Date Picker */}
+          <div className="relative inline-flex items-center space-x-1.5 bg-white dark:bg-[#1E1F26] px-3.5 py-2.5 rounded-full shadow-sm border border-gray-100 dark:border-gray-800 text-[#111827] dark:text-white flex-shrink-0 cursor-pointer active:scale-95 transition-all overflow-hidden hover:border-[#2B5BFF]/40">
+            <CalendarOutlined className="text-[13px] text-[#9CA3AF] dark:text-gray-400 pointer-events-none" />
+            <span className="text-[13px] font-semibold pointer-events-none">{dateLabel}</span>
+            <input
+              type="date"
+              value={toInputValue(selectedDate)}
+              onChange={(e) => {
+                if (e.target.value) {
+                  const [y, m, d] = e.target.value.split('-').map(Number);
+                  const newD = new Date(selectedDate);
+                  newD.setFullYear(y, m - 1, d);
+                  setSelectedDate(newD);
+                  onHaptic?.('light');
+                }
+              }}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+            />
           </div>
+
         </div>
 
         {/* Row 2: Amount & Type Toggle */}

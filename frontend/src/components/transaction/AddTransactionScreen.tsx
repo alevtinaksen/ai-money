@@ -28,9 +28,11 @@ interface AddTransactionScreenProps {
     type: TransactionType;
     note: string;
     client_id: string;
+    created_at?: string;
   }) => void;
   onHaptic?: (style?: 'light' | 'medium' | 'heavy') => void;
 }
+
 
 export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
   onClose,
@@ -50,9 +52,8 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
   // Unique idempotency key per form open — regenerated each time screen mounts
   const clientIdRef = useRef<string>(crypto.randomUUID());
 
-
-
   // Source and Destination accounts
+
   const [fromAccount, setFromAccount] = useState<Account>(selectedAccount);
   const [toAccount, setToAccount] = useState<Account>(() => {
     const other = accounts.find((a) => a.id !== selectedAccount.id);
@@ -88,7 +89,27 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
   });
 
   const [note, setNote] = useState('');
-  const [dateLabel, setDateLabel] = useState('Сегодня');
+  // Real date state — defaults to today
+  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
+
+  // Format date as human-readable Russian label
+  const formatDateLabel = (date: Date): string => {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (date.toDateString() === today.toDateString()) return 'Сегодня';
+    if (date.toDateString() === yesterday.toDateString()) return 'Вчера';
+    return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+  };
+
+  // Format date as yyyy-mm-dd for <input type="date">
+  const toInputValue = (date: Date): string => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
 
   // Find transfer category helper
   const transferCategory = useMemo(() => {
@@ -269,8 +290,10 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
       type: txType,
       note: finalNote,
       client_id: clientIdRef.current,
+      created_at: selectedDate.toISOString(),
     });
   }, [
+
     isSubmitting,
     amountStr,
     fromAccount.id,
@@ -474,19 +497,26 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
 
               {/* Date button below dual pills */}
               <div className="flex items-center justify-end mt-2.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    onHaptic?.('light');
-                    setDateLabel(dateLabel === 'Сегодня' ? 'Вчера' : 'Сегодня');
-                  }}
-                  className="flex items-center space-x-2 bg-white dark:bg-[#1A1B20] px-3.5 py-1.5 rounded-[18px] shadow-sm active:scale-[0.98] transition-all border border-gray-100 dark:border-[#252730]"
-                >
-                  <CalendarOutlined className="text-[13px] text-[#6B7280] dark:text-[#8E92A4]" />
-                  <span className="text-[13px] font-medium text-[#374151] dark:text-white">
-                    {dateLabel}
+                <div className="relative flex items-center space-x-2 bg-white dark:bg-[#1A1B20] px-3.5 py-1.5 rounded-[18px] shadow-sm active:scale-[0.98] transition-all border border-gray-100 dark:border-[#252730] cursor-pointer overflow-hidden hover:border-[#2B5BFF]/40">
+                  <CalendarOutlined className="text-[13px] text-[#6B7280] dark:text-[#8E92A4] pointer-events-none" />
+                  <span className="text-[13px] font-medium text-[#374151] dark:text-white pointer-events-none">
+                    {formatDateLabel(selectedDate)}
                   </span>
-                </button>
+                  <input
+                    type="date"
+                    value={toInputValue(selectedDate)}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        const [y, m, d] = e.target.value.split('-').map(Number);
+                        const newD = new Date(selectedDate);
+                        newD.setFullYear(y, m - 1, d);
+                        setSelectedDate(newD);
+                        onHaptic?.('light');
+                      }
+                    }}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                </div>
               </div>
             </div>
           ) : (
@@ -518,21 +548,29 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                 </div>
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  onHaptic?.('light');
-                  setDateLabel(dateLabel === 'Сегодня' ? 'Вчера' : 'Сегодня');
-                }}
-                className="flex items-center space-x-2 bg-white dark:bg-[#1A1B20] px-4 py-2.5 rounded-[22px] shadow-sm active:scale-[0.98] transition-all border border-gray-100 dark:border-[#252730]"
-              >
-                <CalendarOutlined className="text-[14px] text-[#6B7280] dark:text-[#8E92A4]" />
-                <span className="text-[14px] font-medium text-[#374151] dark:text-white">
-                  {dateLabel}
+              <div className="relative flex items-center space-x-2 bg-white dark:bg-[#1A1B20] px-4 py-2.5 rounded-[22px] shadow-sm active:scale-[0.98] transition-all border border-gray-100 dark:border-[#252730] cursor-pointer overflow-hidden hover:border-[#2B5BFF]/40">
+                <CalendarOutlined className="text-[14px] text-[#6B7280] dark:text-[#8E92A4] pointer-events-none" />
+                <span className="text-[14px] font-medium text-[#374151] dark:text-white pointer-events-none">
+                  {formatDateLabel(selectedDate)}
                 </span>
-              </button>
+                <input
+                  type="date"
+                  value={toInputValue(selectedDate)}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      const [y, m, d] = e.target.value.split('-').map(Number);
+                      const newD = new Date(selectedDate);
+                      newD.setFullYear(y, m - 1, d);
+                      setSelectedDate(newD);
+                      onHaptic?.('light');
+                    }
+                  }}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                />
+              </div>
             </div>
           )}
+
 
           {/* Amount Display with 3-Mode Toggle [− | + | ⇄] */}
           <div className="flex items-center justify-between my-5 px-1">
