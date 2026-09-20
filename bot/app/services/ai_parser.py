@@ -18,7 +18,9 @@ SYSTEM_PROMPT_TEMPLATE = """Ты — интеллектуальный финан
 {categories_list}
 
 Правила:
-1. Выдели все упомянутые финансовые операции. Если пользователь назвал несколько трат («Кофе 200 и аптека 1500»), верни массив объектов transactions.
+1. Выдели ВСЕ упомянутые финансовые операции:
+   - Если пользователь перечислил несколько операций (например: «Кофе 200 и аптека 1500», либо перечислением «Первое такси 400, второе кофе 250, третье продукты 1500», «Во-первых... во-вторых...», «1)... 2)...», «а также... потом...»):
+     ОБЯЗАТЕЛЬНО верни КАЖДУЮ операцию отдельным объектом в массиве `transactions`! Не склеивай их!
 2. Для каждой операции определи:
    - amount: число (float), сумма операции. ВАЖНО: если сумма записана через математическое выражение со знаком плюс (например: «1104+1104+137» или «500+250»), ОБЯЗАТЕЛЬНО сложи эти числа и запиши в amount единую итоговую сумму сложения (например: 2345.0)!
    - type: 'expense' (расход), 'income' (доход), или 'transfer' (перевод между счетами).
@@ -234,145 +236,160 @@ class AIParserService:
         category_names: List[str]
     ) -> AIParsedResult:
         cleaned = text.replace(",", ".").lower()
+        cleaned = re.sub(r"^(?:запиши|записать|добавь|пожалуйста|слушай)\s+", "", cleaned)
 
-        # 1. Check for incoming transfers from friend/other person
-        is_incoming_transfer = any(
-            w in cleaned for w in [
-                "перевод от", "скинули", "перевели мне", "пришли деньги",
-                "перевод от подруги", "перевод от друга", "вернули долг"
-            ]
-        )
-        if is_incoming_transfer:
-            amt_match = re.search(r"(\d+(?:\.\d+)?)", cleaned)
-            amount = float(amt_match.group(1)) if amt_match else 0.0
-            if amount > 0:
-                acc = AIParserService.match_account_name(cleaned, account_names) or (account_names[0] if account_names else "Основной")
-                note = "Перевод от подруги" if "подруг" in cleaned else ("Перевод от друга" if "друг" in cleaned else "Входящий перевод")
-                return AIParsedResult(
-                    transactions=[
-                        AIParsedTransaction(
-                            amount=amount,
-                            type="income",
-                            category_name="Переводы (получено)",
-                            account_name=acc,
-                            to_account_name=None,
-                            note=note
-                        )
-                    ]
-                )
+        enum_pattern = r"(?:(?:\b(?:первое|во-первых|второе|во-вторых|третье|в-третьих|четвертое|в-четвертых|пятое|в-пятых|шестое|в-шестых|седьмое|восьмое|девятое|десятое|потом|затем|дальше|после\s+этого)\b)|(?:\b\d+[\.\)]\s*)|\n+|;|\s+(?:и|а\s+также|а\s+еще)\s+)"
+        raw_clauses = [p.strip() for p in re.split(enum_pattern, cleaned) if p and p.strip()]
 
-        # 2. Check for savings / roundups from purchases
-        if "накоплен" in cleaned or "округлен" in cleaned:
-            amt_match = re.search(r"(\d+(?:\.\d+)?)", cleaned)
-            amount = float(amt_match.group(1)) if amt_match else 0.0
-            if amount > 0:
-                from_acc = AIParserService.match_account_name(cleaned, account_names) or (account_names[0] if account_names else "Основной")
-                to_acc = next((a for a in account_names if "инвест" in a.lower() or "копилк" in a.lower() or "накоп" in a.lower()), None)
-                return AIParsedResult(
-                    transactions=[
-                        AIParsedTransaction(
-                            amount=amount,
-                            type="transfer",
-                            category_name="Накопления",
-                            account_name=from_acc,
-                            to_account_name=to_acc or (account_names[1] if len(account_names) > 1 else None),
-                            note="Накопления с покупки"
-                        )
-                    ]
-                )
+        if not raw_clauses:
+            raw_clauses = [cleaned]
 
-        # 3. Check for transfer keyword between own accounts
-        if ("перевод" in cleaned or "перевел" in cleaned or "перевела" in cleaned) and not is_incoming_transfer:
-            amt_match = re.search(r"(\d+(?:\.\d+)?)", cleaned)
-            amount = float(amt_match.group(1)) if amt_match else 0.0
-            if amount > 0:
-                return AIParsedResult(
-                    transactions=[
-                        AIParsedTransaction(
-                            amount=amount,
-                            type="transfer",
-                            category_name="Переводы",
-                            account_name=AIParserService.match_account_name(cleaned, account_names) or (account_names[0] if account_names else "Основной"),
-                            to_account_name=account_names[1] if len(account_names) > 1 else None,
-                            note="Перевод между счетами"
-                        )
-                    ]
-                )
+        stopwords = {
+            "р", "руб", "рублей", "с", "со", "на", "в", "во", "карты", "карта", "карте",
+            "запиши", "записать", "добавь", "пожалуйста", "еще", "ещё", "списал", "списали",
+            "первое", "второе", "третье", "четвертое", "пятое", "шестое", "седьмое", "восьмое", "девятое", "десятое",
+            "во-первых", "во-вторых", "в-третьих", "в-четвертых", "в-пятых",
+            "это", "такое", "такое-то", "тоже", "потом", "затем", "дальше", "после", "этого", "пункт", "номер"
+        }
+        bank_words = {
+            "альфа", "альфы", "альфе", "т-банк", "т-банка", "т-банке", "тбанк", "тинькофф",
+            "тинькова", "тинькоф", "тиньков", "озон", "ozon", "сбер", "сбера", "наличные",
+            "наличных", "налом"
+        }
 
-        # Check global account mention in the whole sentence
-        global_account = AIParserService.match_account_name(cleaned, account_names)
-
-        # Split multi-transactions by "и" or comma or "а также" (avoiding splitting on numbers)
-        clauses = re.split(r"\s+(?:и|,|а\s+также)\s+", cleaned)
+        # Resolve global fallback account
+        global_account = AIParserService.match_account_name(cleaned, account_names) or (account_names[0] if account_names else "Основной")
+        
         results: List[AIParsedTransaction] = []
+        current_acc = None
 
-        for clause in clauses:
-            clause = clause.strip()
-            if not clause:
-                continue
+        for clause in raw_clauses:
+            # 1. Account resolution
+            explicit_acc = AIParserService.match_account_name(clause, account_names)
+            if explicit_acc:
+                current_acc = explicit_acc
+            acc = current_acc or global_account
 
-            matched_acc = AIParserService.match_account_name(clause, account_names) or global_account
-            is_income = any(w in clause for w in ["зарплата", "доход", "аванс", "кешбэк", "пришло", "пополнил", "перевели"])
+            # 2. Check for incoming transfers from friend/other person
+            is_incoming = any(
+                w in clause for w in [
+                    "перевод от", "скинули", "перевели мне", "пришли деньги",
+                    "перевод от подруги", "перевод от друга", "вернули долг"
+                ]
+            )
+            # 3. Check for savings / roundups
+            is_savings = "накоплен" in clause or "округлен" in clause or "в копилк" in clause
+            # 4. Check for transfer between own accounts
+            is_transfer = ("перевод" in clause or "перевел" in clause or "перевела" in clause) and not is_incoming
+            # 5. Check for general income
+            is_income = any(w in clause for w in ["зарплата", "доход", "аванс", "кешбэк", "пришло", "пополнил"]) or is_incoming
 
-            matched_cat = "Покупки"
-            suggested_amounts = [500.0, 1000.0, 1500.0, 2000.0, 2500.0, 3000.0]
-
-            if any(w in clause for w in ["теремок", "кофе", "обед", "ужин", "бургер", "кафе", "ресторан", "самокат", "вкусвилл", "еда", "шоколадниц", "додо", "макдоналдс", "ростикс", "кфс", "kfc", "dream kids"]):
-                matched_cat = "Еда"
-                suggested_amounts = [250.0, 350.0, 500.0, 800.0, 1200.0]
-            elif any(w in clause for w in ["маникюр", "педикюр", "брови", "волосы", "стрижка", "косметика"]):
-                matched_cat = "Личное"
-                suggested_amounts = [1500.0, 2000.0, 2100.0, 2500.0, 3000.0]
-            elif any(w in clause for w in ["такси", "метро", "бензин", "заправка", "автобус", "каршеринг"]):
-                matched_cat = "Транспорт"
-                suggested_amounts = [300.0, 500.0, 750.0, 1000.0, 1500.0]
-            elif any(w in clause for w in ["аптека", "врач", "лекарств", "витамин", "клиника", "психолог", "терапевт"]):
-                matched_cat = "Здоровье"
-                suggested_amounts = [1000.0, 2000.0, 3000.0, 5000.0, 10000.0]
-            elif any(w in clause for w in ["кино", "игры", "подписка", "яндекс", "netflix", "spotify"]):
-                matched_cat = "Развлечения" if "подписк" not in clause else "Подписки"
-                suggested_amounts = [299.0, 499.0, 799.0, 1000.0]
-            elif is_income:
-                matched_cat = "Зарплата"
-                suggested_amounts = [20000.0, 40000.0, 60000.0, 80000.0]
-
-            stopwords = ["р", "руб", "рублей", "с", "на", "карты", "карта", "запиши", "записать", "добавь", "пожалуйста", "еще", "списал", "списали"]
-            note_words = [w for w in clause.split() if not w.replace(".", "").isdigit() and w not in stopwords]
-            note = " ".join(note_words).capitalize() if note_words else matched_cat
-
+            # Extract amount
             amt_match = re.search(r"(\d+(?:\.\d+)?)", clause)
             if not amt_match:
-                return AIParsedResult(
-                    transactions=[],
-                    pending=PendingClarification(
-                        question=f"❓ Какая стоимость операции **«{note}»**?",
-                        suggested_options=suggested_amounts,
-                        category_name=matched_cat,
-                        account_name=matched_acc or (account_names[0] if account_names else None),
-                        note=note
+                # If only 1 clause was provided, ask for clarification
+                if len(raw_clauses) == 1:
+                    matched_cat = "Покупки"
+                    if any(w in clause for w in ["теремок", "кофе", "обед", "ужин", "бургер", "кафе", "ресторан", "самокат", "вкусвилл", "еда", "шоколадниц", "додо", "макдоналдс", "ростикс", "кфс", "kfc", "dream kids", "окей", "о'кей", "пятерочк", "перекресток", "магнит", "лента", "ашан", "дикси", "спар", "spar", "супермаркет", "продукты", "наланч"]):
+                        matched_cat = "Еда"
+                    elif any(w in clause for w in ["маникюр", "педикюр", "брови", "волосы", "стрижка", "косметика", "спорт"]):
+                        matched_cat = "Личное"
+                    elif any(w in clause for w in ["такси", "метро", "бензин", "заправка", "автобус", "каршеринг"]):
+                        matched_cat = "Транспорт"
+                    elif any(w in clause for w in ["аптека", "врач", "лекарств", "витамин"]):
+                        matched_cat = "Здоровье"
+
+                    note_words = [w for w in clause.split() if not w.replace(".", "").isdigit() and w not in stopwords and w not in bank_words]
+                    note = " ".join(note_words).capitalize() if note_words else matched_cat
+                    return AIParsedResult(
+                        transactions=[],
+                        pending=PendingClarification(
+                            question=f"❓ Какая стоимость операции **«{note}»**?",
+                            suggested_options=[500.0, 1000.0, 1500.0, 2000.0, 2500.0, 3000.0],
+                            category_name=matched_cat,
+                            account_name=acc,
+                            note=note
+                        )
                     )
-                )
+                continue
 
             amount = float(amt_match.group(1))
+            to_acc = None
 
-            if amount <= 10.0 and matched_cat in ["Личное", "Здоровье", "Одежда"] and "рубл" not in clause:
-                return AIParsedResult(
-                    transactions=[],
-                    pending=PendingClarification(
-                        question=f"❓ Какая стоимость операции **«{note}»**? (Распознано: {amount:.0f} ₽)",
-                        suggested_options=suggested_amounts,
-                        category_name=matched_cat,
-                        account_name=matched_acc or (account_names[0] if account_names else None),
-                        note=note
+            if is_incoming:
+                tx_type = "income"
+                cat_name = "Переводы (получено)"
+                note = "Перевод от подруги" if "подруг" in clause else ("Перевод от друга" if "друг" in clause else "Входящий перевод")
+            elif is_savings:
+                tx_type = "transfer"
+                cat_name = "Накопления"
+                to_acc = next((a for a in account_names if "инвест" in a.lower() or "копилк" in a.lower() or "накоп" in a.lower()), None)
+                if not to_acc and len(account_names) > 1:
+                    to_acc = account_names[1]
+                note = "Накопления с покупки"
+            elif is_transfer:
+                tx_type = "transfer"
+                cat_name = "Переводы"
+                to_acc = next((a for a in account_names if a != acc), None)
+                note = "Перевод между счетами"
+            elif is_income:
+                tx_type = "income"
+                cat_name = "Зарплата"
+                note = "Доход"
+            else:
+                tx_type = "expense"
+                cat_name = "Покупки"
+                suggested_amounts = [500.0, 1000.0, 1500.0, 2000.0, 2500.0, 3000.0]
+
+                if any(w in clause for w in ["теремок", "кофе", "обед", "ужин", "бургер", "кафе", "ресторан", "самокат", "вкусвилл", "еда", "шоколадниц", "додо", "макдоналдс", "ростикс", "кфс", "kfc", "dream kids", "окей", "о'кей", "пятерочк", "перекресток", "магнит", "лента", "ашан", "дикси", "спар", "spar", "супермаркет", "продукты", "наланч", "на ланч"]):
+                    cat_name = "Еда"
+                    suggested_amounts = [250.0, 350.0, 500.0, 800.0, 1200.0]
+                elif any(w in clause for w in ["маникюр", "педикюр", "брови", "волосы", "стрижка", "косметика", "спорт", "фитнес", "зал", "тренировк", "ногти", "ресниц", "внешний вид", "уход", "привычки", "вейп"]):
+                    cat_name = "Личное"
+                    suggested_amounts = [1500.0, 2000.0, 2100.0, 2500.0, 3000.0]
+                elif any(w in clause for w in ["такси", "яндекс go", "uber", "каршеринг", "делимобиль", "ситидрайв", "метро", "автобус", "троллейбус", "трамвай", "подорожник", "поезд"]):
+                    cat_name = "Транспорт"
+                    suggested_amounts = [300.0, 500.0, 750.0, 1000.0, 1500.0]
+                elif any(w in clause for w in ["бензин", "лукойл", "газпром", "роснефть", "азс", "заправка", "татнефть", "то авто", "парковка"]):
+                    cat_name = "Машина"
+                    suggested_amounts = [1000.0, 2000.0, 2500.0, 3000.0]
+                elif any(w in clause for w in ["аптека", "врач", "лекарств", "витамин", "клиника", "психолог", "терапевт", "стоматолог", "зуб", "анализ"]):
+                    cat_name = "Здоровье"
+                    suggested_amounts = [1000.0, 2000.0, 3000.0, 5000.0, 10000.0]
+                elif any(w in clause for w in ["кино", "игры", "вечеринк", "концерт", "театр"]):
+                    cat_name = "Развлечения"
+                    suggested_amounts = [500.0, 1000.0, 1500.0, 2000.0]
+                elif any(w in clause for w in ["подписк", "яндекс плюс", "netflix", "spotify"]):
+                    cat_name = "Подписки"
+                    suggested_amounts = [299.0, 499.0, 799.0]
+                elif any(w in clause for w in ["корм для кота", "кот", "кота", "коту", "зоомагазин"]):
+                    cat_name = "Кот"
+                    suggested_amounts = [500.0, 1000.0, 1500.0]
+                elif any(w in clause for w in ["аренда", "жкх", "ремонт", "квартира", "интернет"]):
+                    cat_name = "Жилье"
+
+                note_words = [w for w in clause.split() if not w.replace(".", "").isdigit() and w not in stopwords and w not in bank_words]
+                note = " ".join(note_words).capitalize() if note_words else cat_name
+
+                if amount <= 10.0 and cat_name in ["Личное", "Здоровье", "Одежда"] and "рубл" not in clause and len(raw_clauses) == 1:
+                    return AIParsedResult(
+                        transactions=[],
+                        pending=PendingClarification(
+                            question=f"❓ Какая стоимость операции **«{note}»**? (Распознано: {amount:.0f} ₽)",
+                            suggested_options=suggested_amounts,
+                            category_name=cat_name,
+                            account_name=acc,
+                            note=note
+                        )
                     )
-                )
 
             results.append(
                 AIParsedTransaction(
                     amount=amount,
-                    type="income" if is_income else "expense",
-                    category_name=matched_cat,
-                    account_name=matched_acc or (account_names[0] if account_names else None),
+                    type=tx_type,
+                    category_name=cat_name,
+                    account_name=acc,
+                    to_account_name=to_acc,
                     note=note
                 )
             )

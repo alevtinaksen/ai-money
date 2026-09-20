@@ -256,6 +256,7 @@ async def process_and_save_transactions(user_id: int, text: str, bot: Bot, chat_
             return
 
         # 3. Save each transaction and send confirmation card
+        saved_records = []
         for tx_data in parsed.transactions:
             target_acc = None
             # Match account by parsed account_name
@@ -282,7 +283,7 @@ async def process_and_save_transactions(user_id: int, text: str, bot: Bot, chat_
             # For transfers, default to 'Переводы' category
             if tx_data.type == "transfer":
                 for k, c in cat_dict.items():
-                    if "перевод" in k:
+                    if "перевод" in k or (tx_data.category_name and tx_data.category_name.lower() in k):
                         target_cat = c
                         break
 
@@ -315,8 +316,12 @@ async def process_and_save_transactions(user_id: int, text: str, bot: Bot, chat_
             )
 
             saved_tx = await FinanceService.create_transaction(db, user_id, create_payload)
-            sync_hash = await update_user_mini_app_sync(bot, chat_id, user_id, db)
+            saved_records.append((saved_tx, target_acc, target_cat, target_to_acc, tx_data))
 
+        sync_hash = await update_user_mini_app_sync(bot, chat_id, user_id, db)
+
+        if len(saved_records) == 1:
+            saved_tx, target_acc, target_cat, target_to_acc, tx_data = saved_records[0]
             type_symbol = "💸 Расход" if tx_data.type == "expense" else ("💰 Доход" if tx_data.type == "income" else "🔄 Перевод")
             acc_icon = target_acc.icon if target_acc else "💳"
             category_line = format_category_display(target_cat.name if target_cat else None, target_cat.icon if target_cat else None, tx_data.note)
@@ -345,6 +350,39 @@ async def process_and_save_transactions(user_id: int, text: str, bot: Bot, chat_
                 chat_id=chat_id,
                 text=msg_text,
                 reply_markup=get_transaction_inline_kb(saved_tx.id, sync_hash),
+                parse_mode="Markdown"
+            )
+        else:
+            items_text = []
+            num_icons = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
+            total_amount = sum(r[4].amount for r in saved_records)
+
+            for idx, (saved_tx, target_acc, target_cat, target_to_acc, tx_data) in enumerate(saved_records):
+                num_ico = num_icons[idx] if idx < len(num_icons) else f"{idx+1}."
+                cat_line = format_category_display(target_cat.name if target_cat else None, target_cat.icon if target_cat else None, tx_data.note)
+                acc_name = target_acc.name if target_acc else 'Основной'
+                acc_ico = target_acc.icon if target_acc else '💳'
+                
+                if tx_data.type == "transfer":
+                    to_name = target_to_acc.name if target_to_acc else 'Копилка'
+                    line = f"{num_ico} **{tx_data.note or 'Перевод'}:** {tx_data.amount:,.2f} ₽\n    └ 🔄 Перевод ({acc_name} ➔ {to_name})"
+                elif tx_data.type == "income":
+                    line = f"{num_ico} **{tx_data.note or 'Доход'}:** +{tx_data.amount:,.2f} ₽\n    └ {cat_line} ({acc_name})"
+                else:
+                    line = f"{num_ico} **{tx_data.note or 'Расход'}:** {tx_data.amount:,.2f} ₽\n    └ {cat_line} ({acc_ico} {acc_name})"
+                items_text.append(line)
+
+            msg_text = (
+                f"✅ **Записано {len(saved_records)} операций:**\n\n"
+                + "\n\n".join(items_text)
+                + f"\n\n💵 **Итого сумма:** {total_amount:,.2f} ₽"
+            )
+
+            last_saved_id = saved_records[-1][0].id
+            await bot.send_message(
+                chat_id=chat_id,
+                text=msg_text,
+                reply_markup=get_transaction_inline_kb(last_saved_id, sync_hash),
                 parse_mode="Markdown"
             )
 
