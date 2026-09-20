@@ -86,58 +86,83 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     });
   }, [summary.recent_transactions, selectedDate]);
 
-  // Group transactions for the recent section: strictly the last 2 active days
+  // Group transactions for the recent section: strictly output two days (Сегодня и Вчера)
   const recentTwoDaysGroups = React.useMemo(() => {
-    if (monthTransactions.length === 0) return [];
-
-    const dateMap: Map<string, { label: string; transactions: Transaction[] }> = new Map();
     const now = new Date();
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
 
     const getDayKey = (d: Date) =>
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-    for (const tx of monthTransactions) {
+    const todayKey = getDayKey(now);
+    const yesterdayKey = getDayKey(yesterday);
+
+    const formatLabel = (d: Date, prefix: string) => {
+      const dm = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '');
+      return `${prefix}, ${dm}`;
+    };
+
+    const todayTxs: Transaction[] = [];
+    const yesterdayTxs: Transaction[] = [];
+    const olderDaysMap = new Map<string, { label: string; transactions: Transaction[] }>();
+
+    for (const tx of summary.recent_transactions) {
       if (!tx.created_at) continue;
       const d = new Date(tx.created_at);
       if (isNaN(d.getTime())) continue;
 
       const key = getDayKey(d);
-      if (!dateMap.has(key)) {
-        const isToday =
-          d.getDate() === now.getDate() &&
-          d.getMonth() === now.getMonth() &&
-          d.getFullYear() === now.getFullYear();
-
-        const yesterday = new Date(now);
-        yesterday.setDate(now.getDate() - 1);
-        const isYesterday =
-          d.getDate() === yesterday.getDate() &&
-          d.getMonth() === yesterday.getMonth() &&
-          d.getFullYear() === yesterday.getFullYear();
-
-        const formattedDayMonth = d
-          .toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
-          .replace('.', '');
-
-        let label = formattedDayMonth;
-        if (isToday) {
-          label = `Сегодня, ${formattedDayMonth}`;
-        } else if (isYesterday) {
-          label = `Вчера, ${formattedDayMonth}`;
+      if (key === todayKey) {
+        todayTxs.push(tx);
+      } else if (key === yesterdayKey) {
+        yesterdayTxs.push(tx);
+      } else {
+        if (!olderDaysMap.has(key)) {
+          const formatted = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '');
+          olderDaysMap.set(key, { label: formatted, transactions: [] });
         }
-
-        dateMap.set(key, { label, transactions: [] });
+        olderDaysMap.get(key)!.transactions.push(tx);
       }
-      dateMap.get(key)!.transactions.push(tx);
     }
 
-    // Sort keys descending (most recent days first)
-    const sortedKeys = Array.from(dateMap.keys()).sort((a, b) => b.localeCompare(a));
-    // Take only the 2 most recent days!
-    const top2Keys = sortedKeys.slice(0, 2);
+    const groups: {
+      key: string;
+      label: string;
+      isToday?: boolean;
+      transactions: Transaction[];
+      emptyMessage?: string;
+    }[] = [
+      {
+        key: 'today',
+        label: formatLabel(now, 'Сегодня'),
+        isToday: true,
+        transactions: todayTxs,
+        emptyMessage: 'Нет операций за сегодня',
+      },
+      {
+        key: 'yesterday',
+        label: formatLabel(yesterday, 'Вчера'),
+        transactions: yesterdayTxs,
+        emptyMessage: 'Нет операций за вчера',
+      },
+    ];
 
-    return top2Keys.map((k) => dateMap.get(k)!);
-  }, [monthTransactions]);
+    // If both today and yesterday are empty, also append latest active day so screen is not empty
+    if (todayTxs.length === 0 && yesterdayTxs.length === 0 && olderDaysMap.size > 0) {
+      const sortedOlderKeys = Array.from(olderDaysMap.keys()).sort((a, b) => b.localeCompare(a));
+      const latestOlder = olderDaysMap.get(sortedOlderKeys[0]);
+      if (latestOlder && latestOlder.transactions.length > 0) {
+        groups.push({
+          key: sortedOlderKeys[0],
+          label: latestOlder.label,
+          transactions: latestOlder.transactions,
+        });
+      }
+    }
+
+    return groups;
+  }, [summary.recent_transactions]);
 
   const periodExpense = React.useMemo(() => {
     return monthTransactions
@@ -520,12 +545,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
           {/* Transactions List */}
           <div className="space-y-4">
-            {recentTwoDaysGroups.length > 0 ? (
-              recentTwoDaysGroups.map((group) => (
-                <div key={group.label} className="space-y-2">
-                  <div className="text-[13px] font-semibold text-[#6B7280] dark:text-gray-300 pl-1">
-                    {group.label}
-                  </div>
+            {recentTwoDaysGroups.map((group) => (
+              <div key={group.key} className="space-y-2">
+                <div className="text-[13px] font-semibold text-[#6B7280] dark:text-gray-300 pl-1">
+                  {group.label}
+                </div>
+                {group.transactions.length > 0 ? (
                   <div className="flex items-center space-x-3 overflow-x-auto no-scrollbar pb-1">
                     {group.transactions.map((tx) => {
                       const resolved = resolveCategoryAndSubcategory(tx);
@@ -561,11 +586,24 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       );
                     })}
                   </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-sm text-gray-400 py-4 text-center w-full">Нет операций за этот месяц</div>
-            )}
+                ) : group.isToday ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onHaptic?.('light');
+                      onOpenAddTransaction();
+                    }}
+                    className="w-full bg-white/60 dark:bg-[#1E1F26]/60 hover:bg-white dark:hover:bg-[#1E1F26] rounded-[20px] py-2.5 px-4 border border-dashed border-gray-200 dark:border-gray-800 text-[13px] font-medium text-gray-400 dark:text-gray-500 flex items-center justify-center space-x-1.5 active:scale-[0.99] transition-all"
+                  >
+                    <span>+ Добавить первую операцию за сегодня</span>
+                  </button>
+                ) : (
+                  <div className="bg-white/40 dark:bg-[#1E1F26]/40 rounded-[20px] py-2.5 px-4 border border-dashed border-gray-100 dark:border-gray-800/80 text-[13px] text-gray-400 dark:text-gray-500 text-center">
+                    {group.emptyMessage}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       </div>

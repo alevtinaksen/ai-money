@@ -162,6 +162,8 @@ class FinanceService:
 
         for key, val in data.items():
             if val is not None and hasattr(acc, key):
+                if key == "balance":
+                    val = to_dec(val)
                 setattr(acc, key, val)
 
         await db.commit()
