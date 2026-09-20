@@ -238,7 +238,11 @@ export const SUBCATEGORY_KEYWORDS_MAP: Record<string, { main: string; sub: strin
   "супермаркет": { main: 'Еда', sub: 'Супермаркет' },
   "супермаркеты": { main: 'Еда', sub: 'Супермаркет' },
   "пятерочк": { main: 'Еда', sub: 'Супермаркет' },
+  "пятерочка": { main: 'Еда', sub: 'Супермаркет' },
+  "пятёрочк": { main: 'Еда', sub: 'Супермаркет' },
+  "пятёрочка": { main: 'Еда', sub: 'Супермаркет' },
   "перекресток": { main: 'Еда', sub: 'Супермаркет' },
+  "перекрёсток": { main: 'Еда', sub: 'Супермаркет' },
   "магнит": { main: 'Еда', sub: 'Супермаркет' },
   "вкусвилл": { main: 'Еда', sub: 'Супермаркет' },
   "лента": { main: 'Еда', sub: 'Супермаркет' },
@@ -246,6 +250,13 @@ export const SUBCATEGORY_KEYWORDS_MAP: Record<string, { main: string; sub: strin
   "дикси": { main: 'Еда', sub: 'Супермаркет' },
   "spar": { main: 'Еда', sub: 'Супермаркет' },
   "спар": { main: 'Еда', sub: 'Супермаркет' },
+  "чижик": { main: 'Еда', sub: 'Супермаркет' },
+  "верный": { main: 'Еда', sub: 'Супермаркет' },
+  "ярче": { main: 'Еда', sub: 'Супермаркет' },
+  "магнолия": { main: 'Еда', sub: 'Супермаркет' },
+  "азбука вкуса": { main: 'Еда', sub: 'Супермаркет' },
+  "глобус": { main: 'Еда', sub: 'Супермаркет' },
+  "метро": { main: 'Еда', sub: 'Супермаркет' },
   "продукты": { main: 'Еда', sub: 'Супермаркет' },
   "магазин продуктов": { main: 'Еда', sub: 'Супермаркет' },
 
@@ -264,6 +275,11 @@ export const SUBCATEGORY_KEYWORDS_MAP: Record<string, { main: string; sub: strin
   "булочн": { main: 'Еда', sub: 'Кафе' },
   "кафе": { main: 'Еда', sub: 'Кафе' },
   "ресторан": { main: 'Еда', sub: 'Кафе' },
+  "шаверм": { main: 'Еда', sub: 'Кафе' },
+  "шаурм": { main: 'Еда', sub: 'Кафе' },
+  "хинкал": { main: 'Еда', sub: 'Кафе' },
+  "пицц": { main: 'Еда', sub: 'Кафе' },
+  "суши": { main: 'Еда', sub: 'Кафе' },
 
   // Еда -> Кофе
   "кофе": { main: 'Еда', sub: 'Кофе' },
@@ -272,9 +288,11 @@ export const SUBCATEGORY_KEYWORDS_MAP: Record<string, { main: string; sub: strin
   "surf": { main: 'Еда', sub: 'Кофе' },
   "капучино": { main: 'Еда', sub: 'Кофе' },
   "латте": { main: 'Еда', sub: 'Кофе' },
+  "дринкит": { main: 'Еда', sub: 'Кофе' },
 
   // Еда -> Самокат
   "самокат": { main: 'Еда', sub: 'Самокат' },
+  "samokat": { main: 'Еда', sub: 'Самокат' },
 
   // Еда -> НаЛанч
   "наланч": { main: 'Еда', sub: 'НаЛанч' },
@@ -284,17 +302,79 @@ export const SUBCATEGORY_KEYWORDS_MAP: Record<string, { main: string; sub: strin
   "такси": { main: 'Транспорт', sub: 'Такси' },
   "яндекс go": { main: 'Транспорт', sub: 'Такси' },
   "яндекс такси": { main: 'Транспорт', sub: 'Такси' },
+  "яндекс.такси": { main: 'Транспорт', sub: 'Такси' },
   "uber": { main: 'Транспорт', sub: 'Такси' },
+  "убер": { main: 'Транспорт', sub: 'Такси' },
+  "ситимобил": { main: 'Транспорт', sub: 'Такси' },
 
   // Транспорт -> Каршеринг
   "каршеринг": { main: 'Транспорт', sub: 'Каршеринг' },
   "делимобиль": { main: 'Транспорт', sub: 'Каршеринг' },
   "ситидрайв": { main: 'Транспорт', sub: 'Каршеринг' },
+  "яндекс драйв": { main: 'Транспорт', sub: 'Каршеринг' },
+
+  // Машина -> ТО авто
+  "видеорегистратор": { main: 'Машина', sub: 'ТО авто' },
+  "тск сигнал": { main: 'Машина', sub: 'ТО авто' },
+  "тск": { main: 'Машина', sub: 'ТО авто' },
+  "сигнал": { main: 'Машина', sub: 'ТО авто' },
+  "автотовары": { main: 'Машина', sub: 'ТО авто' },
+  "автозапчасти": { main: 'Машина', sub: 'ТО авто' },
+  "запчасти": { main: 'Машина', sub: 'ТО авто' },
+  "детали": { main: 'Машина', sub: 'ТО авто' },
+  "автосервис": { main: 'Машина', sub: 'ТО авто' },
+  "сервис авто": { main: 'Машина', sub: 'ТО авто' },
+  "ремонт авто": { main: 'Машина', sub: 'ТО авто' },
+  "техосмотр": { main: 'Машина', sub: 'ТО авто' },
+  "то авто": { main: 'Машина', sub: 'ТО авто' },
+  "шиномонтаж": { main: 'Машина', sub: 'ТО авто' },
+  "колеса": { main: 'Машина', sub: 'ТО авто' },
+  "шины": { main: 'Машина', sub: 'ТО авто' },
+  "резина": { main: 'Машина', sub: 'ТО авто' },
+  "мойка": { main: 'Машина', sub: 'ТО авто' },
+  "автомойка": { main: 'Машина', sub: 'ТО авто' },
+  "мойка авто": { main: 'Машина', sub: 'ТО авто' },
+  "автомасло": { main: 'Машина', sub: 'ТО авто' },
+  "масло": { main: 'Машина', sub: 'ТО авто' },
+  "омывайк": { main: 'Машина', sub: 'ТО авто' },
+  "незамерзайк": { main: 'Машина', sub: 'ТО авто' },
+  "аккумулятор": { main: 'Машина', sub: 'ТО авто' },
+  "аксессуары для авто": { main: 'Машина', sub: 'ТО авто' },
+
+  // Машина -> Бензин
+  "бензин": { main: 'Машина', sub: 'Бензин' },
+  "азс": { main: 'Машина', sub: 'Бензин' },
+  "заправка": { main: 'Машина', sub: 'Бензин' },
+  "заправк": { main: 'Машина', sub: 'Бензин' },
+  "топливо": { main: 'Машина', sub: 'Бензин' },
+  "дизель": { main: 'Машина', sub: 'Бензин' },
+  "лукойл": { main: 'Машина', sub: 'Бензин' },
+  "lukoil": { main: 'Машина', sub: 'Бензин' },
+  "газпромнефть": { main: 'Машина', sub: 'Бензин' },
+  "газпром": { main: 'Машина', sub: 'Бензин' },
+  "роснефть": { main: 'Машина', sub: 'Бензин' },
+  "татнефть": { main: 'Машина', sub: 'Бензин' },
+  "тебойл": { main: 'Машина', sub: 'Бензин' },
+  "teboil": { main: 'Машина', sub: 'Бензин' },
+  "нефтьмагистраль": { main: 'Машина', sub: 'Бензин' },
+  "shell": { main: 'Машина', sub: 'Бензин' },
+
+  // Машина -> Парковка
+  "парковка": { main: 'Машина', sub: 'Парковка' },
+  "паркинг": { main: 'Машина', sub: 'Парковка' },
+  "парковк": { main: 'Машина', sub: 'Парковка' },
+  "стоянка": { main: 'Машина', sub: 'Парковка' },
+  "московский паркинг": { main: 'Машина', sub: 'Парковка' },
+
+  // Машина -> Кредит за авто
+  "автокредит": { main: 'Машина', sub: 'Кредит за авто' },
+  "кредит за авто": { main: 'Машина', sub: 'Кредит за авто' },
 
   // Покупки -> Дом
   "дом": { main: 'Покупки', sub: 'Дом' },
   "для дома": { main: 'Покупки', sub: 'Дом' },
   "товары для дома": { main: 'Покупки', sub: 'Дом' },
+  "мелкая покупка": { main: 'Покупки', sub: 'Дом' },
   "посуда": { main: 'Покупки', sub: 'Дом' },
   "текстиль": { main: 'Покупки', sub: 'Дом' },
   "постельн": { main: 'Покупки', sub: 'Дом' },
@@ -306,11 +386,16 @@ export const SUBCATEGORY_KEYWORDS_MAP: Record<string, { main: string; sub: strin
   "leroy": { main: 'Покупки', sub: 'Дом' },
   "уют": { main: 'Покупки', sub: 'Дом' },
   "мебель": { main: 'Покупки', sub: 'Дом' },
+  "быт": { main: 'Покупки', sub: 'Дом' },
+  "для кухни": { main: 'Покупки', sub: 'Дом' },
+  "кухня": { main: 'Покупки', sub: 'Дом' },
 
   // Покупки -> Бытовая химия
   "бытовая химия": { main: 'Покупки', sub: 'Бытовая химия' },
   "улыбка радуги": { main: 'Покупки', sub: 'Бытовая химия' },
   "магнит косметик": { main: 'Покупки', sub: 'Бытовая химия' },
+  "порошок": { main: 'Покупки', sub: 'Бытовая химия' },
+  "бытовая": { main: 'Покупки', sub: 'Бытовая химия' },
 
   // Покупки -> Одежда
   "одежда": { main: 'Покупки', sub: 'Одежда' },
@@ -320,6 +405,29 @@ export const SUBCATEGORY_KEYWORDS_MAP: Record<string, { main: string; sub: strin
   "wb": { main: 'Покупки', sub: 'Одежда' },
   "lamoda": { main: 'Покупки', sub: 'Одежда' },
   "ламода": { main: 'Покупки', sub: 'Одежда' },
+  "zara": { main: 'Покупки', sub: 'Одежда' },
+  "зара": { main: 'Покупки', sub: 'Одежда' },
+  "спортмастер": { main: 'Покупки', sub: 'Одежда' },
+  "кроссовки": { main: 'Покупки', sub: 'Одежда' },
+
+  // Покупки -> Электроника
+  "электроника": { main: 'Покупки', sub: 'Электроника' },
+  "техника": { main: 'Покупки', sub: 'Электроника' },
+  "мвидео": { main: 'Покупки', sub: 'Электроника' },
+  "м.видео": { main: 'Покупки', sub: 'Электроника' },
+  "эльдорадо": { main: 'Покупки', sub: 'Электроника' },
+  "dns": { main: 'Покупки', sub: 'Электроника' },
+  "днс": { main: 'Покупки', sub: 'Электроника' },
+  "ноутбук": { main: 'Покупки', sub: 'Электроника' },
+  "смартфон": { main: 'Покупки', sub: 'Электроника' },
+  "наушники": { main: 'Покупки', sub: 'Электроника' },
+
+  // Покупки -> Товары для хобби
+  "хобби": { main: 'Покупки', sub: 'Товары для хобби' },
+  "леонардо": { main: 'Покупки', sub: 'Товары для хобби' },
+  "книги": { main: 'Покупки', sub: 'Товары для хобби' },
+  "читай-город": { main: 'Покупки', sub: 'Товары для хобби' },
+  "канцтовары": { main: 'Покупки', sub: 'Товары для хобби' },
 
   // Личное -> Внешний вид
   "маникюр": { main: 'Личное', sub: 'Внешний вид' },
@@ -334,6 +442,7 @@ export const SUBCATEGORY_KEYWORDS_MAP: Record<string, { main: string; sub: strin
   "массаж": { main: 'Личное', sub: 'Внешний вид' },
   "внешний вид": { main: 'Личное', sub: 'Внешний вид' },
   "барбер": { main: 'Личное', sub: 'Внешний вид' },
+  "золотое яблоко": { main: 'Личное', sub: 'Внешний вид' },
 
   // Личное -> Спорт
   "спорт": { main: 'Личное', sub: 'Спорт' },
@@ -348,9 +457,11 @@ export const SUBCATEGORY_KEYWORDS_MAP: Record<string, { main: string; sub: strin
 
   // Здоровье -> Лекарства
   "аптек": { main: 'Здоровье', sub: 'Лекарства' },
+  "аптека": { main: 'Здоровье', sub: 'Лекарства' },
   "лекарств": { main: 'Здоровье', sub: 'Лекарства' },
   "ригла": { main: 'Здоровье', sub: 'Лекарства' },
   "горздрав": { main: 'Здоровье', sub: 'Лекарства' },
+  "еаптека": { main: 'Здоровье', sub: 'Лекарства' },
 
   // Здоровье -> Врачи
   "врач": { main: 'Здоровье', sub: 'Врачи' },
@@ -359,6 +470,8 @@ export const SUBCATEGORY_KEYWORDS_MAP: Record<string, { main: string; sub: strin
   "зуб": { main: 'Здоровье', sub: 'Врачи' },
   "доктор": { main: 'Здоровье', sub: 'Врачи' },
   "анализ": { main: 'Здоровье', sub: 'Врачи' },
+  "инвитро": { main: 'Здоровье', sub: 'Врачи' },
+  "гемотест": { main: 'Здоровье', sub: 'Врачи' },
 
   // Кот -> Корм для кота
   "корм": { main: 'Кот', sub: 'Корм для кота' },
@@ -379,28 +492,37 @@ export function resolveCategoryAndSubcategory(tx: {
 }): ResolvedCategoryInfo {
   const rawCat = (tx.category_name || '').trim();
   const rawNote = (tx.note || '').trim();
-  const rawNoteLow = rawNote.toLowerCase();
+  const normalizeRu = (s: string) => s.toLowerCase().replace(/ё/g, 'е').trim();
+  const normCat = normalizeRu(rawCat);
+  const normNote = normalizeRu(rawNote);
 
-  // 1. Check if rawNote matches semantic keyword dictionary
-  for (const [kw, match] of Object.entries(SUBCATEGORY_KEYWORDS_MAP)) {
-    if (rawNoteLow.includes(kw)) {
-      const icon =
-        SUBCATEGORY_ICONS[match.sub] ||
-        (tx.category_icon && tx.category_icon !== '📦' ? tx.category_icon : '🍔');
-      return {
-        mainCategory: match.main,
-        subcategory: match.sub,
-        displayTitle: `${match.main} · ${match.sub}`,
-        icon,
-      };
+  // 1. Check if rawNote begins with an official subcategory: e.g. "Дом • мелкая покупка", "ТО авто: Масло"
+  if (rawNote) {
+    const prefixMatch = rawNote.match(/^([^•·:\-]+?)\s*[•·:\-]\s*(.+)$/);
+    if (prefixMatch) {
+      const candidateNorm = normalizeRu(prefixMatch[1]);
+      for (const cat of CATEGORIES_CATALOG) {
+        const sub = cat.subcategories.find((s) => normalizeRu(s) === candidateNorm);
+        if (sub) {
+          const icon =
+            SUBCATEGORY_ICONS[sub] ||
+            (tx.category_icon && tx.category_icon !== '📦' ? tx.category_icon : cat.icon);
+          return {
+            mainCategory: cat.name,
+            subcategory: sub,
+            displayTitle: `${cat.name} · ${sub}`,
+            icon,
+          };
+        }
+      }
     }
   }
 
   // 2. Check if rawCat is an official subcategory in any catalog group
-  // (e.g. rawCat === "Самокат" -> parent is "Еда", subcategory is "Самокат")
+  // (e.g. rawCat === "ТО авто" -> parent is "Машина", subcategory is "ТО авто")
   for (const cat of CATEGORIES_CATALOG) {
     const matchingSub = cat.subcategories.find(
-      (sc) => sc.toLowerCase() === rawCat.toLowerCase()
+      (sc) => normalizeRu(sc) === normCat
     );
     if (matchingSub) {
       const icon =
@@ -415,16 +537,33 @@ export function resolveCategoryAndSubcategory(tx: {
     }
   }
 
-  // 3. Check if rawCat is an official main category in catalog
+  // 3. Check if rawNote matches semantic keyword dictionary (with Russian 'ё'/'е' normalization)
+  if (normNote) {
+    for (const [kw, match] of Object.entries(SUBCATEGORY_KEYWORDS_MAP)) {
+      if (normNote.includes(normalizeRu(kw))) {
+        const icon =
+          SUBCATEGORY_ICONS[match.sub] ||
+          (tx.category_icon && tx.category_icon !== '📦' ? tx.category_icon : '🛍️');
+        return {
+          mainCategory: match.main,
+          subcategory: match.sub,
+          displayTitle: `${match.main} · ${match.sub}`,
+          icon,
+        };
+      }
+    }
+  }
+
+  // 4. Check if rawCat matches an official main category in catalog
   const catalogItem = CATEGORIES_CATALOG.find(
-    (c) => c.name.toLowerCase() === rawCat.toLowerCase()
+    (c) => normalizeRu(c.name) === normCat
   );
 
   if (catalogItem) {
-    // Check if rawNote matches an official subcategory of THIS category
-    if (rawNote) {
+    if (normNote) {
+      // 4a. Exact subcategory of this category
       const exactSub = catalogItem.subcategories.find(
-        (sc) => sc.toLowerCase() === rawNote.toLowerCase()
+        (sc) => normalizeRu(sc) === normNote
       );
       if (exactSub) {
         const icon =
@@ -438,9 +577,9 @@ export function resolveCategoryAndSubcategory(tx: {
         };
       }
 
-      // Check if rawNote contains a subcategory name (e.g. "в самокате" -> "Самокат")
+      // 4b. Partial subcategory: e.g. "в самокате" -> "Самокат", "для дома" -> "Дом"
       const partialSub = catalogItem.subcategories.find((sc) =>
-        rawNote.toLowerCase().includes(sc.toLowerCase())
+        normNote.includes(normalizeRu(sc))
       );
       if (partialSub) {
         const icon =
@@ -453,9 +592,30 @@ export function resolveCategoryAndSubcategory(tx: {
           icon,
         };
       }
+
+      // 4c. Category-specific smart heuristics for common notes
+      if (catalogItem.name === 'Машина') {
+        if (normNote.includes('магазин') || normNote.includes('покупк') || normNote.includes('сигнал') || normNote.includes('детал') || normNote.includes('видео')) {
+          return {
+            mainCategory: 'Машина',
+            subcategory: 'ТО авто',
+            displayTitle: 'Машина · ТО авто',
+            icon: SUBCATEGORY_ICONS['ТО авто'] || '🔧',
+          };
+        }
+      } else if (catalogItem.name === 'Покупки') {
+        if (normNote.includes('мелк') || normNote.includes('быт')) {
+          return {
+            mainCategory: 'Покупки',
+            subcategory: 'Дом',
+            displayTitle: 'Покупки · Дом',
+            icon: SUBCATEGORY_ICONS['Дом'] || '🏡',
+          };
+        }
+      }
     }
 
-    // No official subcategory match! Do NOT append arbitrary comment.
+    // No official subcategory match!
     return {
       mainCategory: catalogItem.name,
       subcategory: null,
@@ -464,13 +624,13 @@ export function resolveCategoryAndSubcategory(tx: {
     };
   }
 
-  // 4. If rawCat wasn't matched, check if rawNote matches any subcategory in catalog
-  if (rawNote) {
+  // 5. If rawCat wasn't matched, check if rawNote matches any subcategory in catalog
+  if (normNote) {
     for (const cat of CATEGORIES_CATALOG) {
       const matched = cat.subcategories.find(
         (sc) =>
-          sc.toLowerCase() === rawNote.toLowerCase() ||
-          rawNote.toLowerCase().includes(sc.toLowerCase())
+          normalizeRu(sc) === normNote ||
+          normNote.includes(normalizeRu(sc))
       );
       if (matched) {
         const icon =
@@ -486,7 +646,7 @@ export function resolveCategoryAndSubcategory(tx: {
     }
   }
 
-  // 5. Transfers
+  // 6. Transfers
   if (tx.type === 'transfer') {
     return {
       mainCategory: 'Переводы',
@@ -496,7 +656,7 @@ export function resolveCategoryAndSubcategory(tx: {
     };
   }
 
-  // 6. Fallback: return rawCat or generic label, without arbitrary comment
+  // 7. Fallback: return rawCat or generic label, without arbitrary comment
   const fallbackName = rawCat || (tx.type === 'income' ? 'Доход' : 'Расход');
   return {
     mainCategory: fallbackName,
@@ -504,6 +664,31 @@ export function resolveCategoryAndSubcategory(tx: {
     displayTitle: fallbackName,
     icon: tx.category_icon || (tx.type === 'income' ? '💰' : '📦'),
   };
+}
+
+export function formatTransactionSubtitleNote(
+  note?: string | null,
+  resolved?: ResolvedCategoryInfo
+): string {
+  if (!note) return '';
+  let clean = note.trim();
+  if (!clean) return '';
+
+  if (resolved?.subcategory) {
+    const subLow = resolved.subcategory.toLowerCase();
+    const cleanLow = clean.toLowerCase();
+    if (cleanLow === subLow) {
+      return '';
+    }
+    const prefixRegex = new RegExp(`^${resolved.subcategory}\\s*[•·:\\-]\\s*`, 'i');
+    clean = clean.replace(prefixRegex, '').trim();
+  }
+
+  if (resolved?.mainCategory && clean.toLowerCase() === resolved.mainCategory.toLowerCase()) {
+    return '';
+  }
+
+  return clean;
 }
 
 interface EditTransactionContentProps {
@@ -612,6 +797,7 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
     return '';
   };
 
+  const initialResolved = resolveCategoryAndSubcategory(transaction);
   const [type, setType] = useState<'expense' | 'income' | 'transfer'>(
     transaction.type || 'expense'
   );
@@ -620,7 +806,9 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
   const [toAccountId, setToAccountId] = useState<string | null>(transaction.to_account_id || null);
   const [accPickerTarget, setAccPickerTarget] = useState<'from' | 'to'>('from');
   const [categoryId, setCategoryId] = useState<string | undefined>(resolveInitialCat());
-  const [note, setNote] = useState<string>(transaction.note || '');
+  const [note, setNote] = useState<string>(() =>
+    formatTransactionSubtitleNote(transaction.note, initialResolved)
+  );
   const [selectedSubcat, setSelectedSubcat] = useState<string>(resolveInitialSubcat());
   const [selectedDate, setSelectedDate] = useState<Date>(() =>
     transaction.created_at ? new Date(transaction.created_at) : new Date()
@@ -642,12 +830,15 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
     const initialAccId = resolveInitialAcc();
     const initialCatId = resolveInitialCat();
     const initialSub = resolveInitialSubcat();
+    const res = resolveCategoryAndSubcategory(transaction);
+    const cleanNote = formatTransactionSubtitleNote(transaction.note, res);
+
     setType(transaction.type || 'expense');
     setAmountStr(transaction.amount.toString());
     setAccountId(initialAccId);
     setToAccountId(transaction.to_account_id || null);
     setCategoryId(initialCatId);
-    setNote(transaction.note || '');
+    setNote(cleanNote);
     setSelectedSubcat(initialSub);
     setSelectedDate(transaction.created_at ? new Date(transaction.created_at) : new Date());
 
@@ -726,7 +917,24 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
     onHaptic?.('heavy');
     const evaluated = evaluateMathSum(amountStr);
     const parsedAmount = evaluated > 0 ? evaluated : (parseFloat(amountStr) || transaction.amount);
-    const finalNote = note.trim() || selectedSubcat || undefined;
+    
+    let finalNote = note.trim();
+    if (selectedSubcat) {
+      const cleanSub = selectedSubcat.trim();
+      if (finalNote) {
+        const prefixRegex = new RegExp(`^${cleanSub}\\s*[•·:\\-]\\s*`, 'i');
+        if (finalNote.toLowerCase() === cleanSub.toLowerCase()) {
+          finalNote = cleanSub;
+        } else if (!prefixRegex.test(finalNote)) {
+          finalNote = `${cleanSub} • ${finalNote}`;
+        }
+      } else {
+        finalNote = cleanSub;
+      }
+    } else if (!finalNote) {
+      finalNote = undefined as any;
+    }
+
     onSave({
       id: transaction.id,
       amount: parsedAmount,
@@ -734,7 +942,7 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
       to_account_id: type === 'transfer' ? (toAccountId || selectedToAcc?.id || undefined) : undefined,
       category_id: categoryId,
       type,
-      note: finalNote,
+      note: finalNote || undefined,
       created_at: selectedDate.toISOString(),
     });
   };

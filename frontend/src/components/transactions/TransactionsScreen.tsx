@@ -10,7 +10,7 @@ import {
   HolderOutlined,
 } from '@ant-design/icons';
 import { Transaction, Account, Category, TransactionType } from '../../types';
-import { resolveCategoryAndSubcategory } from '../modals/EditTransactionModal';
+import { resolveCategoryAndSubcategory, formatTransactionSubtitleNote } from '../modals/EditTransactionModal';
 
 interface TransactionsScreenProps {
   onBack: () => void;
@@ -70,8 +70,12 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
       // 1. Search filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
+        const resolved = resolveCategoryAndSubcategory(tx);
         const matchNote = tx.note?.toLowerCase().includes(q);
-        const matchCat = tx.category_name?.toLowerCase().includes(q);
+        const matchCat =
+          tx.category_name?.toLowerCase().includes(q) ||
+          resolved.displayTitle.toLowerCase().includes(q) ||
+          (resolved.subcategory && resolved.subcategory.toLowerCase().includes(q));
         const matchAcc = tx.account_name?.toLowerCase().includes(q);
         const matchAmt = tx.amount.toString().includes(q);
         if (!matchNote && !matchCat && !matchAcc && !matchAmt) return false;
@@ -84,9 +88,13 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
 
       // 3. Category filter
       if (selectedCategory !== 'all') {
+        const resolved = resolveCategoryAndSubcategory(tx);
+        const catTarget = selectedCategory.toLowerCase();
         if (
           tx.category_id !== selectedCategory &&
-          tx.category_name?.toLowerCase() !== selectedCategory.toLowerCase()
+          tx.category_name?.toLowerCase() !== catTarget &&
+          resolved.mainCategory.toLowerCase() !== catTarget &&
+          resolved.subcategory?.toLowerCase() !== catTarget
         ) {
           return false;
         }
@@ -574,6 +582,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
                     const isIncome = tx.type === 'income';
                     const isExpense = tx.type === 'expense';
                     const resolved = resolveCategoryAndSubcategory(tx);
+                    const displayNote = formatTransactionSubtitleNote(tx.note, resolved);
                     const isBeingDragged = draggingTxId === tx.id;
 
                     return (
@@ -632,11 +641,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
 
                                 <div className="flex items-center space-x-1.5 text-[12px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">
                                   <span className="truncate">
-                                    {tx.note &&
-                                    !resolved.subcategory &&
-                                    tx.note.toLowerCase() !== resolved.mainCategory.toLowerCase()
-                                      ? `${tx.note} • `
-                                      : ''}
+                                    {displayNote ? `${displayNote} • ` : ''}
                                     {tx.account_name || 'Карта Альфа'}
                                   </span>
                                 </div>
