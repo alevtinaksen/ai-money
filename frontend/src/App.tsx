@@ -239,8 +239,19 @@ export const App: React.FC = () => {
       };
     });
 
-    await createTransactionAPI(initData, data);
+    const serverTx = await createTransactionAPI(initData, data);
+    if (serverTx && serverTx.id && serverTx.id !== newTx.id) {
+      setSummary((prev) => {
+        const updated = prev.recent_transactions.map((t) =>
+          t.id === newTx.id ? { ...t, id: serverTx.id } : t
+        );
+        saveStoredSyncData({ recent_transactions: updated });
+        return { ...prev, recent_transactions: updated };
+      });
+      recordUserTxMod(serverTx.id, { ...newTx, id: serverTx.id }, 'created');
+    }
   };
+
 
 
   // Handle click on a transaction to view/edit (matching media_1789730678657.png)

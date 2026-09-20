@@ -706,12 +706,13 @@ export function mergeWithLocalMods(rawTransactions: any[]): any[] {
     resultMap.set(tx.id, tx);
   }
 
-  // 2. Preserve locally created transactions that aren't yet returned by the server
+  // 2. Preserve locally created or updated transactions that aren't yet in resultMap
   for (const [txId, mod] of Object.entries(mods)) {
-    if (mod.status === 'created' && mod.data && !resultMap.has(txId)) {
+    if (mod.status !== 'deleted' && mod.data && !resultMap.has(txId)) {
       resultMap.set(txId, mod.data);
     }
   }
+
 
   // 3. Sort by created_at descending
   return Array.from(resultMap.values()).sort((a, b) => {

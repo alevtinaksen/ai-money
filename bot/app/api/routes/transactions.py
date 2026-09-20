@@ -5,6 +5,9 @@ from app.api.deps import get_current_user_id
 from app.schemas.finance import TransactionCreate, TransactionUpdate, TransactionResponse
 from app.services.finance_svc import FinanceService
 
+import logging
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 @router.post("", response_model=TransactionResponse)
@@ -39,6 +42,10 @@ async def create_transaction(
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to create transaction: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {str(e)}")
+
 
 @router.put("/{transaction_id}", response_model=TransactionResponse)
 async def update_transaction(
