@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   ArrowLeftOutlined,
   PlusOutlined,
-  DownOutlined,
-  UpOutlined,
   SwapOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import { Account } from '../../types';
 import { resolveAccountBankAndName } from '../../utils/bankUtils';
@@ -15,6 +14,7 @@ interface AccountsScreenProps {
   onSelectAccount?: (acc: Account) => void;
   onOpenTransfer?: () => void;
   onAddNewAccount?: () => void;
+  onOpenSettings?: () => void;
   onHaptic?: (style?: 'light' | 'medium' | 'heavy') => void;
 }
 
@@ -24,197 +24,175 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   onSelectAccount,
   onOpenTransfer,
   onAddNewAccount,
-  onHaptic
+  onOpenSettings,
+  onHaptic,
 }) => {
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    'Личное': true,
-    'Общее (с Владом)': true,
-    'Кредиты': true,
-  });
-
-  const toggleGroup = (group: string) => {
-    onHaptic?.('light');
-    setOpenGroups((prev) => ({ ...prev, [group]: !prev[group] }));
-  };
-
   // Convert foreign currencies to rubles for total sums
-  const toRub = (a: Account) => (a.currency === 'USD' ? a.balance * 90 : a.currency === 'EUR' ? a.balance * 98 : a.balance);
+  const toRub = (a: Account) =>
+    a.currency === 'USD' ? a.balance * 90 : a.currency === 'EUR' ? a.balance * 98 : a.balance;
 
   const assetsBalance = accounts
     .filter((a) => a.group_name !== 'Кредиты')
     .reduce((acc, a) => acc + toRub(a), 0);
 
-  const creditBalance = accounts
-    .filter((a) => a.group_name === 'Кредиты')
-    .reduce((acc, a) => acc + a.balance, 0);
-
-  // Currency formatting helper
-  const formatAccountBalance = (val: number, currency: string = 'RUB') => {
-    const isWhole = Math.abs(val % 1) < 0.001;
-    const formatted = val.toLocaleString('ru-RU', {
-      minimumFractionDigits: isWhole ? 0 : 2,
-      maximumFractionDigits: 2,
-    });
-    const symbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '₽';
-    return `${formatted} ${symbol}`;
-  };
-
-  // Group accounts by group_name
+  // Group accounts by group_name in exact order
+  const groupOrder = ['Личное', 'Общее (с Владом)', 'Общее с Владом', 'Кредиты', 'Кредит'];
   const groupedAccounts = accounts.reduce((acc, a) => {
-    const grp = a.group_name || 'Личное';
+    let grp = a.group_name || 'Личное';
+    if (grp === 'Общее (с Владом)') grp = 'Общее с Владом';
+    if (grp === 'Кредиты') grp = 'Кредит';
     if (!acc[grp]) acc[grp] = [];
     acc[grp].push(a);
     return acc;
   }, {} as Record<string, Account[]>);
 
+  // Sort groups according to groupOrder
+  const sortedGroupKeys = Object.keys(groupedAccounts).sort((a, b) => {
+    const idxA = groupOrder.indexOf(a);
+    const idxB = groupOrder.indexOf(b);
+    return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
+  });
 
   return (
-    <div className="min-h-screen bg-[#F6F7FB] dark:bg-[#121318] text-[#111827] dark:text-white flex flex-col justify-between pb-10 select-none animate-fade-in relative transition-colors duration-200">
+    <div className="min-h-screen bg-[#F6F7FB] dark:bg-[#121318] text-[#111827] dark:text-white flex flex-col justify-between pb-24 select-none animate-fade-in relative transition-colors duration-200">
       {/* Top Header Bar */}
-      <div className="px-5 pt-12 pb-4 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
+      <div className="px-4 pt-10 pb-2 flex items-center justify-between">
+        <div className="flex items-center space-x-2">
           <button
             type="button"
             onClick={() => {
               onHaptic?.('light');
               onBack();
             }}
-            className="w-10 h-10 rounded-full bg-white dark:bg-[#1E1F26] shadow-sm border border-gray-100 dark:border-gray-800 flex items-center justify-center text-[#111827] dark:text-white active:bg-gray-100 dark:active:bg-gray-800"
+            className="text-black dark:text-white p-1 active:scale-90 transition-transform"
           >
-            <ArrowLeftOutlined className="text-[18px]" />
+            <ArrowLeftOutlined className="text-[20px]" />
           </button>
-          <h1 className="text-[26px] font-bold text-[#111827] dark:text-white tracking-tight">Счета</h1>
+          <div className="bg-[#111827] text-white px-3.5 py-1 rounded-lg font-bold text-[16px] tracking-tight">
+            Счета
+          </div>
         </div>
 
-        {/* Header Actions: Add (+) semi-blue button without rocket */}
-        <div className="flex items-center">
-          <button
-            type="button"
-            onClick={() => {
-              onHaptic?.('light');
-              onAddNewAccount?.();
-            }}
-            className="w-10 h-10 rounded-full bg-[#DCE6FF] dark:bg-[#1E284A] text-[#2B5BFF] border border-[#B3C8FD] dark:border-[#2B5BFF]/40 shadow-sm flex items-center justify-center active:scale-95 transition-transform"
-          >
-            <PlusOutlined className="text-[18px] text-[#2B5BFF]" />
-          </button>
-        </div>
+        {/* Right Settings Gear Icon */}
+        <button
+          type="button"
+          onClick={() => {
+            onHaptic?.('light');
+            onOpenSettings?.();
+          }}
+          className="p-1 text-black dark:text-white hover:text-gray-600 transition-colors"
+          title="Настройки"
+        >
+          <SettingOutlined className="text-[20px]" />
+        </button>
       </div>
 
       {/* Main Content Area */}
       <div className="flex-1 px-5 max-w-lg mx-auto w-full">
         {/* Big Total Balance Header */}
         <div className="text-center my-6">
-          <h2 className="text-[34px] sm:text-[38px] font-extrabold text-[#111827] dark:text-white tracking-tight">
-            {assetsBalance.toLocaleString('ru-RU', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}{' '}
-            ₽
+          <p className="text-[13px] text-[#6B7280] dark:text-gray-400 font-medium mb-3">
+            Доступно на счетах
+          </p>
+          <h2 className="text-[48px] sm:text-[54px] font-extrabold text-[#111827] dark:text-white tracking-tight leading-none flex items-center justify-center">
+            <span>
+              {assetsBalance.toLocaleString('ru-RU', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </span>
+            <span className="text-[#9CA3AF] dark:text-gray-500 font-normal ml-2">₽</span>
           </h2>
-          <p className="text-[14px] text-[#9CA3AF] dark:text-gray-400 font-medium mt-1">Доступно на счетах</p>
-
-          {creditBalance > 0 && (
-            <div className="inline-flex items-center space-x-1.5 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 px-3.5 py-1 rounded-full text-[13px] font-semibold mt-2.5 border border-red-100 dark:border-red-900/40 shadow-sm">
-              <span>📑 Кредиты: -{creditBalance.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽</span>
-            </div>
-          )}
         </div>
 
         {/* Grouped Account Lists */}
-        <div className="space-y-6 mt-6">
-          {Object.entries(groupedAccounts).map(([groupName, groupAccs]) => {
-            const isOpen = openGroups[groupName] ?? true;
-            const isCreditGroup = groupName === 'Кредиты';
-            const groupSum = groupAccs.reduce((sum, a) => sum + toRub(a), 0);
+        <div className="space-y-6 mt-6 mb-12">
+          {sortedGroupKeys.map((groupName) => {
+            const groupAccs = groupedAccounts[groupName];
+            const isCreditGroup = groupName === 'Кредит' || groupName === 'Кредиты';
 
             return (
               <div key={groupName} className="space-y-3">
-                {/* Group Accordion Header */}
-                <button
-                  type="button"
-                  onClick={() => toggleGroup(groupName)}
-                  className="w-full flex items-center justify-between text-left group"
-                >
-                  <div className="flex items-center space-x-2">
-                    {isOpen ? (
-                      <DownOutlined className="text-[14px] text-[#6B7280] dark:text-gray-400" />
-                    ) : (
-                      <UpOutlined className="text-[14px] text-[#6B7280] dark:text-gray-400" />
-                    )}
-                    <span className={`text-[17px] font-bold ${isCreditGroup ? 'text-red-600 dark:text-red-400' : 'text-[#111827] dark:text-white'}`}>
-                      {groupName}
-                    </span>
-                    <span className={`text-[12px] font-semibold px-2 py-0.5 rounded-full ${
-                      isCreditGroup ? 'bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300' : 'text-[#6B7280] dark:text-gray-300 bg-[#E5E7EB] dark:bg-gray-800'
-                    }`}>
-                      {groupAccs.length}
-                    </span>
-                  </div>
+                {/* Centered Group Title */}
+                <div className="text-center text-[14px] font-medium text-gray-600 dark:text-gray-400 my-3">
+                  {groupName}
+                </div>
 
-                  <span className={`text-[14px] font-semibold ${isCreditGroup ? 'text-red-500 dark:text-red-400 font-bold' : 'text-[#6B7280] dark:text-gray-400'}`}>
-                    {isCreditGroup ? '-' : ''}{groupSum.toLocaleString('ru-RU', {
-                      minimumFractionDigits: 2,
+                {/* Account Rows */}
+                <div className="space-y-1">
+                  {groupAccs.map((acc) => {
+                    const resolved = resolveAccountBankAndName(acc);
+                    const formattedBalance = acc.balance.toLocaleString('ru-RU', {
+                      minimumFractionDigits: acc.balance % 1 === 0 ? 0 : (acc.balance * 10) % 1 === 0 ? 1 : 2,
                       maximumFractionDigits: 2,
-                    })}{' '}
-                    ₽
-                  </span>
-                </button>
+                    });
 
-                {/* Accounts Horizontal / Vertical Pills */}
-                {isOpen && (
-                  <div className="flex flex-col items-start gap-2.5">
-                    {groupAccs.map((acc) => {
-                      const resolved = resolveAccountBankAndName(acc);
-                      return (
-                        <button
-                          key={acc.id}
-                          type="button"
-                          onClick={() => {
-                            onHaptic?.('light');
-                            onSelectAccount?.(acc);
-                          }}
-                          title={acc.name}
-                          className={`inline-flex items-center max-w-full space-x-2.5 bg-white dark:bg-[#1E1F26] px-4 py-2.5 rounded-full shadow-sm border active:scale-[0.98] transition-all ${
-                            isCreditGroup ? 'border-red-100 dark:border-red-900/40 hover:border-red-200' : 'border-gray-100/80 dark:border-gray-800/80'
-                          }`}
-                        >
-                          <span className="text-base shrink-0">{acc.icon}</span>
-                          <span className="text-[14px] font-semibold text-[#111827] dark:text-white truncate max-w-[150px] sm:max-w-[240px] text-left">
-                            {resolved.cleanName}
-                          </span>
-                          {resolved.bank && (
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md leading-none ${resolved.bank.bg}`}>
-                              {resolved.bank.shortName}
+                    return (
+                      <div
+                        key={acc.id}
+                        onClick={() => {
+                          onHaptic?.('light');
+                          onSelectAccount?.(acc);
+                        }}
+                        className="w-full flex items-center justify-between py-3 px-1 border-b border-gray-100/60 dark:border-gray-800/60 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer"
+                      >
+                        {/* Left: Icon + Bank & Account Name */}
+                        <div className="flex items-center space-x-3 min-w-0 flex-1">
+                          <span className="text-2xl shrink-0">{acc.icon}</span>
+                          <div className="min-w-0 flex-1">
+                            <span className="text-[15px] font-medium text-[#111827] dark:text-white truncate block">
+                              {resolved.bank ? `${resolved.bank.shortName} • ` : ''}
+                              {resolved.cleanName}
                             </span>
-                          )}
-                          <span className={`text-[14px] font-medium shrink-0 whitespace-nowrap ${isCreditGroup ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-[#6B7280] dark:text-gray-400'}`}>
-                            {isCreditGroup ? '-' : ''}{formatAccountBalance(acc.balance, acc.currency)}
+                          </div>
+                        </div>
+
+                        {/* Right: Balance */}
+                        <div className="text-right shrink-0 font-bold text-[16px] text-[#111827] dark:text-white ml-3 flex items-center">
+                          <span>
+                            {isCreditGroup ? '-' : ''}
+                            {formattedBalance}
                           </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                          <span className="text-[#9CA3AF] dark:text-gray-500 font-normal ml-1 text-sm">
+                            {acc.currency === 'USD' ? '$' : acc.currency === 'EUR' ? '€' : '₽'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             );
           })}
-
         </div>
       </div>
 
-      {/* Centered Transfer Button (⇄ Перевести) */}
-      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-20">
+      {/* Solid Dock Bottom Navigation Bar (Transfer | Add) */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-[#111827] border-t border-black flex items-stretch h-[72px] shadow-2xl">
+        {/* Left: Transfer (Neon Lime) */}
         <button
           type="button"
           onClick={() => {
             onHaptic?.('heavy');
             onOpenTransfer?.();
           }}
-          className="px-6 py-3.5 rounded-full bg-[#2B5BFF] hover:bg-[#1E4BEB] text-white flex items-center space-x-2 shadow-[0_8px_24px_rgba(43,91,255,0.4)] active:scale-95 transition-all font-semibold text-[15px]"
+          className="flex-1 bg-[#8CFF54] hover:bg-[#7CE643] text-black flex items-center justify-center active:opacity-85 transition-all"
+          title="Перевести"
         >
-          <SwapOutlined className="text-[18px]" />
-          <span>Перевести</span>
+          <SwapOutlined className="text-[26px]" />
+        </button>
+
+        {/* Right: Add Account (+) (Black) */}
+        <button
+          type="button"
+          onClick={() => {
+            onHaptic?.('medium');
+            onAddNewAccount?.();
+          }}
+          className="w-[28%] bg-[#111827] hover:bg-black text-white flex items-center justify-center active:opacity-75 transition-all"
+          title="Добавить счет"
+        >
+          <PlusOutlined className="text-[24px]" />
         </button>
       </div>
     </div>
