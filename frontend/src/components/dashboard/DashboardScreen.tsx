@@ -8,6 +8,7 @@ import {
   ScanOutlined,
   AudioOutlined,
   CheckOutlined,
+  HolderOutlined,
 } from '@ant-design/icons';
 import { DashboardSummary, Account, Category, Transaction } from '../../types';
 
@@ -25,6 +26,7 @@ interface DashboardScreenProps {
   onScanReceipt?: () => void;
   onSelectTransaction?: (tx: Transaction) => void;
   onSelectCategory?: (cat: Category, periodLabel?: string, periodTxs?: Transaction[]) => void;
+  onUpdateTransaction?: (data: any) => void;
   onRefresh?: () => void;
   onHaptic?: (style?: 'light' | 'medium' | 'heavy') => void;
 }
@@ -41,6 +43,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onScanReceipt,
   onSelectTransaction,
   onSelectCategory,
+  onUpdateTransaction,
   onRefresh,
   onHaptic,
 }) => {
@@ -48,6 +51,19 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [categoryMode, setCategoryMode] = useState<'expense' | 'income'>('expense');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showRefreshToast, setShowRefreshToast] = useState(false);
+
+  // Drag & Drop states
+  const [draggingTx, setDraggingTx] = useState<Transaction | null>(null);
+  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
+  const [dragOverDateKey, setDragOverDateKey] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const pointerDragRef = React.useRef<{
+    tx: Transaction;
+    startX: number;
+    startY: number;
+    isDragging: boolean;
+    pointerId: number;
+  } | null>(null);
 
   const totalAccountsBalance = accounts
     .filter((acc) => acc.group_name !== 'Кредиты')
@@ -134,14 +150,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       emptyMessage?: string;
     }[] = [
       {
-        key: 'today',
+        key: todayKey,
         label: formatLabel(now, 'Сегодня'),
         isToday: true,
         transactions: todayTxs,
         emptyMessage: 'Нет операций за сегодня',
       },
       {
-        key: 'yesterday',
+        key: yesterdayKey,
         label: formatLabel(yesterday, 'Вчера'),
         transactions: yesterdayTxs,
         emptyMessage: 'Нет операций за вчера',
@@ -163,6 +179,115 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
     return groups;
   }, [summary.recent_transactions]);
+
+  // Drag & Drop action on Dashboard
+  const executeDateMove = (txId: string, targetDateKey: string, targetDateLabel: string) => {
+    const tx = summary.recent_transactions.find((t) => t.id === txId);
+    if (!tx) return;
+
+    const oldDate = tx.created_at ? new Date(tx.created_at) : new Date();
+    const currentKey = `${oldDate.getFullYear()}-${String(oldDate.getMonth() + 1).padStart(2, '0')}-${String(oldDate.getDate()).padStart(2, '0')}`;
+    if (currentKey === targetDateKey) return;
+
+    const [year, month, day] = targetDateKey.split('-').map(Number);
+    const hours = isNaN(oldDate.getHours()) ? 12 : oldDate.getHours();
+    const minutes = isNaN(oldDate.getMinutes()) ? 0 : oldDate.getMinutes();
+    const seconds = isNaN(oldDate.getSeconds()) ? 0 : oldDate.getSeconds();
+    const newDate = new Date(year, month - 1, day, hours, minutes, seconds);
+
+    onHaptic?.('heavy');
+    onUpdateTransaction?.({
+      id: tx.id,
+      amount: tx.amount,
+      account_id: tx.account_id,
+      to_account_id: tx.to_account_id,
+      category_id: tx.category_id,
+      type: tx.type,
+      note: tx.note,
+      created_at: newDate.toISOString(),
+    });
+
+    setToastMessage(`✓ Перенесено на ${targetDateLabel}`);
+    setTimeout(() => setToastMessage(null), 2500);
+  };
+
+  const handlePointerDown = (e: React.PointerEvent, tx: Transaction) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    const target = e.currentTarget as HTMLElement;
+    try {
+      target.setPointerCapture(e.pointerId);
+    } catch (err) {}
+
+    pointerDragRef.current = {
+      tx,
+      startX: e.clientX,
+      startY: e.clientY,
+      isDragging: false,
+      pointerId: e.pointerId,
+    };
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    const state = pointerDragRef.current;
+    if (!state) return;
+
+    const dx = e.clientX - state.startX;
+    const dy = e.clientY - state.startY;
+
+    if (!state.isDragging) {
+      if (Math.hypot(dx, dy) > 8) {
+        state.isDragging = true;
+        setDraggingTx(state.tx);
+        onHaptic?.('medium');
+      } else {
+        return;
+      }
+    }
+
+    setDragPos({ x: e.clientX, y: e.clientY });
+
+    const elem = document.elementFromPoint(e.clientX, e.clientY);
+    const dropZone = elem?.closest('[data-date-key]');
+    const dateKey = dropZone?.getAttribute('data-date-key') || null;
+
+    if (dateKey !== dragOverDateKey) {
+      if (dateKey) {
+        onHaptic?.('light');
+      }
+      setDragOverDateKey(dateKey);
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    const state = pointerDragRef.current;
+    if (!state) return;
+
+    try {
+      const target = e.currentTarget as HTMLElement;
+      if (target.hasPointerCapture(state.pointerId)) {
+        target.releasePointerCapture(state.pointerId);
+      }
+    } catch (err) {}
+
+    if (state.isDragging && dragOverDateKey) {
+      const targetGroup = recentTwoDaysGroups.find((g) => g.key === dragOverDateKey);
+      if (targetGroup) {
+        executeDateMove(state.tx.id, targetGroup.key, targetGroup.label);
+      }
+    }
+
+    pointerDragRef.current = null;
+    setDraggingTx(null);
+    setDragPos(null);
+    setDragOverDateKey(null);
+  };
+
+  const handlePointerCancel = () => {
+    pointerDragRef.current = null;
+    setDraggingTx(null);
+    setDragPos(null);
+    setDragOverDateKey(null);
+  };
 
   const periodExpense = React.useMemo(() => {
     return monthTransactions
@@ -545,65 +670,108 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
           {/* Transactions List */}
           <div className="space-y-4">
-            {recentTwoDaysGroups.map((group) => (
-              <div key={group.key} className="space-y-2">
-                <div className="text-[13px] font-semibold text-[#6B7280] dark:text-gray-300 pl-1">
-                  {group.label}
-                </div>
-                {group.transactions.length > 0 ? (
-                  <div className="flex items-center space-x-3 overflow-x-auto no-scrollbar pb-1">
-                    {group.transactions.map((tx) => {
-                      const resolved = resolveCategoryAndSubcategory(tx);
-                      return (
-                        <button
-                          key={tx.id}
-                          type="button"
-                          onClick={() => {
-                            onHaptic?.('light');
-                            onSelectTransaction?.(tx);
-                          }}
-                          className="flex-shrink-0 bg-white dark:bg-[#1E1F26] rounded-[22px] px-4 py-3 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center space-x-3 min-w-[175px] text-left active:scale-[0.98] transition-all"
-                        >
-                          <div className="text-2xl flex-shrink-0">{resolved.icon}</div>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-[14px] font-semibold text-[#111827] dark:text-white leading-tight truncate max-w-[155px]">
-                              {resolved.displayTitle}
-                            </div>
-                            <div
-                              className={`text-[13px] font-bold mt-1 ${
-                                tx.type === 'expense'
-                                  ? 'text-[#FF4B55]'
-                                  : tx.type === 'income'
-                                  ? 'text-[#10B981]'
-                                  : 'text-[#6B7280] dark:text-gray-400'
-                              }`}
+            {recentTwoDaysGroups.map((group) => {
+              const isDropTarget = dragOverDateKey === group.key;
+
+              return (
+                <div
+                  key={group.key}
+                  data-date-key={group.key}
+                  className={`space-y-2 p-2 rounded-3xl transition-all ${
+                    isDropTarget
+                      ? 'bg-blue-50/80 dark:bg-blue-950/30 ring-2 ring-[#2B5BFF] ring-dashed'
+                      : ''
+                  }`}
+                >
+                  <div className="flex items-center justify-between pl-1">
+                    <span className="text-[13px] font-semibold text-[#6B7280] dark:text-gray-300">
+                      {group.label}
+                    </span>
+                    {isDropTarget && (
+                      <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/60 px-2 py-0.5 rounded-full animate-pulse">
+                        Перенести сюда
+                      </span>
+                    )}
+                  </div>
+
+                  {group.transactions.length > 0 ? (
+                    <div className="flex items-center space-x-3 overflow-x-auto no-scrollbar pb-1">
+                      {group.transactions.map((tx) => {
+                        const resolved = resolveCategoryAndSubcategory(tx);
+                        const isBeingDragged = draggingTx?.id === tx.id;
+
+                        return (
+                          <div
+                            key={tx.id}
+                            className={`flex-shrink-0 bg-white dark:bg-[#1E1F26] rounded-[22px] px-4 py-3 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center space-x-3 min-w-[190px] text-left transition-all ${
+                              isBeingDragged
+                                ? 'opacity-40 scale-95 border-dashed border-blue-400'
+                                : 'hover:border-gray-200 dark:hover:border-gray-700'
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isBeingDragged) return;
+                                onHaptic?.('light');
+                                onSelectTransaction?.(tx);
+                              }}
+                              className="flex items-center space-x-3 flex-1 min-w-0 text-left"
                             >
-                              {tx.type === 'expense' ? '−' : tx.type === 'income' ? '+' : ''}
-                              {tx.amount.toLocaleString('ru-RU')} ₽
+                              <div className="text-2xl flex-shrink-0">{resolved.icon}</div>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-[14px] font-semibold text-[#111827] dark:text-white leading-tight truncate max-w-[125px]">
+                                  {resolved.displayTitle}
+                                </div>
+                                <div
+                                  className={`text-[13px] font-bold mt-1 ${
+                                    tx.type === 'expense'
+                                      ? 'text-[#FF4B55]'
+                                      : tx.type === 'income'
+                                      ? 'text-[#10B981]'
+                                      : 'text-[#6B7280] dark:text-gray-400'
+                                  }`}
+                                >
+                                  {tx.type === 'expense' ? '−' : tx.type === 'income' ? '+' : ''}
+                                  {tx.amount.toLocaleString('ru-RU')} ₽
+                                </div>
+                              </div>
+                            </button>
+
+                            {/* Grip Handle for Drag & Drop between days */}
+                            <div
+                              onPointerDown={(e) => handlePointerDown(e, tx)}
+                              onPointerMove={handlePointerMove}
+                              onPointerUp={handlePointerUp}
+                              onPointerCancel={handlePointerCancel}
+                              title="Перетащить на другой день"
+                              className="p-1.5 -mr-1 text-gray-300 dark:text-gray-600 hover:text-[#2B5BFF] dark:hover:text-[#5B82FF] active:text-[#2B5BFF] cursor-grab active:cursor-grabbing touch-none select-none rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            >
+                              <HolderOutlined className="text-[16px]" />
                             </div>
                           </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : group.isToday ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onHaptic?.('light');
-                      onOpenAddTransaction();
-                    }}
-                    className="w-full bg-white/60 dark:bg-[#1E1F26]/60 hover:bg-white dark:hover:bg-[#1E1F26] rounded-[20px] py-2.5 px-4 border border-dashed border-gray-200 dark:border-gray-800 text-[13px] font-medium text-gray-400 dark:text-gray-500 flex items-center justify-center space-x-1.5 active:scale-[0.99] transition-all"
-                  >
-                    <span>+ Добавить первую операцию за сегодня</span>
-                  </button>
-                ) : (
-                  <div className="bg-white/40 dark:bg-[#1E1F26]/40 rounded-[20px] py-2.5 px-4 border border-dashed border-gray-100 dark:border-gray-800/80 text-[13px] text-gray-400 dark:text-gray-500 text-center">
-                    {group.emptyMessage}
-                  </div>
-                )}
-              </div>
-            ))}
+                        );
+                      })}
+                    </div>
+                  ) : group.isToday ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onHaptic?.('light');
+                        onOpenAddTransaction();
+                      }}
+                      className="w-full bg-white/60 dark:bg-[#1E1F26]/60 hover:bg-white dark:hover:bg-[#1E1F26] rounded-[20px] py-2.5 px-4 border border-dashed border-gray-200 dark:border-gray-800 text-[13px] font-medium text-gray-400 dark:text-gray-500 flex items-center justify-center space-x-1.5 active:scale-[0.99] transition-all"
+                    >
+                      <span>+ Добавить первую операцию за сегодня</span>
+                    </button>
+                  ) : (
+                    <div className="bg-white/40 dark:bg-[#1E1F26]/40 rounded-[20px] py-2.5 px-4 border border-dashed border-gray-100 dark:border-gray-800/80 text-[13px] text-gray-400 dark:text-gray-500 text-center">
+                      {group.emptyMessage}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -662,6 +830,38 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Date Move Feedback Toast */}
+      {toastMessage && (
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 bg-[#111827]/90 dark:bg-white/90 text-white dark:text-[#111827] text-xs font-semibold px-4 py-2 rounded-full shadow-lg backdrop-blur-md animate-fade-in flex items-center space-x-2 border border-white/10 dark:border-black/10 pointer-events-none">
+          <CheckOutlined className="text-emerald-400 text-sm" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Floating Drag Preview Clone that follows finger */}
+      {draggingTx && dragPos && (
+        <div
+          className="fixed z-50 pointer-events-none -translate-x-1/2 -translate-y-1/2 shadow-2xl rounded-2xl bg-white dark:bg-[#1E1F26] border-2 border-[#2B5BFF] p-3.5 flex items-center space-x-3 w-[290px] opacity-95 scale-105 transition-transform"
+          style={{ left: dragPos.x, top: dragPos.y }}
+        >
+          <div className="w-10 h-10 rounded-full flex items-center justify-center text-xl bg-blue-50 dark:bg-blue-950/60 text-[#2B5BFF] flex-shrink-0">
+            {resolveCategoryAndSubcategory(draggingTx).icon}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[14px] font-bold text-[#111827] dark:text-white truncate">
+              {resolveCategoryAndSubcategory(draggingTx).displayTitle}
+            </div>
+            <div className="text-[12px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
+              {draggingTx.account_name || 'Счёт'}
+            </div>
+          </div>
+          <div className="text-[14px] font-extrabold text-[#EF4444] flex-shrink-0">
+            {draggingTx.type === 'expense' ? '−' : draggingTx.type === 'income' ? '+' : ''}
+            {draggingTx.amount.toLocaleString('ru-RU')} ₽
+          </div>
+        </div>
+      )}
     </div>
   );
 };

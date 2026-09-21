@@ -606,6 +606,7 @@ export const App: React.FC = () => {
           onScanReceipt={() => fileInputRef.current?.click()}
           onSelectTransaction={handleSelectTransaction}
           onSelectCategory={handleSelectCategory}
+          onUpdateTransaction={handleSaveEditedTransaction}
           onRefresh={loadData}
           onHaptic={hapticImpact}
         />

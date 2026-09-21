@@ -44,14 +44,16 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
   onUpdateTransaction,
 }) => {
   // Drag & Drop states
-  const [draggingTxId, setDraggingTxId] = useState<string | null>(null);
+  const [draggingTx, setDraggingTx] = useState<Transaction | null>(null);
+  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
   const [dragOverDateKey, setDragOverDateKey] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const touchDragRef = React.useRef<{
+  const pointerDragRef = React.useRef<{
     tx: Transaction;
-    startY: number;
     startX: number;
+    startY: number;
     isDragging: boolean;
+    pointerId: number;
   } | null>(null);
 
   // Filter states
@@ -123,13 +125,6 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
 
   // Group transactions by formatted date (e.g. "7 мая", "18 сент.")
   const groupedByDate = useMemo(() => {
-    const groups: {
-      dateKey: string;
-      dateLabel: string;
-      items: Transaction[];
-      totalExpense: number;
-    }[] = [];
-
     const map = new Map<string, { label: string; items: Transaction[]; expense: number }>();
 
     for (const tx of filteredTransactions) {
@@ -148,17 +143,52 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
       }
     }
 
-    for (const [dateKey, val] of map.entries()) {
+    const groups: {
+      dateKey: string;
+      dateLabel: string;
+      items: Transaction[];
+      totalExpense: number;
+      isPlaceholder?: boolean;
+    }[] = [];
+
+    const now = new Date();
+    const todayKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+    const todayLabel = now.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+
+    // If today has no transactions yet, add a clean drop zone target at the top!
+    if (!map.has(todayKey) && selectedPeriod !== '7days') {
       groups.push({
-        dateKey,
-        dateLabel: val.label,
-        items: val.items,
-        totalExpense: val.expense,
+        dateKey: todayKey,
+        dateLabel: `Сегодня, ${todayLabel}`,
+        items: [],
+        totalExpense: 0,
+        isPlaceholder: true,
       });
     }
 
+    for (const [dateKey, val] of map.entries()) {
+      let label = val.label;
+      if (dateKey === todayKey) {
+        label = `Сегодня, ${val.label}`;
+      }
+      groups.push({
+        dateKey,
+        dateLabel: label,
+        items: val.items,
+        totalExpense: val.expense,
+        isPlaceholder: false,
+      });
+    }
+
+    // Sort descending by actual calendar date
+    groups.sort((a, b) => {
+      const [yA, mA, dA] = a.dateKey.split('-').map(Number);
+      const [yB, mB, dB] = b.dateKey.split('-').map(Number);
+      return new Date(yB, mB - 1, dB).getTime() - new Date(yA, mA - 1, dA).getTime();
+    });
+
     return groups;
-  }, [filteredTransactions]);
+  }, [filteredTransactions, selectedPeriod]);
 
   const typeLabelMap: Record<string, string> = {
     all: 'Все типы',
@@ -183,7 +213,10 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
     if (currentKey === targetDateKey) return;
 
     const [year, month, day] = targetDateKey.split('-').map(Number);
-    const newDate = new Date(year, month - 1, day, oldDate.getHours(), oldDate.getMinutes(), oldDate.getSeconds());
+    const hours = isNaN(oldDate.getHours()) ? 12 : oldDate.getHours();
+    const minutes = isNaN(oldDate.getMinutes()) ? 0 : oldDate.getMinutes();
+    const seconds = isNaN(oldDate.getSeconds()) ? 0 : oldDate.getSeconds();
+    const newDate = new Date(year, month - 1, day, hours, minutes, seconds);
 
     onHaptic?.('heavy');
     onUpdateTransaction?.({
@@ -198,19 +231,99 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
     });
 
     setToastMessage(`✓ Перенесено на ${targetDateLabel}`);
-    setTimeout(() => setToastMessage(null), 2200);
+    setTimeout(() => setToastMessage(null), 2500);
   };
 
-  // HTML5 Desktop drag
+  // Universal Pointer Drag (Mobile Touch, iOS Telegram WebApp, Desktop Mouse)
+  const handlePointerDown = (e: React.PointerEvent, tx: Transaction) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    const target = e.currentTarget as HTMLElement;
+    try {
+      target.setPointerCapture(e.pointerId);
+    } catch (err) {}
+
+    pointerDragRef.current = {
+      tx,
+      startX: e.clientX,
+      startY: e.clientY,
+      isDragging: false,
+      pointerId: e.pointerId,
+    };
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    const state = pointerDragRef.current;
+    if (!state) return;
+
+    const dx = e.clientX - state.startX;
+    const dy = e.clientY - state.startY;
+
+    if (!state.isDragging) {
+      if (Math.hypot(dx, dy) > 8) {
+        state.isDragging = true;
+        setDraggingTx(state.tx);
+        onHaptic?.('medium');
+      } else {
+        return;
+      }
+    }
+
+    setDragPos({ x: e.clientX, y: e.clientY });
+
+    // Inspect drop zone underneath pointer
+    const elem = document.elementFromPoint(e.clientX, e.clientY);
+    const dropZone = elem?.closest('[data-date-key]');
+    const dateKey = dropZone?.getAttribute('data-date-key') || null;
+
+    if (dateKey !== dragOverDateKey) {
+      if (dateKey) {
+        onHaptic?.('light');
+      }
+      setDragOverDateKey(dateKey);
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    const state = pointerDragRef.current;
+    if (!state) return;
+
+    try {
+      const target = e.currentTarget as HTMLElement;
+      if (target.hasPointerCapture(state.pointerId)) {
+        target.releasePointerCapture(state.pointerId);
+      }
+    } catch (err) {}
+
+    if (state.isDragging && dragOverDateKey) {
+      const targetGroup = groupedByDate.find((g) => g.dateKey === dragOverDateKey);
+      if (targetGroup) {
+        executeDateMove(state.tx.id, targetGroup.dateKey, targetGroup.dateLabel);
+      }
+    }
+
+    pointerDragRef.current = null;
+    setDraggingTx(null);
+    setDragPos(null);
+    setDragOverDateKey(null);
+  };
+
+  const handlePointerCancel = () => {
+    pointerDragRef.current = null;
+    setDraggingTx(null);
+    setDragPos(null);
+    setDragOverDateKey(null);
+  };
+
+  // HTML5 Desktop drag compatibility
   const handleDragStart = (e: React.DragEvent, tx: Transaction) => {
     e.dataTransfer.setData('text/plain', tx.id);
     e.dataTransfer.effectAllowed = 'move';
-    setDraggingTxId(tx.id);
+    setDraggingTx(tx);
     onHaptic?.('light');
   };
 
   const handleDragEnd = () => {
-    setDraggingTxId(null);
+    setDraggingTx(null);
     setDragOverDateKey(null);
   };
 
@@ -224,54 +337,11 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
 
   const handleDropOnDate = (e: React.DragEvent, targetDateKey: string, targetDateLabel: string) => {
     e.preventDefault();
-    const txId = e.dataTransfer.getData('text/plain') || draggingTxId;
+    const txId = e.dataTransfer.getData('text/plain') || draggingTx?.id;
     setDragOverDateKey(null);
-    setDraggingTxId(null);
+    setDraggingTx(null);
     if (!txId) return;
     executeDateMove(txId, targetDateKey, targetDateLabel);
-  };
-
-  // Mobile Touch drag
-  const handleTouchStart = (e: React.TouchEvent, tx: Transaction) => {
-    const touch = e.touches[0];
-    touchDragRef.current = {
-      tx,
-      startY: touch.clientY,
-      startX: touch.clientX,
-      isDragging: false,
-    };
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!touchDragRef.current) return;
-    const touch = e.touches[0];
-    const deltaY = Math.abs(touch.clientY - touchDragRef.current.startY);
-    const deltaX = Math.abs(touch.clientX - touchDragRef.current.startX);
-
-    if (!touchDragRef.current.isDragging && (deltaY > 8 || deltaX > 8)) {
-      touchDragRef.current.isDragging = true;
-      setDraggingTxId(touchDragRef.current.tx.id);
-      onHaptic?.('light');
-    }
-
-    if (touchDragRef.current.isDragging) {
-      const elem = document.elementFromPoint(touch.clientX, touch.clientY);
-      const dropZone = elem?.closest('[data-date-key]');
-      const dateKey = dropZone?.getAttribute('data-date-key');
-      setDragOverDateKey(dateKey || null);
-    }
-  };
-
-  const handleTouchEnd = () => {
-    if (touchDragRef.current?.isDragging && draggingTxId && dragOverDateKey) {
-      const targetGroup = groupedByDate.find((g) => g.dateKey === dragOverDateKey);
-      if (targetGroup) {
-        executeDateMove(touchDragRef.current.tx.id, targetGroup.dateKey, targetGroup.dateLabel);
-      }
-    }
-    touchDragRef.current = null;
-    setDraggingTxId(null);
-    setDragOverDateKey(null);
   };
 
 
@@ -575,6 +645,19 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
                   )}
                 </div>
 
+                {/* Empty Placeholder Day (e.g. drop target for Today) */}
+                {group.isPlaceholder && group.items.length === 0 && (
+                  <div
+                    className={`border-2 border-dashed rounded-2xl p-4 text-center text-[13px] font-medium transition-all ${
+                      isDropTarget
+                        ? 'border-[#2B5BFF] bg-blue-50 dark:bg-blue-950/40 text-[#2B5BFF] dark:text-[#5B82FF] shadow-sm'
+                        : 'border-gray-200 dark:border-gray-800 bg-white/40 dark:bg-[#1E1F26]/40 text-gray-400 dark:text-gray-500'
+                    }`}
+                  >
+                    {isDropTarget ? '✨ Отпустите, чтобы перенести сюда' : '📥 Перетащите операцию сюда, чтобы назначить на сегодня'}
+                  </div>
+                )}
+
                 {/* Transactions Cards for this date */}
                 <div className="space-y-2">
                   {group.items.map((tx) => {
@@ -583,7 +666,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
                     const isExpense = tx.type === 'expense';
                     const resolved = resolveCategoryAndSubcategory(tx);
                     const displayNote = formatTransactionSubtitleNote(tx.note, resolved);
-                    const isBeingDragged = draggingTxId === tx.id;
+                    const isBeingDragged = draggingTx?.id === tx.id;
 
                     return (
                       <div
@@ -596,7 +679,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
                           onHaptic?.('light');
                           onSelectTransaction(tx);
                         }}
-                        className={`bg-white dark:bg-[#1E1F26] border border-gray-100 dark:border-gray-800/80 rounded-2xl p-3.5 flex items-center justify-between shadow-xs active:scale-[0.99] transition-all cursor-pointer ${
+                        className={`bg-white dark:bg-[#1E1F26] border border-gray-100 dark:border-gray-800/80 rounded-2xl p-3.5 flex items-center justify-between shadow-xs active:scale-[0.99] transition-all cursor-pointer select-none ${
                           isBeingDragged
                             ? 'opacity-40 scale-95 border-dashed border-blue-400'
                             : 'hover:border-gray-200 dark:hover:border-gray-700'
@@ -671,16 +754,17 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
                             </span>
                           </div>
 
-                          {/* Grip Handle for Drag & Drop */}
+                          {/* Grip Handle for Drag & Drop with Pointer Events */}
                           <div
-                            onTouchStart={(e) => handleTouchStart(e, tx)}
-                            onTouchMove={handleTouchMove}
-                            onTouchEnd={handleTouchEnd}
+                            onPointerDown={(e) => handlePointerDown(e, tx)}
+                            onPointerMove={handlePointerMove}
+                            onPointerUp={handlePointerUp}
+                            onPointerCancel={handlePointerCancel}
                             onClick={(e) => e.stopPropagation()}
                             title="Перетащить на другую дату"
-                            className="p-1 text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 active:text-[#2B5BFF] cursor-grab active:cursor-grabbing touch-none rounded-lg"
+                            className="p-2 -mr-1 text-gray-300 dark:text-gray-600 hover:text-[#2B5BFF] dark:hover:text-[#5B82FF] active:text-[#2B5BFF] cursor-grab active:cursor-grabbing touch-none select-none rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                           >
-                            <HolderOutlined className="text-[17px]" />
+                            <HolderOutlined className="text-[19px]" />
                           </div>
                         </div>
                       </div>
@@ -692,6 +776,30 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
           })
         )}
       </div>
+
+      {/* Floating Drag Preview Clone that follows finger */}
+      {draggingTx && dragPos && (
+        <div
+          className="fixed z-50 pointer-events-none -translate-x-1/2 -translate-y-1/2 shadow-2xl rounded-2xl bg-white dark:bg-[#1E1F26] border-2 border-[#2B5BFF] p-3.5 flex items-center space-x-3 w-[290px] opacity-95 scale-105 transition-transform"
+          style={{ left: dragPos.x, top: dragPos.y }}
+        >
+          <div className="w-10 h-10 rounded-full flex items-center justify-center text-xl bg-blue-50 dark:bg-blue-950/60 text-[#2B5BFF] flex-shrink-0">
+            {resolveCategoryAndSubcategory(draggingTx).icon}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[14px] font-bold text-[#111827] dark:text-white truncate">
+              {resolveCategoryAndSubcategory(draggingTx).displayTitle}
+            </div>
+            <div className="text-[12px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
+              {draggingTx.account_name || 'Счёт'}
+            </div>
+          </div>
+          <div className="text-[14px] font-extrabold text-[#EF4444] flex-shrink-0">
+            {draggingTx.type === 'expense' ? '−' : draggingTx.type === 'income' ? '+' : ''}
+            {draggingTx.amount.toLocaleString('ru-RU')} ₽
+          </div>
+        </div>
+      )}
 
       {/* Floating Action Button (FAB) Blue Plus (matching media_1789747991545.png) */}
       <button
