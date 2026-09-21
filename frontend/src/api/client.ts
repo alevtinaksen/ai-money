@@ -700,7 +700,6 @@ export function deleteUserTxMod(txId: string) {
 export function mergeWithLocalMods(rawTransactions: any[]): any[] {
   const mods = getUserTxMods();
   const resultMap = new Map<string, any>();
-  const now = Date.now();
 
   // 1. Process base/server transactions, applying local edits or deletions
   for (const tx of rawTransactions) {
@@ -720,13 +719,8 @@ export function mergeWithLocalMods(rawTransactions: any[]): any[] {
     resultMap.set(tx.id, tx);
   }
 
-  // 2. Preserve locally created or updated transactions that aren't yet in resultMap (only if recent < 3 mins)
+  // 2. Preserve locally created or updated transactions that aren't yet in resultMap
   for (const [txId, mod] of Object.entries(mods)) {
-    // If mod is older than 3 minutes, remove stale entry to avoid ghost transactions
-    if (now - (mod.timestamp || 0) > 180000) {
-      deleteUserTxMod(txId);
-      continue;
-    }
     if (mod.status !== 'deleted' && mod.data && !resultMap.has(txId)) {
       resultMap.set(txId, mod.data);
     }
@@ -768,26 +762,30 @@ export async function fetchDashboard(initData: string): Promise<DashboardSummary
       if (Array.isArray(parsed) && parsed.length > 0) currentAccounts = parsed;
     }
   } catch {}
+  currentAccounts = mergeAccountsWithLocalMods(currentAccounts);
 
   const toRub = (a: Account) => (a.currency === 'USD' ? a.balance * 90 : a.currency === 'EUR' ? a.balance * 98 : a.balance);
   const total = currentAccounts
     .filter(a => a.group_name !== 'Кредиты')
     .reduce((sum, a) => sum + toRub(a), 0);
 
-  // Source list: preserve full history by combining server transactions with initial/cached transactions
+  // Source list: preserve full history by starting from localStorage first, then incorporating server updates
   const txMap = new Map<string, any>();
-  for (const t of INITIAL_RECENT_TRANSACTIONS) {
-    if (t && t.id) txMap.set(t.id, t);
-  }
   const localSync = getStoredSyncData()?.recent_transactions;
-  if (Array.isArray(localSync)) {
+  if (Array.isArray(localSync) && localSync.length > 0) {
     for (const t of localSync) {
+      if (t && t.id) txMap.set(t.id, t);
+    }
+  } else {
+    for (const t of INITIAL_RECENT_TRANSACTIONS) {
       if (t && t.id) txMap.set(t.id, t);
     }
   }
   if (Array.isArray(serverTxs)) {
     for (const t of serverTxs) {
-      if (t && t.id) txMap.set(t.id, t);
+      if (t && t.id && !txMap.has(t.id)) {
+        txMap.set(t.id, t);
+      }
     }
   }
   const baseTxs = Array.from(txMap.values());
@@ -910,13 +908,11 @@ export function deleteUserAccountMod(accId: string) {
 
 export function mergeAccountsWithLocalMods(serverAccs: Account[]): Account[] {
   const mods = getUserAccountMods();
-  const now = Date.now();
-  const LOCK_TTL_MS = 15000; // 15 seconds lock window to prevent polling jitter
 
   return serverAccs.map((acc) => {
     // Match by exact ID or name
     const mod = mods[acc.id] || Object.values(mods).find((m) => m.data?.name?.toLowerCase() === acc.name.toLowerCase());
-    if (mod && mod.data && now - (mod.timestamp || 0) < LOCK_TTL_MS) {
+    if (mod && mod.data) {
       if (mod.status === 'updated') {
         return {
           ...acc,
@@ -947,7 +943,7 @@ export async function fetchAccounts(initData: string): Promise<Account[]> {
     // Fallback
   }
 
-  // 1. If server responded, merge with pending recent local user edits to prevent jitter
+  // 1. If server responded, merge with local user edits and persist
   if (serverAccs && serverAccs.length > 0) {
     const merged = mergeAccountsWithLocalMods(serverAccs);
     saveStoredAccounts(merged);
@@ -964,7 +960,8 @@ export async function fetchAccounts(initData: string): Promise<Account[]> {
     }
   } catch {}
 
-  return currentAccounts;
+  const merged = mergeAccountsWithLocalMods(currentAccounts);
+  return merged;
 }
 
 export const STORAGE_CATEGORIES_KEY = 'ai_money_categories';

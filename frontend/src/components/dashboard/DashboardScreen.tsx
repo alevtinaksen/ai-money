@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   WalletOutlined,
   ReloadOutlined,
@@ -64,7 +64,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   // Drag & Drop states
   const [draggingTx, setDraggingTx] = useState<Transaction | null>(null);
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
-  const [dragOverDateKey, setDragOverDateKey] = useState<string | null>(null);
+  const [dragOverTarget, setDragOverTarget] = useState<{
+    key: string;
+    targetTxId?: string | null;
+    insertPos?: 'before' | 'after';
+  } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const dragSessionRef = useRef<{
     tx: Transaction;
@@ -176,7 +180,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       },
     ];
 
-    // If today has no transactions yet, also show the previous active day (e.g. Позавчера, 19 сент) so history is immediately visible
     if (todayTxs.length === 0 && olderDaysMap.size > 0) {
       const sortedOlderKeys = Array.from(olderDaysMap.keys()).sort((a, b) => b.localeCompare(a));
       const latestOlder = olderDaysMap.get(sortedOlderKeys[0]);
@@ -196,7 +199,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   recentTwoDaysGroupsRef.current = recentTwoDaysGroups;
 
   // Cleanup body drag styles on unmount
-  useEffect(() => {
+  React.useEffect(() => {
     return () => {
       document.body.style.userSelect = '';
       document.body.style.touchAction = '';
@@ -292,34 +295,49 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         window.scrollBy({ top: 14, behavior: 'auto' });
       }
 
-      // Drop target detection (elementFromPoint + Bounding Rect fallback)
-      let foundDateKey: string | null = null;
+      // Drop target detection
+      let targetDateKey: string | null = null;
+      let targetTxId: string | null = null;
+      let insertPos: 'before' | 'after' = 'after';
+
       const elem = document.elementFromPoint(ev.clientX, ev.clientY);
-      const dropZone = elem?.closest('[data-date-key]');
-      if (dropZone) {
-        foundDateKey = dropZone.getAttribute('data-date-key');
+      const txCard = elem?.closest('[data-tx-id]');
+      if (txCard) {
+        targetTxId = txCard.getAttribute('data-tx-id');
+        targetDateKey = txCard.getAttribute('data-tx-date-key');
+        const rect = txCard.getBoundingClientRect();
+        insertPos = ev.clientX < rect.left + rect.width / 2 ? 'before' : 'after';
       } else {
-        const allDropZones = document.querySelectorAll('[data-date-key]');
-        for (const zone of Array.from(allDropZones)) {
-          const rect = zone.getBoundingClientRect();
-          if (ev.clientY >= rect.top - 15 && ev.clientY <= rect.bottom + 15) {
-            foundDateKey = zone.getAttribute('data-date-key');
-            break;
+        const dropZone = elem?.closest('[data-date-key]');
+        if (dropZone) {
+          targetDateKey = dropZone.getAttribute('data-date-key');
+        } else {
+          const allDropZones = document.querySelectorAll('[data-date-key]');
+          for (const zone of Array.from(allDropZones)) {
+            const rect = zone.getBoundingClientRect();
+            if (ev.clientY >= rect.top - 15 && ev.clientY <= rect.bottom + 15) {
+              targetDateKey = zone.getAttribute('data-date-key');
+              break;
+            }
           }
         }
       }
 
-      const validTarget = foundDateKey && foundDateKey !== session.sourceDateKey ? foundDateKey : null;
-
-      setDragOverDateKey((prev) => {
-        if (prev !== validTarget) {
-          if (validTarget) {
+      if (targetDateKey) {
+        const newTarget = { key: targetDateKey, targetTxId, insertPos };
+        setDragOverTarget((prev) => {
+          if (
+            !prev ||
+            prev.key !== newTarget.key ||
+            prev.targetTxId !== newTarget.targetTxId ||
+            prev.insertPos !== newTarget.insertPos
+          ) {
             onHaptic?.('light');
+            return newTarget;
           }
-          return validTarget;
-        }
-        return prev;
-      });
+          return prev;
+        });
+      }
     };
 
     const cleanupWindowListeners = () => {
@@ -342,28 +360,69 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           justDraggedRef.current = false;
         }, 350);
 
-        let targetDateKey: string | null = null;
+        let finalDateKey = dragOverTarget?.key || null;
+        let finalTxId = dragOverTarget?.targetTxId || null;
+        let finalInsertPos = dragOverTarget?.insertPos || 'after';
+
         const elem = document.elementFromPoint(ev.clientX, ev.clientY);
-        const dropZone = elem?.closest('[data-date-key]');
-        if (dropZone) {
-          targetDateKey = dropZone.getAttribute('data-date-key');
-        } else if (dragOverDateKey) {
-          targetDateKey = dragOverDateKey;
+        const txCard = elem?.closest('[data-tx-id]');
+        if (txCard) {
+          finalTxId = txCard.getAttribute('data-tx-id');
+          finalDateKey = txCard.getAttribute('data-tx-date-key');
+          const rect = txCard.getBoundingClientRect();
+          finalInsertPos = ev.clientX < rect.left + rect.width / 2 ? 'before' : 'after';
         } else {
-          const allDropZones = document.querySelectorAll('[data-date-key]');
-          for (const zone of Array.from(allDropZones)) {
-            const rect = zone.getBoundingClientRect();
-            if (ev.clientY >= rect.top - 20 && ev.clientY <= rect.bottom + 20) {
-              targetDateKey = zone.getAttribute('data-date-key');
-              break;
-            }
+          const dropZone = elem?.closest('[data-date-key]');
+          if (dropZone) {
+            finalDateKey = dropZone.getAttribute('data-date-key');
           }
         }
 
-        if (targetDateKey && targetDateKey !== session.sourceDateKey) {
-          const targetGroup = recentTwoDaysGroupsRef.current.find((g) => g.key === targetDateKey);
-          if (targetGroup) {
-            executeDateMove(session.tx.id, targetGroup.key, targetGroup.label);
+        if (finalDateKey) {
+          if (finalDateKey !== session.sourceDateKey) {
+            // Inter-day move
+            const targetGroup = recentTwoDaysGroupsRef.current.find((g) => g.key === finalDateKey);
+            if (targetGroup) {
+              executeDateMove(session.tx.id, targetGroup.key, targetGroup.label);
+            }
+          } else if (finalTxId && finalTxId !== session.tx.id) {
+            // Intra-day reordering within same date
+            const group = recentTwoDaysGroupsRef.current.find((g) => g.key === finalDateKey);
+            if (group && group.transactions.length > 1) {
+              const fromIndex = group.transactions.findIndex((t) => t.id === session.tx.id);
+              const targetIdx = group.transactions.findIndex((t) => t.id === finalTxId);
+              if (fromIndex !== -1 && targetIdx !== -1) {
+                let toIndex = finalInsertPos === 'before' ? targetIdx : targetIdx + 1;
+                if (fromIndex < toIndex) toIndex -= 1;
+
+                if (fromIndex !== toIndex) {
+                  const newItems = [...group.transactions];
+                  const [moved] = newItems.splice(fromIndex, 1);
+                  newItems.splice(toIndex, 0, moved);
+
+                  const [yStr, mStr, dStr] = finalDateKey.split('-').map(Number);
+                  onHaptic?.('medium');
+
+                  newItems.forEach((item, idx) => {
+                    const newDate = new Date(yStr, mStr - 1, dStr, 20, 0, 0, 0);
+                    newDate.setMinutes(newDate.getMinutes() - idx * 2);
+                    onUpdateTransaction?.({
+                      id: item.id,
+                      amount: item.amount,
+                      account_id: item.account_id,
+                      to_account_id: item.to_account_id,
+                      category_id: item.category_id,
+                      type: item.type,
+                      note: item.note,
+                      created_at: newDate.toISOString(),
+                    });
+                  });
+
+                  setToastMessage(`✓ Порядок операций изменен`);
+                  setTimeout(() => setToastMessage(null), 2500);
+                }
+              }
+            }
           }
         }
       } else {
@@ -377,29 +436,15 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       dragSessionRef.current = null;
       setDraggingTx(null);
       setDragPos(null);
-      setDragOverDateKey(null);
+      setDragOverTarget(null);
     };
 
     const handleWindowPointerCancel = () => {
       cleanupWindowListeners();
-      const session = dragSessionRef.current;
-      if (session?.isDragging) {
-        justDraggedRef.current = true;
-        setTimeout(() => {
-          justDraggedRef.current = false;
-        }, 350);
-
-        if (dragOverDateKey && dragOverDateKey !== session.sourceDateKey) {
-          const targetGroup = recentTwoDaysGroupsRef.current.find((g) => g.key === dragOverDateKey);
-          if (targetGroup) {
-            executeDateMove(session.tx.id, targetGroup.key, targetGroup.label);
-          }
-        }
-      }
       dragSessionRef.current = null;
       setDraggingTx(null);
       setDragPos(null);
-      setDragOverDateKey(null);
+      setDragOverTarget(null);
     };
 
     window.addEventListener('pointermove', handleWindowPointerMove, { passive: false });
@@ -789,14 +834,16 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           {/* Transactions List */}
           <div className="space-y-4">
             {recentTwoDaysGroups.map((group) => {
-              const isDropTarget = dragOverDateKey === group.key;
+              const isDifferentDateDropTarget =
+                dragOverTarget?.key === group.key &&
+                dragSessionRef.current?.sourceDateKey !== group.key;
 
               return (
                 <div
                   key={group.key}
                   data-date-key={group.key}
                   className={`space-y-2 p-2 rounded-3xl transition-all ${
-                    isDropTarget
+                    isDifferentDateDropTarget
                       ? 'bg-blue-50/80 dark:bg-blue-950/30 ring-2 ring-[#2B5BFF] ring-dashed'
                       : ''
                   }`}
@@ -805,7 +852,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     <span className="text-[13px] font-semibold text-[#6B7280] dark:text-gray-300">
                       {group.label}
                     </span>
-                    {isDropTarget && (
+                    {isDifferentDateDropTarget && (
                       <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/60 px-2 py-0.5 rounded-full animate-pulse">
                         Перенести сюда
                       </span>
@@ -818,53 +865,71 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         const resolved = resolveCategoryAndSubcategory(tx);
                         const isBeingDragged = draggingTx?.id === tx.id;
 
+                        const isDropTargetItem =
+                          dragOverTarget?.key === group.key &&
+                          dragOverTarget?.targetTxId === tx.id &&
+                          draggingTx?.id !== tx.id;
+                        const showInsertBefore = isDropTargetItem && dragOverTarget?.insertPos === 'before';
+                        const showInsertAfter = isDropTargetItem && dragOverTarget?.insertPos === 'after';
+
                         return (
-                          <div
-                            key={tx.id}
-                            onPointerDown={(e) => handlePointerDown(e, tx, group.key, false)}
-                            className={`flex-shrink-0 bg-white dark:bg-[#1E1F26] rounded-[22px] px-4 py-3 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center space-x-3 min-w-[190px] text-left transition-all cursor-grab active:cursor-grabbing select-none touch-none ${
-                              isBeingDragged
-                                ? 'opacity-35 scale-95 border-dashed border-blue-400'
-                                : 'hover:border-gray-200 dark:hover:border-gray-700'
-                            }`}
-                          >
-                            <div className="flex items-center space-x-3 flex-1 min-w-0 text-left pointer-events-none">
-                              <div className="text-2xl flex-shrink-0">{resolved.icon}</div>
-                              <div className="min-w-0 flex-1">
-                                <div className="text-[14px] font-semibold text-[#111827] dark:text-white leading-tight truncate max-w-[125px]">
-                                  {resolved.displayTitle}
+                          <React.Fragment key={tx.id}>
+                            {showInsertBefore && (
+                              <div className="w-1 self-stretch min-h-[60px] bg-[#2B5BFF] rounded-full mx-0.5 shadow-[0_0_8px_rgba(43,91,255,0.6)] animate-pulse shrink-0" />
+                            )}
+
+                            <div
+                              data-tx-id={tx.id}
+                              data-tx-date-key={group.key}
+                              onPointerDown={(e) => handlePointerDown(e, tx, group.key, false)}
+                              className={`flex-shrink-0 bg-white dark:bg-[#1E1F26] rounded-[22px] px-4 py-3 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center space-x-3 min-w-[190px] text-left transition-all cursor-grab active:cursor-grabbing select-none touch-none ${
+                                isBeingDragged
+                                  ? 'opacity-35 scale-95 border-dashed border-blue-400'
+                                  : 'hover:border-gray-200 dark:hover:border-gray-700'
+                              }`}
+                            >
+                              <div className="flex items-center space-x-3 flex-1 min-w-0 text-left pointer-events-none">
+                                <div className="text-2xl flex-shrink-0">{resolved.icon}</div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-[14px] font-semibold text-[#111827] dark:text-white leading-tight truncate max-w-[125px]">
+                                    {resolved.displayTitle}
+                                  </div>
+                                  <div
+                                    className={`text-[13px] font-bold mt-1 ${
+                                      tx.type === 'expense'
+                                        ? 'text-[#FF4B55]'
+                                        : tx.type === 'income'
+                                        ? 'text-[#10B981]'
+                                        : 'text-[#6B7280] dark:text-gray-400'
+                                    }`}
+                                  >
+                                    {tx.type === 'expense' ? '−' : tx.type === 'income' ? '+' : ''}
+                                    {tx.amount.toLocaleString('ru-RU')} ₽
+                                  </div>
                                 </div>
-                                <div
-                                  className={`text-[13px] font-bold mt-1 ${
-                                    tx.type === 'expense'
-                                      ? 'text-[#FF4B55]'
-                                      : tx.type === 'income'
-                                      ? 'text-[#10B981]'
-                                      : 'text-[#6B7280] dark:text-gray-400'
-                                  }`}
-                                >
-                                  {tx.type === 'expense' ? '−' : tx.type === 'income' ? '+' : ''}
-                                  {tx.amount.toLocaleString('ru-RU')} ₽
-                                </div>
+                              </div>
+
+                              {/* Grip Handle for Drag & Drop between days */}
+                              <div
+                                onPointerDown={(e) => {
+                                  e.stopPropagation();
+                                  handlePointerDown(e, tx, group.key, true);
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                }}
+                                title="Перетащить операцию"
+                                className="w-9 h-9 -mr-1 flex items-center justify-center text-gray-300 dark:text-gray-600 hover:text-[#2B5BFF] dark:hover:text-[#5B82FF] active:text-[#2B5BFF] cursor-grab active:cursor-grabbing touch-none select-none rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
+                              >
+                                <HolderOutlined className="text-[17px]" />
                               </div>
                             </div>
 
-                            {/* Grip Handle for Drag & Drop between days */}
-                            <div
-                              onPointerDown={(e) => {
-                                e.stopPropagation();
-                                handlePointerDown(e, tx, group.key, true);
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                              }}
-                              title="Перетащить на другой день"
-                              className="w-9 h-9 -mr-1 flex items-center justify-center text-gray-300 dark:text-gray-600 hover:text-[#2B5BFF] dark:hover:text-[#5B82FF] active:text-[#2B5BFF] cursor-grab active:cursor-grabbing touch-none select-none rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
-                            >
-                              <HolderOutlined className="text-[17px]" />
-                            </div>
-                          </div>
+                            {showInsertAfter && (
+                              <div className="w-1 self-stretch min-h-[60px] bg-[#2B5BFF] rounded-full mx-0.5 shadow-[0_0_8px_rgba(43,91,255,0.6)] animate-pulse shrink-0" />
+                            )}
+                          </React.Fragment>
                         );
                       })}
                     </div>
@@ -876,13 +941,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         onOpenAddTransaction();
                       }}
                       className={`w-full rounded-[20px] py-2.5 px-4 border border-dashed text-[13px] font-medium flex items-center justify-center space-x-1.5 active:scale-[0.99] transition-all ${
-                        isDropTarget
+                        isDifferentDateDropTarget
                           ? 'border-[#2B5BFF] bg-blue-50 dark:bg-blue-950/40 text-[#2B5BFF] dark:text-[#5B82FF]'
                           : 'bg-white/60 dark:bg-[#1E1F26]/60 hover:bg-white dark:hover:bg-[#1E1F26] border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-500'
                       }`}
                     >
                       <span>
-                        {isDropTarget
+                        {isDifferentDateDropTarget
                           ? '✨ Отпустите, чтобы перенести на сегодня'
                           : '+ Добавить первую операцию за сегодня'}
                       </span>
@@ -890,12 +955,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   ) : (
                     <div
                       className={`rounded-[20px] py-2.5 px-4 border border-dashed text-[13px] text-center transition-all ${
-                        isDropTarget
+                        isDifferentDateDropTarget
                           ? 'border-[#2B5BFF] bg-blue-50 dark:bg-blue-950/40 text-[#2B5BFF] dark:text-[#5B82FF] font-medium'
                           : 'bg-white/40 dark:bg-[#1E1F26]/40 border-gray-100 dark:border-gray-800/80 text-gray-400 dark:text-gray-500'
                       }`}
                     >
-                      {isDropTarget ? '✨ Отпустите, чтобы перенести сюда' : group.emptyMessage}
+                      {isDifferentDateDropTarget ? '✨ Отпустите, чтобы перенести сюда' : group.emptyMessage}
                     </div>
                   )}
                 </div>
