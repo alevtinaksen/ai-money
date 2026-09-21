@@ -106,3 +106,77 @@ async def test_ai_speech_normalization_and_clarification():
     assert len(res2.transactions) == 0
     assert len(res2.pending.suggested_options) > 0
     assert 2000.0 in res2.pending.suggested_options
+
+@pytest.mark.asyncio
+async def test_update_transaction_upsert_nonexistent(db_session: AsyncSession):
+    user_id = 123456
+    await FinanceService.ensure_user_seeded(db_session, user_id)
+    accounts = await FinanceService.get_accounts(db_session, user_id)
+    target_acc = accounts[0]
+    initial_balance = float(target_acc.balance)
+
+    # Unknown ID (e.g. from frontend initial mock data)
+    unknown_id = "unknown-custom-uuid-999"
+    data = {
+        "account_id": target_acc.id,
+        "amount": 500.0,
+        "type": "expense",
+        "note": "Прямое сохранение новой транзакции через PUT"
+    }
+
+    # Should perform UPSERT and not raise error or return None
+    tx = await FinanceService.update_transaction(db_session, user_id, unknown_id, data)
+    assert tx is not None
+    assert tx.id == unknown_id
+    assert float(tx.amount) == 500.0
+
+    # Verify balance reduced
+    accs_after = await FinanceService.get_accounts(db_session, user_id)
+    updated_acc = next(a for a in accs_after if a.id == target_acc.id)
+    assert float(updated_acc.balance) == initial_balance - 500.0
+
+@pytest.mark.asyncio
+async def test_transfer_update_recalculation(db_session: AsyncSession):
+    user_id = 123456
+    await FinanceService.ensure_user_seeded(db_session, user_id)
+    accounts = await FinanceService.get_accounts(db_session, user_id)
+    from_acc = accounts[0]
+    to_acc = accounts[1]
+    init_from = float(from_acc.balance)
+    init_to = float(to_acc.balance)
+
+    # Initial transfer of 100
+    tx_id = "transfer-test-123"
+    data = {
+        "account_id": from_acc.id,
+        "to_account_id": to_acc.id,
+        "amount": 100.0,
+        "type": "transfer",
+        "note": "Перевод 100"
+    }
+    tx = await FinanceService.update_transaction(db_session, user_id, tx_id, data)
+    assert tx is not None
+
+    accs = await FinanceService.get_accounts(db_session, user_id)
+    f1 = next(a for a in accs if a.id == from_acc.id)
+    t1 = next(a for a in accs if a.id == to_acc.id)
+    assert float(f1.balance) == init_from - 100.0
+    assert float(t1.balance) == init_to + 100.0
+
+    # Now edit transfer amount to 350
+    data2 = {
+        "account_id": from_acc.id,
+        "to_account_id": to_acc.id,
+        "amount": 350.0,
+        "type": "transfer",
+        "note": "Перевод 350"
+    }
+    tx2 = await FinanceService.update_transaction(db_session, user_id, tx_id, data2)
+    assert tx2 is not None
+
+    accs2 = await FinanceService.get_accounts(db_session, user_id)
+    f2 = next(a for a in accs2 if a.id == from_acc.id)
+    t2 = next(a for a in accs2 if a.id == to_acc.id)
+    assert float(f2.balance) == init_from - 350.0
+    assert float(t2.balance) == init_to + 350.0
+

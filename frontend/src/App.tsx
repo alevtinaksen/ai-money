@@ -196,6 +196,11 @@ export const App: React.FC = () => {
         }
         return acc;
       });
+      for (const a of updatedAccounts) {
+        if (a.id === data.account_id || a.id === data.to_account_id) {
+          recordUserAccountMod(a.id, a, 'updated');
+        }
+      }
       saveStoredAccounts(updatedAccounts);
       return updatedAccounts;
     });
@@ -319,6 +324,16 @@ export const App: React.FC = () => {
 
         return { ...acc, balance: Math.round(bal * 100) / 100 };
       });
+      for (const a of updatedAccounts) {
+        if (
+          a.id === data.account_id ||
+          a.id === data.to_account_id ||
+          a.id === oldTx.account_id ||
+          a.id === oldTx.to_account_id
+        ) {
+          recordUserAccountMod(a.id, a, 'updated');
+        }
+      }
       saveStoredAccounts(updatedAccounts);
       return updatedAccounts;
     });
@@ -412,6 +427,11 @@ export const App: React.FC = () => {
           }
           return acc;
         });
+        for (const a of updatedAccounts) {
+          if (a.id === txToDelete.account_id || a.id === txToDelete.to_account_id) {
+            recordUserAccountMod(a.id, a, 'updated');
+          }
+        }
         saveStoredAccounts(updatedAccounts);
         return updatedAccounts;
       });

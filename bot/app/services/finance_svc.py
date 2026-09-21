@@ -113,21 +113,125 @@ DEFAULT_CATEGORIES = [
 class FinanceService:
     @staticmethod
     async def ensure_user_seeded(db: AsyncSession, user_id: int):
-        """Creates default accounts and categories for new user matching UI screenshots."""
+        """Creates default accounts, categories and initial transactions for user matching UI."""
         stmt = select(Account).where(Account.user_id == user_id)
         res = await db.execute(stmt)
-        if res.first() is not None:
-            return
+        accounts_exist = res.first() is not None
 
-        for acc in DEFAULT_ACCOUNTS:
-            account = Account(user_id=user_id, **acc)
-            db.add(account)
+        if not accounts_exist:
+            for acc in DEFAULT_ACCOUNTS:
+                account = Account(user_id=user_id, **acc)
+                db.add(account)
 
-        for cat in DEFAULT_CATEGORIES:
-            category = Category(user_id=user_id, **cat)
-            db.add(category)
+            for cat in DEFAULT_CATEGORIES:
+                category = Category(user_id=user_id, **cat)
+                db.add(category)
 
-        await db.commit()
+            await db.commit()
+
+        # Check and seed transactions if missing
+        stmt_tx = select(Transaction).where(Transaction.user_id == user_id)
+        res_tx = await db.execute(stmt_tx)
+        existing_txs = res_tx.scalars().all()
+        existing_tx_ids = {t.id for t in existing_txs}
+
+        # Load accounts and categories map for seeding
+        acc_stmt = select(Account).where(Account.user_id == user_id)
+        acc_res = await db.execute(acc_stmt)
+        all_accs = acc_res.scalars().all()
+
+        cat_stmt = select(Category).where(Category.user_id == user_id)
+        cat_res = await db.execute(cat_stmt)
+        all_cats = cat_res.scalars().all()
+
+        def find_acc_id(name_hint: Optional[str]) -> Optional[str]:
+            if not name_hint or not all_accs:
+                return all_accs[0].id if all_accs else None
+            h = name_hint.lower()
+            for a in all_accs:
+                an = a.name.lower()
+                if an == h:
+                    return a.id
+                if 'едок' in h and 'едок' in an:
+                    return a.id
+                if 'озон' in h and 'озон' in an:
+                    return a.id
+                if ('основной' in h or 'карта альфа' in h) and ('основн' in an or 'карта альфа' in an):
+                    return a.id
+                if 'накоплен' in h and ('накопительн' in an or 'альфа-счёт' in an):
+                    return a.id
+                if 'инвесткопилка' in h and 'инвесткопилка' in an:
+                    return a.id
+            for a in all_accs:
+                if a.name.lower() in h or h in a.name.lower():
+                    return a.id
+            return all_accs[0].id
+
+        def find_cat_id(cat_name: Optional[str]) -> Optional[str]:
+            if not cat_name or not all_cats:
+                return all_cats[0].id if all_cats else None
+            cn = cat_name.lower()
+            for c in all_cats:
+                if c.name.lower() == cn or cn in c.name.lower():
+                    return c.id
+            return all_cats[0].id
+
+        raw_defaults = [
+            {"id": "6548b97b-5fe1-4722-810b-c3a50126dec3", "amount": 8000.0, "type": "expense", "note": "OZON", "created_at": "2026-09-20T13:05:39.447695Z", "account_name": "Озон Банк", "category_name": "Покупки"},
+            {"id": "12a62be3-3a1a-40f2-bd4c-3bd01727ef6e", "amount": 17600.0, "type": "expense", "note": "A", "created_at": "2026-09-20T13:05:39.444234Z", "account_name": "Озон Банк", "category_name": "Еда"},
+            {"id": "0b0a01e9-78b4-404a-b8cc-9bf3c8fc7e59", "amount": 17600.0, "type": "expense", "note": "Владислав С.", "created_at": "2026-09-20T13:05:38.797537Z", "account_name": "Влад и Алина - Едоки (Т-Банк)", "category_name": "Еда"},
+            {"id": "f2630213-5bf0-4ad6-b026-f1b1ca2cea84", "amount": 17900.0, "type": "expense", "note": "T", "created_at": "2026-09-20T13:05:38.796023Z", "account_name": "Влад и Алина - Едоки (Т-Банк)", "category_name": "Еда"},
+            {"id": "4b418914-e868-4e31-ad9d-b78e6916c633", "amount": 3005.81, "type": "expense", "note": "Пятёрочка", "created_at": "2026-09-20T13:05:38.793595Z", "account_name": "Влад и Алина - Едоки (Т-Банк)", "category_name": "Еда"},
+            {"id": "82593bee-92fd-4e84-a215-6de59d6773de", "amount": 7896.0, "type": "expense", "note": "Покупка озон банка для машины то", "created_at": "2026-09-20T09:30:14.864734Z", "account_name": "Озон Банк", "category_name": "Покупки"},
+            {"id": "95fbcffa-0f94-46d4-9f3d-77d7c94336c4", "amount": 8.0, "type": "transfer", "note": "Перевод между счетами", "created_at": "2026-09-20T09:17:45.356167Z", "account_name": "Озон Банк", "to_account_name": "Карта Альфа (Основной)", "category_name": "Переводы"},
+            {"id": "f5cd9a1a-f16b-43e4-9bbd-16ca7b86c7cc", "amount": 690.0, "type": "expense", "note": "1-st. FOOD FACTORY", "created_at": "2026-09-19T23:12:02Z", "account_name": "Влад и Алина - Едоки (Т-Банк)", "category_name": "Кафе"},
+            {"id": "7b5eb7e4-4e92-47ed-9c6f-e623b4b60791", "amount": 109.99, "type": "expense", "note": "О'КЕЙ", "created_at": "2026-09-19T23:12:01Z", "account_name": "Влад и Алина - Едоки (Т-Банк)", "category_name": "Еда"},
+            {"id": "98c8a90e-d6a4-46d2-853a-c96898a0f481", "amount": 498.0, "type": "expense", "note": "Вкусно — и точка", "created_at": "2026-09-19T23:12:00Z", "account_name": "Влад и Алина - Едоки (Т-Банк)", "category_name": "Кафе"},
+            {"id": "3782a1ad-af1b-4ab7-a75b-3b305a3273be", "amount": 571.0, "type": "expense", "note": "Ozon bank +", "created_at": "2026-09-19T20:45:44.452303Z", "account_name": "Озон Банк", "category_name": "ТО авто"},
+            {"id": "7d462fd8-5776-444f-826b-2c9cee5ad7d5", "amount": 15.0, "type": "transfer", "note": "Накопления с покупки", "created_at": "2026-09-19T20:11:30.867045Z", "account_name": "Карта Альфа (Основной)", "to_account_name": "Инвесткопилка (Альфа)", "category_name": "Накопления"},
+            {"id": "0cd15549-4544-43da-a1b2-5733109094ed", "amount": 37.0, "type": "transfer", "note": "Накопления с покупки", "created_at": "2026-09-19T20:11:19.194399Z", "account_name": "Карта Альфа (Основной)", "to_account_name": "Инвесткопилка (Альфа)", "category_name": "Накопления"},
+            {"id": "24e650ea-a356-40bc-923b-8b3428ce2fac", "amount": 504.0, "type": "income", "note": "Перевод от подруги", "created_at": "2026-09-19T20:10:33.809860Z", "account_name": "Карта Альфа (Основной)", "category_name": "Переводы (получено)"},
+            {"id": "b6e5054c-f337-474d-942f-d393c3462883", "amount": 500.0, "type": "income", "note": "Перевод от подруги", "created_at": "2026-09-19T20:10:24.192153Z", "account_name": "Карта Альфа (Основной)", "category_name": "Переводы (получено)"},
+            {"id": "76050f1e-c711-41fd-a31d-c7f8f8b1d71c", "amount": 285.0, "type": "expense", "note": "Dream kids (кофе)", "created_at": "2026-09-19T20:10:02.104868Z", "account_name": "Карта Альфа (Основной)", "category_name": "Кофе"},
+            {"id": "01deadbf-4fda-49ff-8768-07c0834937ed", "amount": 1863.0, "type": "expense", "note": "Теремок", "created_at": "2026-09-19T20:09:06.247691Z", "account_name": "Карта Альфа (Основной)", "category_name": "Кафе"},
+            {"id": "89966dde-b03d-47c7-9eca-b160717d5a4d", "amount": 5000.0, "type": "transfer", "note": "Перевод между счетами", "created_at": "2026-09-19T20:08:01.882952Z", "account_name": "Карта Альфа (Основной)", "to_account_name": "Альфа-Счёт (накопления)", "category_name": "Переводы"},
+            {"id": "09e63854-af0e-4e18-8ee1-1210dcc57e27", "amount": 2074.0, "type": "expense", "note": "В самокате альфа-банка", "created_at": "2026-09-18T16:26:05.086903Z", "account_name": "Карта Альфа (Основной)", "category_name": "Самокат"},
+            {"id": "5ef7015e-fedf-4e8b-a211-24957c97ecf4", "amount": 1104.0, "type": "expense", "note": "Озон еще списал за покупку 1104+1104+137", "created_at": "2026-09-18T15:29:49.428883Z", "account_name": "Карта Альфа (Основной)", "category_name": "Личное"},
+            {"id": "4aa867e2-a35b-47ff-a8ad-85434bc0332b", "amount": 1000.0, "type": "transfer", "note": "Перевод между счетами", "created_at": "2026-09-18T15:18:47.856073Z", "account_name": "Карта Альфа (Основной)", "to_account_name": "Озон Банк", "category_name": "Переводы"},
+            {"id": "35ab9e89-ae9c-410d-b4de-59142271f542", "amount": 2100.0, "type": "expense", "note": "Маникюр картой альфа-банка", "created_at": "2026-09-18T12:21:13.025686Z", "account_name": "Карта Альфа (Основной)", "category_name": "Личное"}
+        ]
+
+        added_any = False
+        for rd in raw_defaults:
+            if rd["id"] in existing_tx_ids:
+                continue
+            acc_id = find_acc_id(rd.get("account_name"))
+            to_acc_id = find_acc_id(rd.get("to_account_name")) if rd.get("type") == "transfer" else None
+            cat_id = find_cat_id(rd.get("category_name"))
+            
+            c_at = datetime.now(timezone.utc)
+            if rd.get("created_at"):
+                try:
+                    c_at = datetime.fromisoformat(rd["created_at"].replace("Z", "+00:00"))
+                except Exception:
+                    pass
+
+            t_obj = Transaction(
+                id=rd["id"],
+                user_id=user_id,
+                account_id=acc_id,
+                to_account_id=to_acc_id,
+                category_id=cat_id,
+                amount=to_dec(rd["amount"]),
+                type=rd["type"],
+                note=rd.get("note"),
+                created_at=c_at
+            )
+            db.add(t_obj)
+            added_any = True
+
+        if added_any:
+            await db.commit()
 
     @staticmethod
     async def get_accounts(db: AsyncSession, user_id: int) -> List[Account]:
@@ -278,8 +382,62 @@ class FinanceService:
         stmt = select(Transaction).where(Transaction.id == tx_id, Transaction.user_id == user_id)
         res = await db.execute(stmt)
         tx = res.scalar_one_or_none()
+
         if not tx:
-            return None
+            # UPSERT: Transaction does not exist in DB yet (e.g. initial transaction from client or legacy ID)
+            new_account_id = data.get("account_id")
+            if not new_account_id:
+                default_acc = await FinanceService.get_default_account(db, user_id)
+                new_account_id = default_acc.id if default_acc else None
+            if not new_account_id:
+                return None
+
+            new_to_account_id = data.get("to_account_id")
+            new_amount = to_dec(data.get("amount") if data.get("amount") is not None else 0.0)
+            new_type = data.get("type") or "expense"
+
+            # Apply balance updates for newly inserted transaction
+            stmt_new_acc = select(Account).where(Account.id == new_account_id)
+            res_new_acc = await db.execute(stmt_new_acc)
+            new_acc = res_new_acc.scalar_one_or_none()
+            if new_acc:
+                if new_type == "expense":
+                    new_acc.balance = to_dec(new_acc.balance) - new_amount
+                elif new_type == "income":
+                    new_acc.balance = to_dec(new_acc.balance) + new_amount
+                elif new_type == "transfer":
+                    new_acc.balance = to_dec(new_acc.balance) - new_amount
+                    if new_to_account_id:
+                        stmt_new_to = select(Account).where(Account.id == new_to_account_id)
+                        res_new_to = await db.execute(stmt_new_to)
+                        new_to_acc = res_new_to.scalar_one_or_none()
+                        if new_to_acc:
+                            new_to_acc.balance = to_dec(new_to_acc.balance) + new_amount
+
+            created_at_val = data.get("created_at")
+            if isinstance(created_at_val, str):
+                try:
+                    created_at_val = datetime.fromisoformat(created_at_val.replace("Z", "+00:00"))
+                except Exception:
+                    created_at_val = datetime.now(timezone.utc)
+            elif not isinstance(created_at_val, datetime):
+                created_at_val = datetime.now(timezone.utc)
+
+            tx = Transaction(
+                id=tx_id,
+                user_id=user_id,
+                account_id=new_account_id,
+                to_account_id=new_to_account_id,
+                category_id=data.get("category_id"),
+                amount=new_amount,
+                type=new_type,
+                note=data.get("note"),
+                created_at=created_at_val
+            )
+            db.add(tx)
+            await db.commit()
+            await db.refresh(tx)
+            return tx
 
         # Revert old balance
         stmt_acc = select(Account).where(Account.id == tx.account_id)
@@ -291,17 +449,18 @@ class FinanceService:
                 old_acc.balance = to_dec(old_acc.balance) + old_amt
             elif tx.type == "income":
                 old_acc.balance = to_dec(old_acc.balance) - old_amt
-            elif tx.type == "transfer" and tx.to_account_id:
+            elif tx.type == "transfer":
                 old_acc.balance = to_dec(old_acc.balance) + old_amt
-                stmt_to = select(Account).where(Account.id == tx.to_account_id)
-                res_to = await db.execute(stmt_to)
-                old_to_acc = res_to.scalar_one_or_none()
-                if old_to_acc:
-                    old_to_acc.balance = to_dec(old_to_acc.balance) - old_amt
+                if tx.to_account_id:
+                    stmt_to = select(Account).where(Account.id == tx.to_account_id)
+                    res_to = await db.execute(stmt_to)
+                    old_to_acc = res_to.scalar_one_or_none()
+                    if old_to_acc:
+                        old_to_acc.balance = to_dec(old_to_acc.balance) - old_amt
 
         # Apply new fields
         new_account_id = data.get("account_id") or tx.account_id
-        new_to_account_id = data.get("to_account_id", tx.to_account_id)
+        new_to_account_id = data["to_account_id"] if "to_account_id" in data else tx.to_account_id
         new_amount = to_dec(data.get("amount") if data.get("amount") is not None else tx.amount)
         new_type = data.get("type") or tx.type
 
@@ -314,13 +473,14 @@ class FinanceService:
                 new_acc.balance = to_dec(new_acc.balance) - new_amount
             elif new_type == "income":
                 new_acc.balance = to_dec(new_acc.balance) + new_amount
-            elif new_type == "transfer" and new_to_account_id:
+            elif new_type == "transfer":
                 new_acc.balance = to_dec(new_acc.balance) - new_amount
-                stmt_new_to = select(Account).where(Account.id == new_to_account_id)
-                res_new_to = await db.execute(stmt_new_to)
-                new_to_acc = res_new_to.scalar_one_or_none()
-                if new_to_acc:
-                    new_to_acc.balance = to_dec(new_to_acc.balance) + new_amount
+                if new_to_account_id:
+                    stmt_new_to = select(Account).where(Account.id == new_to_account_id)
+                    res_new_to = await db.execute(stmt_new_to)
+                    new_to_acc = res_new_to.scalar_one_or_none()
+                    if new_to_acc:
+                        new_to_acc.balance = to_dec(new_to_acc.balance) + new_amount
 
         tx.account_id = new_account_id
         tx.to_account_id = new_to_account_id
@@ -331,7 +491,13 @@ class FinanceService:
         if "note" in data:
             tx.note = data["note"]
         if "created_at" in data and data["created_at"]:
-            tx.created_at = data["created_at"]
+            created_at_val = data["created_at"]
+            if isinstance(created_at_val, str):
+                try:
+                    created_at_val = datetime.fromisoformat(created_at_val.replace("Z", "+00:00"))
+                except Exception:
+                    pass
+            tx.created_at = created_at_val
 
         await db.commit()
         await db.refresh(tx)

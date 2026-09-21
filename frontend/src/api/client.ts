@@ -301,8 +301,9 @@ export const INITIAL_RECENT_TRANSACTIONS: Transaction[] = [
   {
     id: "95fbcffa-0f94-46d4-9f3d-77d7c94336c4",
     user_id: 143702968,
-    account_id: "e33efb56-2aa9-4359-8014-1599ad24b7b0",
-    category_id: "943735f8-c68f-4169-a0a3-17848add06f5",
+    account_id: "acc-9",
+    to_account_id: "acc-1",
+    category_id: "cat-14",
     amount: 8.0,
     type: "transfer",
     note: "\u041f\u0435\u0440\u0435\u0432\u043e\u0434 \u043c\u0435\u0436\u0434\u0443 \u0441\u0447\u0435\u0442\u0430\u043c\u0438",
@@ -895,6 +896,39 @@ export function recordUserAccountMod(
   }
 }
 
+export function deleteUserAccountMod(accId: string) {
+  try {
+    const mods = getUserAccountMods();
+    if (mods[accId]) {
+      delete mods[accId];
+      localStorage.setItem(STORAGE_USER_ACCOUNT_MODS_KEY, JSON.stringify(mods));
+    }
+  } catch (e) {
+    console.error('Failed to deleteUserAccountMod:', e);
+  }
+}
+
+export function mergeAccountsWithLocalMods(serverAccs: Account[]): Account[] {
+  const mods = getUserAccountMods();
+  const now = Date.now();
+  const LOCK_TTL_MS = 15000; // 15 seconds lock window to prevent polling jitter
+
+  return serverAccs.map((acc) => {
+    // Match by exact ID or name
+    const mod = mods[acc.id] || Object.values(mods).find((m) => m.data?.name?.toLowerCase() === acc.name.toLowerCase());
+    if (mod && mod.data && now - (mod.timestamp || 0) < LOCK_TTL_MS) {
+      if (mod.status === 'updated') {
+        return {
+          ...acc,
+          ...mod.data,
+          balance: mod.data.balance !== undefined ? mod.data.balance : acc.balance,
+        };
+      }
+    }
+    return acc;
+  });
+}
+
 export async function fetchAccounts(initData: string): Promise<Account[]> {
   let serverAccs: Account[] | null = null;
   try {
@@ -913,10 +947,11 @@ export async function fetchAccounts(initData: string): Promise<Account[]> {
     // Fallback
   }
 
-  // 1. If server responded, SERVER IS THE ABSOLUTE SINGLE SOURCE OF TRUTH!
+  // 1. If server responded, merge with pending recent local user edits to prevent jitter
   if (serverAccs && serverAccs.length > 0) {
-    saveStoredAccounts(serverAccs);
-    return serverAccs;
+    const merged = mergeAccountsWithLocalMods(serverAccs);
+    saveStoredAccounts(merged);
+    return merged;
   }
 
   // 2. Load accounts from storage or INITIAL_ACCOUNTS ONLY if server is offline
