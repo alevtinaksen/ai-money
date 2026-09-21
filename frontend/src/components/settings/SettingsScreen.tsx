@@ -17,6 +17,7 @@ interface SettingsScreenProps {
   categories: Category[];
   onSaveCategory: (category: Partial<Category> & { id?: string }) => void;
   onDeleteCategory: (id: string) => void;
+  onReorderCategories?: (categories: Category[]) => void;
   onRecalculateBalances?: () => Promise<void> | void;
   onResetData?: () => void;
   onHaptic?: (style?: 'light' | 'medium' | 'heavy') => void;
@@ -27,6 +28,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   categories,
   onSaveCategory,
   onDeleteCategory,
+  onReorderCategories,
   onRecalculateBalances,
   onResetData,
   onHaptic,
@@ -224,6 +226,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         categories={categories}
         onSaveCategory={onSaveCategory}
         onDeleteCategory={onDeleteCategory}
+        onReorderCategories={onReorderCategories}
         onHaptic={onHaptic}
       />
     </div>

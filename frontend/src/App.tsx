@@ -600,6 +600,12 @@ export const App: React.FC = () => {
     });
   };
 
+  const handleReorderCategories = (newCategories: Category[]) => {
+    hapticImpact('medium');
+    setCategories(newCategories);
+    saveStoredCategories(newCategories);
+  };
+
   return (
     <main className="w-full min-h-screen bg-[#F6F7FB] dark:bg-[#121318] text-[#111827] dark:text-white transition-colors">
       {/* Hidden file input for receipt scanner */}
@@ -670,6 +676,7 @@ export const App: React.FC = () => {
           categories={categories}
           onSaveCategory={handleSaveCategory}
           onDeleteCategory={handleDeleteCategory}
+          onReorderCategories={handleReorderCategories}
           onRecalculateBalances={loadData}
           onResetData={handleResetData}
           onHaptic={hapticImpact}
