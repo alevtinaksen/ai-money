@@ -101,12 +101,12 @@ app.include_router(ai.router, prefix="/api/ai", tags=["AI"])
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "app": "AI Money", "version": "1.0.5"}
+    return {"status": "ok", "app": "AI Money", "version": "1.0.6"}
 
 @app.get("/version")
 @app.get("/api/version")
 async def get_version():
-    return {"version": "1.0.5", "status": "ok"}
+    return {"version": "1.0.6", "status": "ok"}
 
 # Mount frontend Mini App build
 import os

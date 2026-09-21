@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
@@ -102,33 +103,48 @@ async def update_transaction(
     user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
-    tx = await FinanceService.update_transaction(
-        db, user_id, transaction_id, payload.model_dump(exclude_unset=True)
-    )
-    if not tx:
-        raise HTTPException(status_code=404, detail="Транзакция не найдена")
+    try:
+        tx = await FinanceService.update_transaction(
+            db, user_id, transaction_id, payload.model_dump(exclude_unset=True)
+        )
+        if not tx:
+            raise HTTPException(status_code=404, detail="Транзакция не найдена")
 
-    accounts = await FinanceService.get_accounts(db, user_id)
-    categories = await FinanceService.get_categories(db, user_id)
-    acc_map = {a.id: a for a in accounts}
-    cat_map = {c.id: c for c in categories}
-    acc = acc_map.get(tx.account_id)
-    cat = cat_map.get(tx.category_id)
+        accounts = await FinanceService.get_accounts(db, user_id)
+        categories = await FinanceService.get_categories(db, user_id)
+        acc_map = {a.id: a for a in accounts}
+        cat_map = {c.id: c for c in categories}
+        acc = acc_map.get(tx.account_id)
+        cat = cat_map.get(tx.category_id)
 
-    return TransactionResponse(
-        id=tx.id,
-        user_id=tx.user_id,
-        account_id=tx.account_id,
-        to_account_id=tx.to_account_id,
-        category_id=tx.category_id,
-        amount=float(tx.amount),
-        type=tx.type,
-        note=tx.note,
-        created_at=tx.created_at,
-        account_name=acc.name if acc else None,
-        category_name=cat.name if cat else None,
-        category_icon=cat.icon if cat else None
-    )
+        c_at = tx.created_at
+        if isinstance(c_at, str):
+            try:
+                c_at = datetime.fromisoformat(c_at.replace("Z", "+00:00"))
+            except Exception:
+                c_at = datetime.now(timezone.utc)
+        elif not c_at:
+            c_at = datetime.now(timezone.utc)
+
+        return TransactionResponse(
+            id=tx.id,
+            user_id=tx.user_id,
+            account_id=tx.account_id,
+            to_account_id=tx.to_account_id,
+            category_id=tx.category_id,
+            amount=float(tx.amount),
+            type=tx.type,
+            note=tx.note,
+            created_at=c_at,
+            account_name=acc.name if acc else None,
+            category_name=cat.name if cat else None,
+            category_icon=cat.icon if cat else None
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update transaction {transaction_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {str(e)}")
 
 @router.delete("/{transaction_id}")
 async def delete_transaction(

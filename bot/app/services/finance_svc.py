@@ -458,16 +458,33 @@ class FinanceService:
                     if old_to_acc:
                         old_to_acc.balance = to_dec(old_to_acc.balance) - old_amt
 
-        # Apply new fields
+        # Validate and resolve new_account_id
         new_account_id = data.get("account_id") or tx.account_id
+        stmt_new_acc = select(Account).where(Account.id == new_account_id)
+        res_new_acc = await db.execute(stmt_new_acc)
+        new_acc = res_new_acc.scalar_one_or_none()
+        if not new_acc:
+            default_acc = await FinanceService.get_default_account(db, user_id)
+            if default_acc:
+                new_account_id = default_acc.id
+                stmt_new_acc = select(Account).where(Account.id == new_account_id)
+                res_new_acc = await db.execute(stmt_new_acc)
+                new_acc = res_new_acc.scalar_one_or_none()
+
+        # Validate and resolve new_to_account_id
         new_to_account_id = data["to_account_id"] if "to_account_id" in data else tx.to_account_id
+        new_to_acc = None
+        if new_to_account_id:
+            stmt_new_to = select(Account).where(Account.id == new_to_account_id)
+            res_new_to = await db.execute(stmt_new_to)
+            new_to_acc = res_new_to.scalar_one_or_none()
+            if not new_to_acc:
+                new_to_account_id = None
+
         new_amount = to_dec(data.get("amount") if data.get("amount") is not None else tx.amount)
         new_type = data.get("type") or tx.type
 
         # Apply new balance
-        stmt_new_acc = select(Account).where(Account.id == new_account_id)
-        res_new_acc = await db.execute(stmt_new_acc)
-        new_acc = res_new_acc.scalar_one_or_none()
         if new_acc:
             if new_type == "expense":
                 new_acc.balance = to_dec(new_acc.balance) - new_amount
@@ -475,12 +492,8 @@ class FinanceService:
                 new_acc.balance = to_dec(new_acc.balance) + new_amount
             elif new_type == "transfer":
                 new_acc.balance = to_dec(new_acc.balance) - new_amount
-                if new_to_account_id:
-                    stmt_new_to = select(Account).where(Account.id == new_to_account_id)
-                    res_new_to = await db.execute(stmt_new_to)
-                    new_to_acc = res_new_to.scalar_one_or_none()
-                    if new_to_acc:
-                        new_to_acc.balance = to_dec(new_to_acc.balance) + new_amount
+                if new_to_acc:
+                    new_to_acc.balance = to_dec(new_to_acc.balance) + new_amount
 
         tx.account_id = new_account_id
         tx.to_account_id = new_to_account_id
