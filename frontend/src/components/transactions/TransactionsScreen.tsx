@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   ArrowLeftOutlined,
   CalendarOutlined,
@@ -48,13 +48,14 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
   const [dragOverDateKey, setDragOverDateKey] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const pointerDragRef = React.useRef<{
+  const dragSessionRef = React.useRef<{
     tx: Transaction;
+    sourceDateKey: string;
     startX: number;
     startY: number;
     isDragging: boolean;
-    pointerId: number;
   } | null>(null);
+  const justDraggedRef = React.useRef(false);
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -123,13 +124,16 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
     });
   }, [transactions, searchQuery, selectedType, selectedCategory, selectedPeriod]);
 
+  const getDayKey = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
   // Group transactions by formatted date (e.g. "7 мая", "18 сент.")
   const groupedByDate = useMemo(() => {
     const map = new Map<string, { label: string; items: Transaction[]; expense: number }>();
 
     for (const tx of filteredTransactions) {
       const d = tx.created_at ? new Date(tx.created_at) : new Date();
-      const dateKey = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+      const dateKey = getDayKey(d);
       const dateLabel = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 
       if (!map.has(dateKey)) {
@@ -152,7 +156,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
     }[] = [];
 
     const now = new Date();
-    const todayKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+    const todayKey = getDayKey(now);
     const todayLabel = now.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 
     // If today has no transactions yet, add a clean drop zone target at the top!
@@ -190,6 +194,17 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
     return groups;
   }, [filteredTransactions, selectedPeriod]);
 
+  const groupedByDateRef = useRef(groupedByDate);
+  groupedByDateRef.current = groupedByDate;
+
+  // Cleanup body drag styles on unmount
+  useEffect(() => {
+    return () => {
+      document.body.style.userSelect = '';
+      document.body.style.touchAction = '';
+    };
+  }, []);
+
   const typeLabelMap: Record<string, string> = {
     all: 'Все типы',
     expense: 'Расходы',
@@ -209,7 +224,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
     if (!tx) return;
 
     const oldDate = tx.created_at ? new Date(tx.created_at) : new Date();
-    const currentKey = `${oldDate.getFullYear()}-${oldDate.getMonth() + 1}-${oldDate.getDate()}`;
+    const currentKey = getDayKey(oldDate);
     if (currentKey === targetDateKey) return;
 
     const [year, month, day] = targetDateKey.split('-').map(Number);
@@ -235,113 +250,126 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
   };
 
   // Universal Pointer Drag (Mobile Touch, iOS Telegram WebApp, Desktop Mouse)
-  const handlePointerDown = (e: React.PointerEvent, tx: Transaction) => {
+  const handlePointerDown = (e: React.PointerEvent, tx: Transaction, sourceDateKey: string) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
-    const target = e.currentTarget as HTMLElement;
-    try {
-      target.setPointerCapture(e.pointerId);
-    } catch (err) {}
+    if (!e.isPrimary) return;
+    e.stopPropagation();
 
-    pointerDragRef.current = {
+    const startX = e.clientX;
+    const startY = e.clientY;
+
+    dragSessionRef.current = {
       tx,
-      startX: e.clientX,
-      startY: e.clientY,
+      sourceDateKey,
+      startX,
+      startY,
       isDragging: false,
-      pointerId: e.pointerId,
     };
-  };
 
-  const handlePointerMove = (e: React.PointerEvent) => {
-    const state = pointerDragRef.current;
-    if (!state) return;
+    const handleWindowPointerMove = (ev: PointerEvent) => {
+      const session = dragSessionRef.current;
+      if (!session) return;
 
-    const dx = e.clientX - state.startX;
-    const dy = e.clientY - state.startY;
+      const dx = ev.clientX - session.startX;
+      const dy = ev.clientY - session.startY;
 
-    if (!state.isDragging) {
-      if (Math.hypot(dx, dy) > 8) {
-        state.isDragging = true;
-        setDraggingTx(state.tx);
-        onHaptic?.('medium');
-      } else {
-        return;
+      if (!session.isDragging) {
+        if (Math.hypot(dx, dy) > 6) {
+          session.isDragging = true;
+          setDraggingTx(session.tx);
+          onHaptic?.('medium');
+          document.body.style.userSelect = 'none';
+          document.body.style.touchAction = 'none';
+        } else {
+          return;
+        }
       }
-    }
 
-    setDragPos({ x: e.clientX, y: e.clientY });
+      // Active dragging: prevent mobile scroll
+      ev.preventDefault();
+      setDragPos({ x: ev.clientX, y: ev.clientY });
 
-    // Inspect drop zone underneath pointer
-    const elem = document.elementFromPoint(e.clientX, e.clientY);
-    const dropZone = elem?.closest('[data-date-key]');
-    const dateKey = dropZone?.getAttribute('data-date-key') || null;
-
-    if (dateKey !== dragOverDateKey) {
-      if (dateKey) {
-        onHaptic?.('light');
+      // Edge auto-scrolling
+      if (ev.clientY < 90) {
+        window.scrollBy({ top: -12, behavior: 'auto' });
+      } else if (ev.clientY > window.innerHeight - 90) {
+        window.scrollBy({ top: 12, behavior: 'auto' });
       }
-      setDragOverDateKey(dateKey);
-    }
-  };
 
-  const handlePointerUp = (e: React.PointerEvent) => {
-    const state = pointerDragRef.current;
-    if (!state) return;
+      // Inspect drop zone underneath pointer
+      const elem = document.elementFromPoint(ev.clientX, ev.clientY);
+      const dropZone = elem?.closest('[data-date-key]');
+      const foundDateKey = dropZone?.getAttribute('data-date-key') || null;
 
-    try {
-      const target = e.currentTarget as HTMLElement;
-      if (target.hasPointerCapture(state.pointerId)) {
-        target.releasePointerCapture(state.pointerId);
+      const validTarget = foundDateKey && foundDateKey !== session.sourceDateKey ? foundDateKey : null;
+
+      setDragOverDateKey((prev) => {
+        if (prev !== validTarget) {
+          if (validTarget) {
+            onHaptic?.('light');
+          }
+          return validTarget;
+        }
+        return prev;
+      });
+    };
+
+    const cleanupWindowListeners = () => {
+      window.removeEventListener('pointermove', handleWindowPointerMove);
+      window.removeEventListener('pointerup', handleWindowPointerUp);
+      window.removeEventListener('pointercancel', handleWindowPointerCancel);
+      document.body.style.userSelect = '';
+      document.body.style.touchAction = '';
+    };
+
+    const handleWindowPointerUp = (ev: PointerEvent) => {
+      cleanupWindowListeners();
+
+      const session = dragSessionRef.current;
+      if (!session) return;
+
+      if (session.isDragging) {
+        justDraggedRef.current = true;
+        setTimeout(() => {
+          justDraggedRef.current = false;
+        }, 300);
+
+        const elem = document.elementFromPoint(ev.clientX, ev.clientY);
+        const dropZone = elem?.closest('[data-date-key]');
+        const targetDateKey = dropZone?.getAttribute('data-date-key') || dragOverDateKey;
+
+        if (targetDateKey && targetDateKey !== session.sourceDateKey) {
+          const targetGroup = groupedByDateRef.current.find((g) => g.dateKey === targetDateKey);
+          if (targetGroup) {
+            executeDateMove(session.tx.id, targetGroup.dateKey, targetGroup.dateLabel);
+          }
+        }
       }
-    } catch (err) {}
 
-    if (state.isDragging && dragOverDateKey) {
-      const targetGroup = groupedByDate.find((g) => g.dateKey === dragOverDateKey);
-      if (targetGroup) {
-        executeDateMove(state.tx.id, targetGroup.dateKey, targetGroup.dateLabel);
+      dragSessionRef.current = null;
+      setDraggingTx(null);
+      setDragPos(null);
+      setDragOverDateKey(null);
+    };
+
+    const handleWindowPointerCancel = () => {
+      cleanupWindowListeners();
+      const session = dragSessionRef.current;
+      if (session?.isDragging) {
+        justDraggedRef.current = true;
+        setTimeout(() => {
+          justDraggedRef.current = false;
+        }, 300);
       }
-    }
+      dragSessionRef.current = null;
+      setDraggingTx(null);
+      setDragPos(null);
+      setDragOverDateKey(null);
+    };
 
-    pointerDragRef.current = null;
-    setDraggingTx(null);
-    setDragPos(null);
-    setDragOverDateKey(null);
-  };
-
-  const handlePointerCancel = () => {
-    pointerDragRef.current = null;
-    setDraggingTx(null);
-    setDragPos(null);
-    setDragOverDateKey(null);
-  };
-
-  // HTML5 Desktop drag compatibility
-  const handleDragStart = (e: React.DragEvent, tx: Transaction) => {
-    e.dataTransfer.setData('text/plain', tx.id);
-    e.dataTransfer.effectAllowed = 'move';
-    setDraggingTx(tx);
-    onHaptic?.('light');
-  };
-
-  const handleDragEnd = () => {
-    setDraggingTx(null);
-    setDragOverDateKey(null);
-  };
-
-  const handleDragOverDate = (e: React.DragEvent, dateKey: string) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (dragOverDateKey !== dateKey) {
-      setDragOverDateKey(dateKey);
-    }
-  };
-
-  const handleDropOnDate = (e: React.DragEvent, targetDateKey: string, targetDateLabel: string) => {
-    e.preventDefault();
-    const txId = e.dataTransfer.getData('text/plain') || draggingTx?.id;
-    setDragOverDateKey(null);
-    setDraggingTx(null);
-    if (!txId) return;
-    executeDateMove(txId, targetDateKey, targetDateLabel);
+    window.addEventListener('pointermove', handleWindowPointerMove, { passive: false });
+    window.addEventListener('pointerup', handleWindowPointerUp);
+    window.addEventListener('pointercancel', handleWindowPointerCancel);
   };
 
 
@@ -617,8 +645,6 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
               <div
                 key={group.dateKey}
                 data-date-key={group.dateKey}
-                onDragOver={(e) => handleDragOverDate(e, group.dateKey)}
-                onDrop={(e) => handleDropOnDate(e, group.dateKey, group.dateLabel)}
                 className={`space-y-2.5 p-2 rounded-3xl transition-all ${
                   isDropTarget
                     ? 'bg-blue-50/80 dark:bg-blue-950/30 ring-2 ring-blue-500 ring-dashed'
@@ -633,7 +659,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
                     </span>
                     {isDropTarget && (
                       <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/60 px-2 py-0.5 rounded-full animate-pulse">
-                        Сюда
+                        Перенести сюда
                       </span>
                     )}
                   </div>
@@ -671,11 +697,8 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
                     return (
                       <div
                         key={tx.id}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, tx)}
-                        onDragEnd={handleDragEnd}
                         onClick={() => {
-                          if (isBeingDragged) return;
+                          if (justDraggedRef.current || draggingTx) return;
                           onHaptic?.('light');
                           onSelectTransaction(tx);
                         }}
@@ -756,13 +779,13 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
 
                           {/* Grip Handle for Drag & Drop with Pointer Events */}
                           <div
-                            onPointerDown={(e) => handlePointerDown(e, tx)}
-                            onPointerMove={handlePointerMove}
-                            onPointerUp={handlePointerUp}
-                            onPointerCancel={handlePointerCancel}
-                            onClick={(e) => e.stopPropagation()}
+                            onPointerDown={(e) => handlePointerDown(e, tx, group.dateKey)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                            }}
                             title="Перетащить на другую дату"
-                            className="p-2 -mr-1 text-gray-300 dark:text-gray-600 hover:text-[#2B5BFF] dark:hover:text-[#5B82FF] active:text-[#2B5BFF] cursor-grab active:cursor-grabbing touch-none select-none rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            className="w-10 h-10 -mr-1 flex items-center justify-center text-gray-300 dark:text-gray-600 hover:text-[#2B5BFF] dark:hover:text-[#5B82FF] active:text-[#2B5BFF] cursor-grab active:cursor-grabbing touch-none select-none rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
                           >
                             <HolderOutlined className="text-[19px]" />
                           </div>
@@ -780,7 +803,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
       {/* Floating Drag Preview Clone that follows finger */}
       {draggingTx && dragPos && (
         <div
-          className="fixed z-50 pointer-events-none -translate-x-1/2 -translate-y-1/2 shadow-2xl rounded-2xl bg-white dark:bg-[#1E1F26] border-2 border-[#2B5BFF] p-3.5 flex items-center space-x-3 w-[290px] opacity-95 scale-105 transition-transform"
+          className="fixed z-50 pointer-events-none -translate-x-1/2 -translate-y-[55px] shadow-2xl rounded-2xl bg-white dark:bg-[#1E1F26] border-2 border-[#2B5BFF] p-3.5 flex items-center space-x-3 w-[290px] opacity-95 scale-105 transition-transform"
           style={{ left: dragPos.x, top: dragPos.y }}
         >
           <div className="w-10 h-10 rounded-full flex items-center justify-center text-xl bg-blue-50 dark:bg-blue-950/60 text-[#2B5BFF] flex-shrink-0">

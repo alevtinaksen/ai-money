@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   WalletOutlined,
   ReloadOutlined,
@@ -23,11 +23,20 @@ interface DashboardScreenProps {
   onOpenVoice: () => void;
   onOpenTransactions?: () => void;
   onOpenSettings?: () => void;
-  onScanReceipt?: () => void;
+  onScanReceipt: () => void;
   onSelectTransaction?: (tx: Transaction) => void;
   onSelectCategory?: (cat: Category, periodLabel?: string, periodTxs?: Transaction[]) => void;
-  onUpdateTransaction?: (data: any) => void;
-  onRefresh?: () => void;
+  onUpdateTransaction?: (data: {
+    id: string;
+    amount: number;
+    account_id: string;
+    to_account_id?: string | null;
+    category_id?: string | null;
+    type: 'expense' | 'income' | 'transfer';
+    note?: string | null;
+    created_at?: string;
+  }) => void;
+  onRefresh?: () => Promise<void>;
   onHaptic?: (style?: 'light' | 'medium' | 'heavy') => void;
 }
 
@@ -57,13 +66,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
   const [dragOverDateKey, setDragOverDateKey] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const pointerDragRef = React.useRef<{
+  const dragSessionRef = useRef<{
     tx: Transaction;
+    sourceDateKey: string;
     startX: number;
     startY: number;
     isDragging: boolean;
-    pointerId: number;
   } | null>(null);
+  const justDraggedRef = useRef(false);
 
   const totalAccountsBalance = accounts
     .filter((acc) => acc.group_name !== 'Кредиты')
@@ -180,6 +190,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     return groups;
   }, [summary.recent_transactions]);
 
+  const recentTwoDaysGroupsRef = useRef(recentTwoDaysGroups);
+  recentTwoDaysGroupsRef.current = recentTwoDaysGroups;
+
+  // Cleanup body drag styles on unmount
+  useEffect(() => {
+    return () => {
+      document.body.style.userSelect = '';
+      document.body.style.touchAction = '';
+    };
+  }, []);
+
   // Drag & Drop action on Dashboard
   const executeDateMove = (txId: string, targetDateKey: string, targetDateLabel: string) => {
     const tx = summary.recent_transactions.find((t) => t.id === txId);
@@ -211,82 +232,125 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     setTimeout(() => setToastMessage(null), 2500);
   };
 
-  const handlePointerDown = (e: React.PointerEvent, tx: Transaction) => {
+  const handlePointerDown = (e: React.PointerEvent, tx: Transaction, sourceDateKey: string) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
-    const target = e.currentTarget as HTMLElement;
-    try {
-      target.setPointerCapture(e.pointerId);
-    } catch (err) {}
+    if (!e.isPrimary) return;
+    e.stopPropagation();
 
-    pointerDragRef.current = {
+    const startX = e.clientX;
+    const startY = e.clientY;
+
+    dragSessionRef.current = {
       tx,
-      startX: e.clientX,
-      startY: e.clientY,
+      sourceDateKey,
+      startX,
+      startY,
       isDragging: false,
-      pointerId: e.pointerId,
     };
-  };
 
-  const handlePointerMove = (e: React.PointerEvent) => {
-    const state = pointerDragRef.current;
-    if (!state) return;
+    const handleWindowPointerMove = (ev: PointerEvent) => {
+      const session = dragSessionRef.current;
+      if (!session) return;
 
-    const dx = e.clientX - state.startX;
-    const dy = e.clientY - state.startY;
+      const dx = ev.clientX - session.startX;
+      const dy = ev.clientY - session.startY;
 
-    if (!state.isDragging) {
-      if (Math.hypot(dx, dy) > 8) {
-        state.isDragging = true;
-        setDraggingTx(state.tx);
-        onHaptic?.('medium');
-      } else {
-        return;
+      if (!session.isDragging) {
+        if (Math.hypot(dx, dy) > 6) {
+          session.isDragging = true;
+          setDraggingTx(session.tx);
+          onHaptic?.('medium');
+          document.body.style.userSelect = 'none';
+          document.body.style.touchAction = 'none';
+        } else {
+          return;
+        }
       }
-    }
 
-    setDragPos({ x: e.clientX, y: e.clientY });
+      // Active dragging: prevent mobile scroll
+      ev.preventDefault();
+      setDragPos({ x: ev.clientX, y: ev.clientY });
 
-    const elem = document.elementFromPoint(e.clientX, e.clientY);
-    const dropZone = elem?.closest('[data-date-key]');
-    const dateKey = dropZone?.getAttribute('data-date-key') || null;
-
-    if (dateKey !== dragOverDateKey) {
-      if (dateKey) {
-        onHaptic?.('light');
+      // Edge auto-scrolling
+      if (ev.clientY < 90) {
+        window.scrollBy({ top: -12, behavior: 'auto' });
+      } else if (ev.clientY > window.innerHeight - 90) {
+        window.scrollBy({ top: 12, behavior: 'auto' });
       }
-      setDragOverDateKey(dateKey);
-    }
-  };
 
-  const handlePointerUp = (e: React.PointerEvent) => {
-    const state = pointerDragRef.current;
-    if (!state) return;
+      const elem = document.elementFromPoint(ev.clientX, ev.clientY);
+      const dropZone = elem?.closest('[data-date-key]');
+      const foundDateKey = dropZone?.getAttribute('data-date-key') || null;
 
-    try {
-      const target = e.currentTarget as HTMLElement;
-      if (target.hasPointerCapture(state.pointerId)) {
-        target.releasePointerCapture(state.pointerId);
+      const validTarget = foundDateKey && foundDateKey !== session.sourceDateKey ? foundDateKey : null;
+
+      setDragOverDateKey((prev) => {
+        if (prev !== validTarget) {
+          if (validTarget) {
+            onHaptic?.('light');
+          }
+          return validTarget;
+        }
+        return prev;
+      });
+    };
+
+    const cleanupWindowListeners = () => {
+      window.removeEventListener('pointermove', handleWindowPointerMove);
+      window.removeEventListener('pointerup', handleWindowPointerUp);
+      window.removeEventListener('pointercancel', handleWindowPointerCancel);
+      document.body.style.userSelect = '';
+      document.body.style.touchAction = '';
+    };
+
+    const handleWindowPointerUp = (ev: PointerEvent) => {
+      cleanupWindowListeners();
+
+      const session = dragSessionRef.current;
+      if (!session) return;
+
+      if (session.isDragging) {
+        justDraggedRef.current = true;
+        setTimeout(() => {
+          justDraggedRef.current = false;
+        }, 300);
+
+        const elem = document.elementFromPoint(ev.clientX, ev.clientY);
+        const dropZone = elem?.closest('[data-date-key]');
+        const targetDateKey = dropZone?.getAttribute('data-date-key') || dragOverDateKey;
+
+        if (targetDateKey && targetDateKey !== session.sourceDateKey) {
+          const targetGroup = recentTwoDaysGroupsRef.current.find((g) => g.key === targetDateKey);
+          if (targetGroup) {
+            executeDateMove(session.tx.id, targetGroup.key, targetGroup.label);
+          }
+        }
       }
-    } catch (err) {}
 
-    if (state.isDragging && dragOverDateKey) {
-      const targetGroup = recentTwoDaysGroups.find((g) => g.key === dragOverDateKey);
-      if (targetGroup) {
-        executeDateMove(state.tx.id, targetGroup.key, targetGroup.label);
+      dragSessionRef.current = null;
+      setDraggingTx(null);
+      setDragPos(null);
+      setDragOverDateKey(null);
+    };
+
+    const handleWindowPointerCancel = () => {
+      cleanupWindowListeners();
+      const session = dragSessionRef.current;
+      if (session?.isDragging) {
+        justDraggedRef.current = true;
+        setTimeout(() => {
+          justDraggedRef.current = false;
+        }, 300);
       }
-    }
+      dragSessionRef.current = null;
+      setDraggingTx(null);
+      setDragPos(null);
+      setDragOverDateKey(null);
+    };
 
-    pointerDragRef.current = null;
-    setDraggingTx(null);
-    setDragPos(null);
-    setDragOverDateKey(null);
-  };
-
-  const handlePointerCancel = () => {
-    pointerDragRef.current = null;
-    setDraggingTx(null);
-    setDragPos(null);
-    setDragOverDateKey(null);
+    window.addEventListener('pointermove', handleWindowPointerMove, { passive: false });
+    window.addEventListener('pointerup', handleWindowPointerUp);
+    window.addEventListener('pointercancel', handleWindowPointerCancel);
   };
 
   const periodExpense = React.useMemo(() => {
@@ -712,7 +776,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                             <button
                               type="button"
                               onClick={() => {
-                                if (isBeingDragged) return;
+                                if (justDraggedRef.current || draggingTx) return;
                                 onHaptic?.('light');
                                 onSelectTransaction?.(tx);
                               }}
@@ -740,14 +804,15 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
                             {/* Grip Handle for Drag & Drop between days */}
                             <div
-                              onPointerDown={(e) => handlePointerDown(e, tx)}
-                              onPointerMove={handlePointerMove}
-                              onPointerUp={handlePointerUp}
-                              onPointerCancel={handlePointerCancel}
+                              onPointerDown={(e) => handlePointerDown(e, tx, group.key)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                              }}
                               title="Перетащить на другой день"
-                              className="p-1.5 -mr-1 text-gray-300 dark:text-gray-600 hover:text-[#2B5BFF] dark:hover:text-[#5B82FF] active:text-[#2B5BFF] cursor-grab active:cursor-grabbing touch-none select-none rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                              className="w-9 h-9 -mr-1 flex items-center justify-center text-gray-300 dark:text-gray-600 hover:text-[#2B5BFF] dark:hover:text-[#5B82FF] active:text-[#2B5BFF] cursor-grab active:cursor-grabbing touch-none select-none rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
                             >
-                              <HolderOutlined className="text-[16px]" />
+                              <HolderOutlined className="text-[17px]" />
                             </div>
                           </div>
                         );
@@ -760,13 +825,27 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         onHaptic?.('light');
                         onOpenAddTransaction();
                       }}
-                      className="w-full bg-white/60 dark:bg-[#1E1F26]/60 hover:bg-white dark:hover:bg-[#1E1F26] rounded-[20px] py-2.5 px-4 border border-dashed border-gray-200 dark:border-gray-800 text-[13px] font-medium text-gray-400 dark:text-gray-500 flex items-center justify-center space-x-1.5 active:scale-[0.99] transition-all"
+                      className={`w-full rounded-[20px] py-2.5 px-4 border border-dashed text-[13px] font-medium flex items-center justify-center space-x-1.5 active:scale-[0.99] transition-all ${
+                        isDropTarget
+                          ? 'border-[#2B5BFF] bg-blue-50 dark:bg-blue-950/40 text-[#2B5BFF] dark:text-[#5B82FF]'
+                          : 'bg-white/60 dark:bg-[#1E1F26]/60 hover:bg-white dark:hover:bg-[#1E1F26] border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-500'
+                      }`}
                     >
-                      <span>+ Добавить первую операцию за сегодня</span>
+                      <span>
+                        {isDropTarget
+                          ? '✨ Отпустите, чтобы перенести на сегодня'
+                          : '+ Добавить первую операцию за сегодня'}
+                      </span>
                     </button>
                   ) : (
-                    <div className="bg-white/40 dark:bg-[#1E1F26]/40 rounded-[20px] py-2.5 px-4 border border-dashed border-gray-100 dark:border-gray-800/80 text-[13px] text-gray-400 dark:text-gray-500 text-center">
-                      {group.emptyMessage}
+                    <div
+                      className={`rounded-[20px] py-2.5 px-4 border border-dashed text-[13px] text-center transition-all ${
+                        isDropTarget
+                          ? 'border-[#2B5BFF] bg-blue-50 dark:bg-blue-950/40 text-[#2B5BFF] dark:text-[#5B82FF] font-medium'
+                          : 'bg-white/40 dark:bg-[#1E1F26]/40 border-gray-100 dark:border-gray-800/80 text-gray-400 dark:text-gray-500'
+                      }`}
+                    >
+                      {isDropTarget ? '✨ Отпустите, чтобы перенести сюда' : group.emptyMessage}
                     </div>
                   )}
                 </div>
@@ -842,7 +921,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       {/* Floating Drag Preview Clone that follows finger */}
       {draggingTx && dragPos && (
         <div
-          className="fixed z-50 pointer-events-none -translate-x-1/2 -translate-y-1/2 shadow-2xl rounded-2xl bg-white dark:bg-[#1E1F26] border-2 border-[#2B5BFF] p-3.5 flex items-center space-x-3 w-[290px] opacity-95 scale-105 transition-transform"
+          className="fixed z-50 pointer-events-none -translate-x-1/2 -translate-y-[55px] shadow-2xl rounded-2xl bg-white dark:bg-[#1E1F26] border-2 border-[#2B5BFF] p-3.5 flex items-center space-x-3 w-[290px] opacity-95 scale-105 transition-transform"
           style={{ left: dragPos.x, top: dragPos.y }}
         >
           <div className="w-10 h-10 rounded-full flex items-center justify-center text-xl bg-blue-50 dark:bg-blue-950/60 text-[#2B5BFF] flex-shrink-0">

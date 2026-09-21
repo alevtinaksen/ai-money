@@ -287,8 +287,10 @@ export const App: React.FC = () => {
     hapticNotification('success');
     setIsEditTxOpen(false);
 
-    if (!editingTransaction) return;
-    const oldTx = editingTransaction;
+    const oldTx =
+      editingTransaction ||
+      summary.recent_transactions.find((t) => t.id === data.id);
+    if (!oldTx) return;
     const cat = categories.find((c) => c.id === data.category_id);
 
     let updatedAccounts: Account[] = [];
