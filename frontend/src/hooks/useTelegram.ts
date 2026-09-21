@@ -56,6 +56,9 @@ export function useTelegram() {
     if (tg) {
       tg.ready();
       tg.expand();
+      try {
+        (tg as any).disableVerticalSwipes?.();
+      } catch (e) {}
     }
   }, [tg]);
 

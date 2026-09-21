@@ -71,7 +71,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     sourceDateKey: string;
     startX: number;
     startY: number;
+    startTime: number;
     isDragging: boolean;
+    fromHandle: boolean;
   } | null>(null);
   const justDraggedRef = useRef(false);
 
@@ -232,21 +234,32 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     setTimeout(() => setToastMessage(null), 2500);
   };
 
-  const handlePointerDown = (e: React.PointerEvent, tx: Transaction, sourceDateKey: string) => {
+  const handlePointerDown = (
+    e: React.PointerEvent,
+    tx: Transaction,
+    sourceDateKey: string,
+    fromHandle = false
+  ) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
     if (!e.isPrimary) return;
-    e.stopPropagation();
 
     const startX = e.clientX;
     const startY = e.clientY;
+    const startTime = Date.now();
 
     dragSessionRef.current = {
       tx,
       sourceDateKey,
       startX,
       startY,
+      startTime,
       isDragging: false,
+      fromHandle,
     };
+
+    try {
+      (e.currentTarget as HTMLElement)?.setPointerCapture?.(e.pointerId);
+    } catch (err) {}
 
     const handleWindowPointerMove = (ev: PointerEvent) => {
       const session = dragSessionRef.current;
@@ -254,9 +267,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
       const dx = ev.clientX - session.startX;
       const dy = ev.clientY - session.startY;
+      const threshold = session.fromHandle ? 4 : 8;
 
       if (!session.isDragging) {
-        if (Math.hypot(dx, dy) > 6) {
+        if (Math.hypot(dx, dy) > threshold) {
           session.isDragging = true;
           setDraggingTx(session.tx);
           onHaptic?.('medium');
@@ -273,14 +287,27 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
       // Edge auto-scrolling
       if (ev.clientY < 90) {
-        window.scrollBy({ top: -12, behavior: 'auto' });
+        window.scrollBy({ top: -14, behavior: 'auto' });
       } else if (ev.clientY > window.innerHeight - 90) {
-        window.scrollBy({ top: 12, behavior: 'auto' });
+        window.scrollBy({ top: 14, behavior: 'auto' });
       }
 
+      // Drop target detection (elementFromPoint + Bounding Rect fallback)
+      let foundDateKey: string | null = null;
       const elem = document.elementFromPoint(ev.clientX, ev.clientY);
       const dropZone = elem?.closest('[data-date-key]');
-      const foundDateKey = dropZone?.getAttribute('data-date-key') || null;
+      if (dropZone) {
+        foundDateKey = dropZone.getAttribute('data-date-key');
+      } else {
+        const allDropZones = document.querySelectorAll('[data-date-key]');
+        for (const zone of Array.from(allDropZones)) {
+          const rect = zone.getBoundingClientRect();
+          if (ev.clientY >= rect.top - 15 && ev.clientY <= rect.bottom + 15) {
+            foundDateKey = zone.getAttribute('data-date-key');
+            break;
+          }
+        }
+      }
 
       const validTarget = foundDateKey && foundDateKey !== session.sourceDateKey ? foundDateKey : null;
 
@@ -313,17 +340,37 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         justDraggedRef.current = true;
         setTimeout(() => {
           justDraggedRef.current = false;
-        }, 300);
+        }, 350);
 
+        let targetDateKey: string | null = null;
         const elem = document.elementFromPoint(ev.clientX, ev.clientY);
         const dropZone = elem?.closest('[data-date-key]');
-        const targetDateKey = dropZone?.getAttribute('data-date-key') || dragOverDateKey;
+        if (dropZone) {
+          targetDateKey = dropZone.getAttribute('data-date-key');
+        } else if (dragOverDateKey) {
+          targetDateKey = dragOverDateKey;
+        } else {
+          const allDropZones = document.querySelectorAll('[data-date-key]');
+          for (const zone of Array.from(allDropZones)) {
+            const rect = zone.getBoundingClientRect();
+            if (ev.clientY >= rect.top - 20 && ev.clientY <= rect.bottom + 20) {
+              targetDateKey = zone.getAttribute('data-date-key');
+              break;
+            }
+          }
+        }
 
         if (targetDateKey && targetDateKey !== session.sourceDateKey) {
           const targetGroup = recentTwoDaysGroupsRef.current.find((g) => g.key === targetDateKey);
           if (targetGroup) {
             executeDateMove(session.tx.id, targetGroup.key, targetGroup.label);
           }
+        }
+      } else {
+        // Simple tap on card body (not from handle) -> open modal
+        if (!session.fromHandle && Date.now() - session.startTime < 450) {
+          onHaptic?.('light');
+          onSelectTransaction?.(session.tx);
         }
       }
 
@@ -340,7 +387,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         justDraggedRef.current = true;
         setTimeout(() => {
           justDraggedRef.current = false;
-        }, 300);
+        }, 350);
+
+        if (dragOverDateKey && dragOverDateKey !== session.sourceDateKey) {
+          const targetGroup = recentTwoDaysGroupsRef.current.find((g) => g.key === dragOverDateKey);
+          if (targetGroup) {
+            executeDateMove(session.tx.id, targetGroup.key, targetGroup.label);
+          }
+        }
       }
       dragSessionRef.current = null;
       setDraggingTx(null);
@@ -767,21 +821,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         return (
                           <div
                             key={tx.id}
-                            className={`flex-shrink-0 bg-white dark:bg-[#1E1F26] rounded-[22px] px-4 py-3 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center space-x-3 min-w-[190px] text-left transition-all ${
+                            onPointerDown={(e) => handlePointerDown(e, tx, group.key, false)}
+                            className={`flex-shrink-0 bg-white dark:bg-[#1E1F26] rounded-[22px] px-4 py-3 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center space-x-3 min-w-[190px] text-left transition-all cursor-grab active:cursor-grabbing select-none touch-none ${
                               isBeingDragged
-                                ? 'opacity-40 scale-95 border-dashed border-blue-400'
+                                ? 'opacity-35 scale-95 border-dashed border-blue-400'
                                 : 'hover:border-gray-200 dark:hover:border-gray-700'
                             }`}
                           >
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (justDraggedRef.current || draggingTx) return;
-                                onHaptic?.('light');
-                                onSelectTransaction?.(tx);
-                              }}
-                              className="flex items-center space-x-3 flex-1 min-w-0 text-left"
-                            >
+                            <div className="flex items-center space-x-3 flex-1 min-w-0 text-left pointer-events-none">
                               <div className="text-2xl flex-shrink-0">{resolved.icon}</div>
                               <div className="min-w-0 flex-1">
                                 <div className="text-[14px] font-semibold text-[#111827] dark:text-white leading-tight truncate max-w-[125px]">
@@ -800,11 +847,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                                   {tx.amount.toLocaleString('ru-RU')} ₽
                                 </div>
                               </div>
-                            </button>
+                            </div>
 
                             {/* Grip Handle for Drag & Drop between days */}
                             <div
-                              onPointerDown={(e) => handlePointerDown(e, tx, group.key)}
+                              onPointerDown={(e) => {
+                                e.stopPropagation();
+                                handlePointerDown(e, tx, group.key, true);
+                              }}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 e.preventDefault();

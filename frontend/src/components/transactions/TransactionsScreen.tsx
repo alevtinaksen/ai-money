@@ -53,7 +53,9 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
     sourceDateKey: string;
     startX: number;
     startY: number;
+    startTime: number;
     isDragging: boolean;
+    fromHandle: boolean;
   } | null>(null);
   const justDraggedRef = React.useRef(false);
 
@@ -250,21 +252,32 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
   };
 
   // Universal Pointer Drag (Mobile Touch, iOS Telegram WebApp, Desktop Mouse)
-  const handlePointerDown = (e: React.PointerEvent, tx: Transaction, sourceDateKey: string) => {
+  const handlePointerDown = (
+    e: React.PointerEvent,
+    tx: Transaction,
+    sourceDateKey: string,
+    fromHandle = false
+  ) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
     if (!e.isPrimary) return;
-    e.stopPropagation();
 
     const startX = e.clientX;
     const startY = e.clientY;
+    const startTime = Date.now();
 
     dragSessionRef.current = {
       tx,
       sourceDateKey,
       startX,
       startY,
+      startTime,
       isDragging: false,
+      fromHandle,
     };
+
+    try {
+      (e.currentTarget as HTMLElement)?.setPointerCapture?.(e.pointerId);
+    } catch (err) {}
 
     const handleWindowPointerMove = (ev: PointerEvent) => {
       const session = dragSessionRef.current;
@@ -272,9 +285,10 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
 
       const dx = ev.clientX - session.startX;
       const dy = ev.clientY - session.startY;
+      const threshold = session.fromHandle ? 4 : 8;
 
       if (!session.isDragging) {
-        if (Math.hypot(dx, dy) > 6) {
+        if (Math.hypot(dx, dy) > threshold) {
           session.isDragging = true;
           setDraggingTx(session.tx);
           onHaptic?.('medium');
@@ -291,15 +305,27 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
 
       // Edge auto-scrolling
       if (ev.clientY < 90) {
-        window.scrollBy({ top: -12, behavior: 'auto' });
+        window.scrollBy({ top: -14, behavior: 'auto' });
       } else if (ev.clientY > window.innerHeight - 90) {
-        window.scrollBy({ top: 12, behavior: 'auto' });
+        window.scrollBy({ top: 14, behavior: 'auto' });
       }
 
-      // Inspect drop zone underneath pointer
+      // Drop target detection (elementFromPoint + Bounding Rect fallback)
+      let foundDateKey: string | null = null;
       const elem = document.elementFromPoint(ev.clientX, ev.clientY);
       const dropZone = elem?.closest('[data-date-key]');
-      const foundDateKey = dropZone?.getAttribute('data-date-key') || null;
+      if (dropZone) {
+        foundDateKey = dropZone.getAttribute('data-date-key');
+      } else {
+        const allDropZones = document.querySelectorAll('[data-date-key]');
+        for (const zone of Array.from(allDropZones)) {
+          const rect = zone.getBoundingClientRect();
+          if (ev.clientY >= rect.top - 15 && ev.clientY <= rect.bottom + 15) {
+            foundDateKey = zone.getAttribute('data-date-key');
+            break;
+          }
+        }
+      }
 
       const validTarget = foundDateKey && foundDateKey !== session.sourceDateKey ? foundDateKey : null;
 
@@ -332,17 +358,37 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
         justDraggedRef.current = true;
         setTimeout(() => {
           justDraggedRef.current = false;
-        }, 300);
+        }, 350);
 
+        let targetDateKey: string | null = null;
         const elem = document.elementFromPoint(ev.clientX, ev.clientY);
         const dropZone = elem?.closest('[data-date-key]');
-        const targetDateKey = dropZone?.getAttribute('data-date-key') || dragOverDateKey;
+        if (dropZone) {
+          targetDateKey = dropZone.getAttribute('data-date-key');
+        } else if (dragOverDateKey) {
+          targetDateKey = dragOverDateKey;
+        } else {
+          const allDropZones = document.querySelectorAll('[data-date-key]');
+          for (const zone of Array.from(allDropZones)) {
+            const rect = zone.getBoundingClientRect();
+            if (ev.clientY >= rect.top - 20 && ev.clientY <= rect.bottom + 20) {
+              targetDateKey = zone.getAttribute('data-date-key');
+              break;
+            }
+          }
+        }
 
         if (targetDateKey && targetDateKey !== session.sourceDateKey) {
           const targetGroup = groupedByDateRef.current.find((g) => g.dateKey === targetDateKey);
           if (targetGroup) {
             executeDateMove(session.tx.id, targetGroup.dateKey, targetGroup.dateLabel);
           }
+        }
+      } else {
+        // Simple tap on card body (not from handle) -> open modal
+        if (!session.fromHandle && Date.now() - session.startTime < 450) {
+          onHaptic?.('light');
+          onSelectTransaction(session.tx);
         }
       }
 
@@ -359,7 +405,14 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
         justDraggedRef.current = true;
         setTimeout(() => {
           justDraggedRef.current = false;
-        }, 300);
+        }, 350);
+
+        if (dragOverDateKey && dragOverDateKey !== session.sourceDateKey) {
+          const targetGroup = groupedByDateRef.current.find((g) => g.dateKey === dragOverDateKey);
+          if (targetGroup) {
+            executeDateMove(session.tx.id, targetGroup.dateKey, targetGroup.dateLabel);
+          }
+        }
       }
       dragSessionRef.current = null;
       setDraggingTx(null);
@@ -697,19 +750,15 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
                     return (
                       <div
                         key={tx.id}
-                        onClick={() => {
-                          if (justDraggedRef.current || draggingTx) return;
-                          onHaptic?.('light');
-                          onSelectTransaction(tx);
-                        }}
-                        className={`bg-white dark:bg-[#1E1F26] border border-gray-100 dark:border-gray-800/80 rounded-2xl p-3.5 flex items-center justify-between shadow-xs active:scale-[0.99] transition-all cursor-pointer select-none ${
+                        onPointerDown={(e) => handlePointerDown(e, tx, group.dateKey, false)}
+                        className={`bg-white dark:bg-[#1E1F26] border border-gray-100 dark:border-gray-800/80 rounded-2xl p-3.5 flex items-center justify-between shadow-xs active:scale-[0.99] transition-all cursor-grab active:cursor-grabbing select-none touch-none ${
                           isBeingDragged
-                            ? 'opacity-40 scale-95 border-dashed border-blue-400'
+                            ? 'opacity-35 scale-95 border-dashed border-blue-400'
                             : 'hover:border-gray-200 dark:hover:border-gray-700'
                         }`}
                       >
                         {/* Left Icon */}
-                        <div className="flex items-center space-x-3 min-w-0">
+                        <div className="flex items-center space-x-3 min-w-0 pointer-events-none">
                           <div
                             className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 text-[20px] ${
                               isTransfer
@@ -758,7 +807,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
 
                         {/* Right Amount + Drag Handle */}
                         <div className="flex items-center space-x-2 flex-shrink-0 ml-3">
-                          <div className="text-right">
+                          <div className="text-right pointer-events-none">
                             <span
                               className={`text-[16px] font-extrabold tracking-tight ${
                                 isExpense
@@ -779,7 +828,10 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
 
                           {/* Grip Handle for Drag & Drop with Pointer Events */}
                           <div
-                            onPointerDown={(e) => handlePointerDown(e, tx, group.dateKey)}
+                            onPointerDown={(e) => {
+                              e.stopPropagation();
+                              handlePointerDown(e, tx, group.dateKey, true);
+                            }}
                             onClick={(e) => {
                               e.stopPropagation();
                               e.preventDefault();
