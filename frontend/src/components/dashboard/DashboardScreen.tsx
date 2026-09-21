@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   WalletOutlined,
   ReloadOutlined,
@@ -8,7 +8,6 @@ import {
   ScanOutlined,
   AudioOutlined,
   CheckOutlined,
-  HolderOutlined,
 } from '@ant-design/icons';
 import { DashboardSummary, Account, Category, Transaction } from '../../types';
 
@@ -52,7 +51,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onScanReceipt,
   onSelectTransaction,
   onSelectCategory,
-  onUpdateTransaction,
+  onUpdateTransaction: _onUpdateTransaction,
   onRefresh,
   onHaptic,
 }) => {
@@ -60,26 +59,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [categoryMode, setCategoryMode] = useState<'expense' | 'income'>('expense');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showRefreshToast, setShowRefreshToast] = useState(false);
-
-  // Drag & Drop states
-  const [draggingTx, setDraggingTx] = useState<Transaction | null>(null);
-  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
-  const [dragOverTarget, setDragOverTarget] = useState<{
-    key: string;
-    targetTxId?: string | null;
-    insertPos?: 'before' | 'after';
-  } | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const dragSessionRef = useRef<{
-    tx: Transaction;
-    sourceDateKey: string;
-    startX: number;
-    startY: number;
-    startTime: number;
-    isDragging: boolean;
-    fromHandle: boolean;
-  } | null>(null);
-  const justDraggedRef = useRef(false);
 
   const totalAccountsBalance = accounts
     .filter((acc) => acc.group_name !== 'Кредиты')
@@ -194,263 +173,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
     return groups;
   }, [summary.recent_transactions]);
-
-  const recentTwoDaysGroupsRef = useRef(recentTwoDaysGroups);
-  recentTwoDaysGroupsRef.current = recentTwoDaysGroups;
-
-  // Cleanup body drag styles on unmount
-  React.useEffect(() => {
-    return () => {
-      document.body.style.userSelect = '';
-      document.body.style.touchAction = '';
-    };
-  }, []);
-
-  // Drag & Drop action on Dashboard
-  const executeDateMove = (txId: string, targetDateKey: string, targetDateLabel: string) => {
-    const tx = summary.recent_transactions.find((t) => t.id === txId);
-    if (!tx) return;
-
-    const oldDate = tx.created_at ? new Date(tx.created_at) : new Date();
-    const currentKey = `${oldDate.getFullYear()}-${String(oldDate.getMonth() + 1).padStart(2, '0')}-${String(oldDate.getDate()).padStart(2, '0')}`;
-    if (currentKey === targetDateKey) return;
-
-    const [year, month, day] = targetDateKey.split('-').map(Number);
-    const hours = isNaN(oldDate.getHours()) ? 12 : oldDate.getHours();
-    const minutes = isNaN(oldDate.getMinutes()) ? 0 : oldDate.getMinutes();
-    const seconds = isNaN(oldDate.getSeconds()) ? 0 : oldDate.getSeconds();
-    const newDate = new Date(year, month - 1, day, hours, minutes, seconds);
-
-    onHaptic?.('heavy');
-    onUpdateTransaction?.({
-      id: tx.id,
-      amount: tx.amount,
-      account_id: tx.account_id,
-      to_account_id: tx.to_account_id,
-      category_id: tx.category_id,
-      type: tx.type,
-      note: tx.note,
-      created_at: newDate.toISOString(),
-    });
-
-    setToastMessage(`✓ Перенесено на ${targetDateLabel}`);
-    setTimeout(() => setToastMessage(null), 2500);
-  };
-
-  const handlePointerDown = (
-    e: React.PointerEvent,
-    tx: Transaction,
-    sourceDateKey: string,
-    fromHandle = false
-  ) => {
-    if (e.button !== 0 && e.pointerType === 'mouse') return;
-    if (!e.isPrimary) return;
-
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const startTime = Date.now();
-
-    dragSessionRef.current = {
-      tx,
-      sourceDateKey,
-      startX,
-      startY,
-      startTime,
-      isDragging: false,
-      fromHandle,
-    };
-
-    try {
-      (e.currentTarget as HTMLElement)?.setPointerCapture?.(e.pointerId);
-    } catch (err) {}
-
-    const handleWindowPointerMove = (ev: PointerEvent) => {
-      const session = dragSessionRef.current;
-      if (!session) return;
-
-      const dx = ev.clientX - session.startX;
-      const dy = ev.clientY - session.startY;
-      const threshold = session.fromHandle ? 4 : 8;
-
-      if (!session.isDragging) {
-        if (Math.hypot(dx, dy) > threshold) {
-          session.isDragging = true;
-          setDraggingTx(session.tx);
-          onHaptic?.('medium');
-          document.body.style.userSelect = 'none';
-          document.body.style.touchAction = 'none';
-        } else {
-          return;
-        }
-      }
-
-      // Active dragging: prevent mobile scroll
-      ev.preventDefault();
-      setDragPos({ x: ev.clientX, y: ev.clientY });
-
-      // Edge auto-scrolling
-      if (ev.clientY < 90) {
-        window.scrollBy({ top: -14, behavior: 'auto' });
-      } else if (ev.clientY > window.innerHeight - 90) {
-        window.scrollBy({ top: 14, behavior: 'auto' });
-      }
-
-      // Drop target detection
-      let targetDateKey: string | null = null;
-      let targetTxId: string | null = null;
-      let insertPos: 'before' | 'after' = 'after';
-
-      const elem = document.elementFromPoint(ev.clientX, ev.clientY);
-      const txCard = elem?.closest('[data-tx-id]');
-      if (txCard) {
-        targetTxId = txCard.getAttribute('data-tx-id');
-        targetDateKey = txCard.getAttribute('data-tx-date-key');
-        const rect = txCard.getBoundingClientRect();
-        insertPos = ev.clientX < rect.left + rect.width / 2 ? 'before' : 'after';
-      } else {
-        const dropZone = elem?.closest('[data-date-key]');
-        if (dropZone) {
-          targetDateKey = dropZone.getAttribute('data-date-key');
-        } else {
-          const allDropZones = document.querySelectorAll('[data-date-key]');
-          for (const zone of Array.from(allDropZones)) {
-            const rect = zone.getBoundingClientRect();
-            if (ev.clientY >= rect.top - 15 && ev.clientY <= rect.bottom + 15) {
-              targetDateKey = zone.getAttribute('data-date-key');
-              break;
-            }
-          }
-        }
-      }
-
-      if (targetDateKey) {
-        const newTarget = { key: targetDateKey, targetTxId, insertPos };
-        setDragOverTarget((prev) => {
-          if (
-            !prev ||
-            prev.key !== newTarget.key ||
-            prev.targetTxId !== newTarget.targetTxId ||
-            prev.insertPos !== newTarget.insertPos
-          ) {
-            onHaptic?.('light');
-            return newTarget;
-          }
-          return prev;
-        });
-      }
-    };
-
-    const cleanupWindowListeners = () => {
-      window.removeEventListener('pointermove', handleWindowPointerMove);
-      window.removeEventListener('pointerup', handleWindowPointerUp);
-      window.removeEventListener('pointercancel', handleWindowPointerCancel);
-      document.body.style.userSelect = '';
-      document.body.style.touchAction = '';
-    };
-
-    const handleWindowPointerUp = (ev: PointerEvent) => {
-      cleanupWindowListeners();
-
-      const session = dragSessionRef.current;
-      if (!session) return;
-
-      if (session.isDragging) {
-        justDraggedRef.current = true;
-        setTimeout(() => {
-          justDraggedRef.current = false;
-        }, 350);
-
-        let finalDateKey = dragOverTarget?.key || null;
-        let finalTxId = dragOverTarget?.targetTxId || null;
-        let finalInsertPos = dragOverTarget?.insertPos || 'after';
-
-        const elem = document.elementFromPoint(ev.clientX, ev.clientY);
-        const txCard = elem?.closest('[data-tx-id]');
-        if (txCard) {
-          finalTxId = txCard.getAttribute('data-tx-id');
-          finalDateKey = txCard.getAttribute('data-tx-date-key');
-          const rect = txCard.getBoundingClientRect();
-          finalInsertPos = ev.clientX < rect.left + rect.width / 2 ? 'before' : 'after';
-        } else {
-          const dropZone = elem?.closest('[data-date-key]');
-          if (dropZone) {
-            finalDateKey = dropZone.getAttribute('data-date-key');
-          }
-        }
-
-        if (finalDateKey) {
-          if (finalDateKey !== session.sourceDateKey) {
-            // Inter-day move
-            const targetGroup = recentTwoDaysGroupsRef.current.find((g) => g.key === finalDateKey);
-            if (targetGroup) {
-              executeDateMove(session.tx.id, targetGroup.key, targetGroup.label);
-            }
-          } else if (finalTxId && finalTxId !== session.tx.id) {
-            // Intra-day reordering within same date
-            const group = recentTwoDaysGroupsRef.current.find((g) => g.key === finalDateKey);
-            if (group && group.transactions.length > 1) {
-              const fromIndex = group.transactions.findIndex((t) => t.id === session.tx.id);
-              const targetIdx = group.transactions.findIndex((t) => t.id === finalTxId);
-              if (fromIndex !== -1 && targetIdx !== -1) {
-                let toIndex = finalInsertPos === 'before' ? targetIdx : targetIdx + 1;
-                if (fromIndex < toIndex) toIndex -= 1;
-
-                if (fromIndex !== toIndex) {
-                  const newItems = [...group.transactions];
-                  const [moved] = newItems.splice(fromIndex, 1);
-                  newItems.splice(toIndex, 0, moved);
-
-                  const [yStr, mStr, dStr] = finalDateKey.split('-').map(Number);
-                  onHaptic?.('medium');
-
-                  newItems.forEach((item, idx) => {
-                    const newDate = new Date(yStr, mStr - 1, dStr, 20, 0, 0, 0);
-                    newDate.setMinutes(newDate.getMinutes() - idx * 2);
-                    onUpdateTransaction?.({
-                      id: item.id,
-                      amount: item.amount,
-                      account_id: item.account_id,
-                      to_account_id: item.to_account_id,
-                      category_id: item.category_id,
-                      type: item.type,
-                      note: item.note,
-                      created_at: newDate.toISOString(),
-                    });
-                  });
-
-                  setToastMessage(`✓ Порядок операций изменен`);
-                  setTimeout(() => setToastMessage(null), 2500);
-                }
-              }
-            }
-          }
-        }
-      } else {
-        // Simple tap on card body (not from handle) -> open modal
-        if (!session.fromHandle && Date.now() - session.startTime < 450) {
-          onHaptic?.('light');
-          onSelectTransaction?.(session.tx);
-        }
-      }
-
-      dragSessionRef.current = null;
-      setDraggingTx(null);
-      setDragPos(null);
-      setDragOverTarget(null);
-    };
-
-    const handleWindowPointerCancel = () => {
-      cleanupWindowListeners();
-      dragSessionRef.current = null;
-      setDraggingTx(null);
-      setDragPos(null);
-      setDragOverTarget(null);
-    };
-
-    window.addEventListener('pointermove', handleWindowPointerMove, { passive: false });
-    window.addEventListener('pointerup', handleWindowPointerUp);
-    window.addEventListener('pointercancel', handleWindowPointerCancel);
-  };
 
   const periodExpense = React.useMemo(() => {
     return monthTransactions
@@ -834,102 +556,47 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           {/* Transactions List */}
           <div className="space-y-4">
             {recentTwoDaysGroups.map((group) => {
-              const isDifferentDateDropTarget =
-                dragOverTarget?.key === group.key &&
-                dragSessionRef.current?.sourceDateKey !== group.key;
-
               return (
-                <div
-                  key={group.key}
-                  data-date-key={group.key}
-                  className={`space-y-2 p-2 rounded-3xl transition-all ${
-                    isDifferentDateDropTarget
-                      ? 'bg-blue-50/80 dark:bg-blue-950/30 ring-2 ring-[#2B5BFF] ring-dashed'
-                      : ''
-                  }`}
-                >
+                <div key={group.key} className="space-y-2">
                   <div className="flex items-center justify-between pl-1">
                     <span className="text-[13px] font-semibold text-[#6B7280] dark:text-gray-300">
                       {group.label}
                     </span>
-                    {isDifferentDateDropTarget && (
-                      <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/60 px-2 py-0.5 rounded-full animate-pulse">
-                        Перенести сюда
-                      </span>
-                    )}
                   </div>
 
                   {group.transactions.length > 0 ? (
                     <div className="flex items-center space-x-3 overflow-x-auto no-scrollbar pb-1">
                       {group.transactions.map((tx) => {
                         const resolved = resolveCategoryAndSubcategory(tx);
-                        const isBeingDragged = draggingTx?.id === tx.id;
-
-                        const isDropTargetItem =
-                          dragOverTarget?.key === group.key &&
-                          dragOverTarget?.targetTxId === tx.id &&
-                          draggingTx?.id !== tx.id;
-                        const showInsertBefore = isDropTargetItem && dragOverTarget?.insertPos === 'before';
-                        const showInsertAfter = isDropTargetItem && dragOverTarget?.insertPos === 'after';
 
                         return (
-                          <React.Fragment key={tx.id}>
-                            {showInsertBefore && (
-                              <div className="w-1 self-stretch min-h-[60px] bg-[#2B5BFF] rounded-full mx-0.5 shadow-[0_0_8px_rgba(43,91,255,0.6)] animate-pulse shrink-0" />
-                            )}
-
-                            <div
-                              data-tx-id={tx.id}
-                              data-tx-date-key={group.key}
-                              onPointerDown={(e) => handlePointerDown(e, tx, group.key, false)}
-                              className={`flex-shrink-0 bg-white dark:bg-[#1E1F26] rounded-[22px] px-4 py-3 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center space-x-3 min-w-[190px] text-left transition-all cursor-grab active:cursor-grabbing select-none touch-none ${
-                                isBeingDragged
-                                  ? 'opacity-35 scale-95 border-dashed border-blue-400'
-                                  : 'hover:border-gray-200 dark:hover:border-gray-700'
-                              }`}
-                            >
-                              <div className="flex items-center space-x-3 flex-1 min-w-0 text-left pointer-events-none">
-                                <div className="text-2xl flex-shrink-0">{resolved.icon}</div>
-                                <div className="min-w-0 flex-1">
-                                  <div className="text-[14px] font-semibold text-[#111827] dark:text-white leading-tight truncate max-w-[125px]">
-                                    {resolved.displayTitle}
-                                  </div>
-                                  <div
-                                    className={`text-[13px] font-bold mt-1 ${
-                                      tx.type === 'expense'
-                                        ? 'text-[#FF4B55]'
-                                        : tx.type === 'income'
-                                        ? 'text-[#10B981]'
-                                        : 'text-[#6B7280] dark:text-gray-400'
-                                    }`}
-                                  >
-                                    {tx.type === 'expense' ? '−' : tx.type === 'income' ? '+' : ''}
-                                    {tx.amount.toLocaleString('ru-RU')} ₽
-                                  </div>
-                                </div>
+                          <div
+                            key={tx.id}
+                            onClick={() => {
+                              onHaptic?.('light');
+                              onSelectTransaction?.(tx);
+                            }}
+                            className="flex-shrink-0 bg-white dark:bg-[#1E1F26] rounded-[22px] px-4 py-3 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center space-x-3 min-w-[175px] text-left hover:border-gray-200 dark:hover:border-gray-700 active:scale-95 transition-all cursor-pointer select-none"
+                          >
+                            <div className="text-2xl flex-shrink-0">{resolved.icon}</div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-[14px] font-semibold text-[#111827] dark:text-white leading-tight truncate max-w-[130px]">
+                                {resolved.displayTitle}
                               </div>
-
-                              {/* Grip Handle for Drag & Drop between days */}
                               <div
-                                onPointerDown={(e) => {
-                                  e.stopPropagation();
-                                  handlePointerDown(e, tx, group.key, true);
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  e.preventDefault();
-                                }}
-                                title="Перетащить операцию"
-                                className="w-9 h-9 -mr-1 flex items-center justify-center text-gray-300 dark:text-gray-600 hover:text-[#2B5BFF] dark:hover:text-[#5B82FF] active:text-[#2B5BFF] cursor-grab active:cursor-grabbing touch-none select-none rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
+                                className={`text-[13px] font-bold mt-1 ${
+                                  tx.type === 'expense'
+                                    ? 'text-[#FF4B55]'
+                                    : tx.type === 'income'
+                                    ? 'text-[#10B981]'
+                                    : 'text-[#6B7280] dark:text-gray-400'
+                                }`}
                               >
-                                <HolderOutlined className="text-[17px]" />
+                                {tx.type === 'expense' ? '−' : tx.type === 'income' ? '+' : ''}
+                                {tx.amount.toLocaleString('ru-RU')} ₽
                               </div>
                             </div>
-
-                            {showInsertAfter && (
-                              <div className="w-1 self-stretch min-h-[60px] bg-[#2B5BFF] rounded-full mx-0.5 shadow-[0_0_8px_rgba(43,91,255,0.6)] animate-pulse shrink-0" />
-                            )}
-                          </React.Fragment>
+                          </div>
                         );
                       })}
                     </div>
@@ -940,27 +607,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         onHaptic?.('light');
                         onOpenAddTransaction();
                       }}
-                      className={`w-full rounded-[20px] py-2.5 px-4 border border-dashed text-[13px] font-medium flex items-center justify-center space-x-1.5 active:scale-[0.99] transition-all ${
-                        isDifferentDateDropTarget
-                          ? 'border-[#2B5BFF] bg-blue-50 dark:bg-blue-950/40 text-[#2B5BFF] dark:text-[#5B82FF]'
-                          : 'bg-white/60 dark:bg-[#1E1F26]/60 hover:bg-white dark:hover:bg-[#1E1F26] border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-500'
-                      }`}
+                      className="w-full rounded-[20px] py-2.5 px-4 border border-dashed text-[13px] font-medium flex items-center justify-center space-x-1.5 active:scale-[0.99] transition-all bg-white/60 dark:bg-[#1E1F26]/60 hover:bg-white dark:hover:bg-[#1E1F26] border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-500"
                     >
-                      <span>
-                        {isDifferentDateDropTarget
-                          ? '✨ Отпустите, чтобы перенести на сегодня'
-                          : '+ Добавить первую операцию за сегодня'}
-                      </span>
+                      <span>+ Добавить первую операцию за сегодня</span>
                     </button>
                   ) : (
-                    <div
-                      className={`rounded-[20px] py-2.5 px-4 border border-dashed text-[13px] text-center transition-all ${
-                        isDifferentDateDropTarget
-                          ? 'border-[#2B5BFF] bg-blue-50 dark:bg-blue-950/40 text-[#2B5BFF] dark:text-[#5B82FF] font-medium'
-                          : 'bg-white/40 dark:bg-[#1E1F26]/40 border-gray-100 dark:border-gray-800/80 text-gray-400 dark:text-gray-500'
-                      }`}
-                    >
-                      {isDifferentDateDropTarget ? '✨ Отпустите, чтобы перенести сюда' : group.emptyMessage}
+                    <div className="rounded-[20px] py-2.5 px-4 border border-dashed text-[13px] text-center bg-white/40 dark:bg-[#1E1F26]/40 border-gray-100 dark:border-gray-800/80 text-gray-400 dark:text-gray-500">
+                      {group.emptyMessage}
                     </div>
                   )}
                 </div>
@@ -1024,38 +677,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </button>
         </div>
       </div>
-
-      {/* Date Move Feedback Toast */}
-      {toastMessage && (
-        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 bg-[#111827]/90 dark:bg-white/90 text-white dark:text-[#111827] text-xs font-semibold px-4 py-2 rounded-full shadow-lg backdrop-blur-md animate-fade-in flex items-center space-x-2 border border-white/10 dark:border-black/10 pointer-events-none">
-          <CheckOutlined className="text-emerald-400 text-sm" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
-
-      {/* Floating Drag Preview Clone that follows finger */}
-      {draggingTx && dragPos && (
-        <div
-          className="fixed z-50 pointer-events-none -translate-x-1/2 -translate-y-[55px] shadow-2xl rounded-2xl bg-white dark:bg-[#1E1F26] border-2 border-[#2B5BFF] p-3.5 flex items-center space-x-3 w-[290px] opacity-95 scale-105 transition-transform"
-          style={{ left: dragPos.x, top: dragPos.y }}
-        >
-          <div className="w-10 h-10 rounded-full flex items-center justify-center text-xl bg-blue-50 dark:bg-blue-950/60 text-[#2B5BFF] flex-shrink-0">
-            {resolveCategoryAndSubcategory(draggingTx).icon}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-[14px] font-bold text-[#111827] dark:text-white truncate">
-              {resolveCategoryAndSubcategory(draggingTx).displayTitle}
-            </div>
-            <div className="text-[12px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
-              {draggingTx.account_name || 'Счёт'}
-            </div>
-          </div>
-          <div className="text-[14px] font-extrabold text-[#EF4444] flex-shrink-0">
-            {draggingTx.type === 'expense' ? '−' : draggingTx.type === 'income' ? '+' : ''}
-            {draggingTx.amount.toLocaleString('ru-RU')} ₽
-          </div>
-        </div>
-      )}
     </div>
   );
 };
