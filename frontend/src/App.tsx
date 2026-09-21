@@ -668,7 +668,6 @@ export const App: React.FC = () => {
             setEditingAccount(null);
             setIsEditAccountOpen(true);
           }}
-          onOpenSettings={() => setCurrentScreen('settings')}
           onHaptic={hapticImpact}
         />
       ) : (

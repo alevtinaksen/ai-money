@@ -3,10 +3,11 @@ import {
   WalletOutlined,
   ReloadOutlined,
   SettingOutlined,
+  LeftOutlined,
+  RightOutlined,
+  ScanOutlined,
   AudioOutlined,
   CheckOutlined,
-  CameraOutlined,
-  PlusOutlined,
 } from '@ant-design/icons';
 import { DashboardSummary, Account, Category, Transaction } from '../../types';
 
@@ -289,21 +290,31 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     }));
   }, [monthTransactions, categories, categoryMode, periodExpense, periodIncome]);
 
+  const formatCompactAmount = (amount: number) => {
+    if (amount <= 0) return '0 ₽';
+    if (amount >= 1000) {
+      const thousands = amount / 1000;
+      const formatted = thousands >= 10 ? thousands.toFixed(1) : thousands.toFixed(2);
+      return `${formatted.replace('.', ',')} тыс. ₽`;
+    }
+    return `${amount.toLocaleString('ru-RU')} ₽`;
+  };
+
   return (
     <div className="min-h-screen bg-[#F6F7FB] dark:bg-[#121318] text-[#111827] dark:text-white flex flex-col justify-between pb-24 select-none animate-fade-in relative transition-colors duration-200">
       {/* Top Header Bar */}
-      <div className="px-4 pt-10 pb-3 flex items-center justify-between">
-        {/* Total Balance Lime Pill Button */}
+      <div className="px-5 pt-12 pb-3 flex items-center justify-between">
+        {/* Total Balance Wallet Button */}
         <button
           type="button"
           onClick={() => {
             onHaptic?.('light');
             onOpenAccounts();
           }}
-          className="bg-[#8CFF54] hover:bg-[#7CE643] text-black px-3.5 py-1.5 rounded-lg flex items-center space-x-2 font-bold text-[16px] shadow-sm active:scale-95 transition-all"
+          className="flex items-center space-x-2 text-[#111827] dark:text-white active:opacity-75 transition-opacity"
         >
-          <WalletOutlined className="text-[17px] text-black" />
-          <span>
+          <WalletOutlined className="text-[22px] text-[#111827] dark:text-white" />
+          <span className="text-[17px] font-bold tracking-tight">
             {totalAccountsBalance.toLocaleString('ru-RU', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
@@ -313,7 +324,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </button>
 
         {/* Right Header Action Icons */}
-        <div className="flex items-center space-x-3 text-black dark:text-white">
+        <div className="flex items-center space-x-3 text-[#374151] dark:text-gray-300">
           <button
             type="button"
             disabled={isRefreshing}
@@ -328,12 +339,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 setTimeout(() => setIsRefreshing(false), 700);
               }
             }}
-            className="p-1 hover:text-gray-600 transition-colors"
+            className="p-1 hover:text-black dark:hover:text-white transition-colors"
             title="Синхронизировать с сервером"
           >
             <ReloadOutlined
-              className={`text-[18px] text-gray-700 dark:text-gray-300 transition-all ${
-                isRefreshing ? 'animate-spin text-black dark:text-white' : 'active:rotate-180 duration-300'
+              className={`text-[18px] text-[#4B5563] dark:text-gray-300 transition-all ${
+                isRefreshing ? 'animate-spin text-[#2B5BFF]' : 'active:rotate-180 duration-300'
               }`}
             />
           </button>
@@ -343,10 +354,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               onHaptic?.('light');
               onOpenSettings?.();
             }}
-            className="p-1 text-black dark:text-white hover:text-gray-600 transition-colors"
+            className="p-1 hover:text-black dark:hover:text-white transition-colors"
             title="Настройки"
           >
-            <SettingOutlined className="text-[20px]" />
+            <SettingOutlined className="text-[18px] text-[#4B5563] dark:text-gray-300" />
           </button>
         </div>
       </div>
@@ -362,94 +373,111 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       {/* Main Center Content */}
       <div className="flex-1 px-5 max-w-lg mx-auto w-full">
         {/* Month / Period Selector */}
-        <div className="flex items-center justify-center space-x-6 my-2">
+        <div className="flex items-center justify-center space-x-4 my-2">
           <button
             type="button"
             onClick={prevMonth}
-            className="text-gray-600 hover:text-black dark:text-gray-400 dark:hover:text-white active:scale-90 transition-transform text-[16px] font-bold"
+            className="w-8 h-8 rounded-full bg-white dark:bg-[#1E1F26] border border-gray-100 dark:border-gray-800 shadow-sm flex items-center justify-center text-[#6B7280] dark:text-gray-300 active:scale-90"
           >
-            ←
+            <LeftOutlined className="text-[14px]" />
           </button>
-          <span className="text-[17px] font-semibold text-[#111827] dark:text-white tracking-wide">
+          <span className="text-[17px] font-bold text-[#111827] dark:text-white min-w-[140px] text-center">
             {monthLabel}
           </span>
           <button
             type="button"
             onClick={nextMonth}
-            className="text-gray-600 hover:text-black dark:text-gray-400 dark:hover:text-white active:scale-90 transition-transform text-[16px] font-bold"
+            className="w-8 h-8 rounded-full bg-white dark:bg-[#1E1F26] border border-gray-100 dark:border-gray-800 shadow-sm flex items-center justify-center text-[#6B7280] dark:text-gray-300 active:scale-90"
           >
-            →
+            <RightOutlined className="text-[14px]" />
           </button>
         </div>
 
         {/* Big Net Period Amount */}
-        <div className="text-center my-6">
+        <div className="text-center my-4">
           {(() => {
-            const netFormatted = (periodNet < 0 ? '-' : '') + Math.abs(periodNet).toFixed(2);
+            const sign = periodNet > 0 ? '+' : (periodNet < 0 ? '−' : '');
             return (
-              <h2 className="text-[48px] sm:text-[54px] font-extrabold text-[#111827] dark:text-white tracking-tight leading-none flex items-center justify-center">
-                <span>{netFormatted}</span>
-                <span className="text-[#9CA3AF] dark:text-gray-500 font-normal ml-2">₽</span>
+              <h2 className="text-[42px] font-extrabold text-[#111827] dark:text-white tracking-tight">
+                {sign}{Math.abs(periodNet).toLocaleString('ru-RU', { minimumFractionDigits: 0 })}{' '}
+                <span className="font-bold">₽</span>
               </h2>
             );
           })()}
 
-          {/* Stat Tabs: [ ↓ 0₽ ] [ ↑ 5278₽ ] */}
-          <div className="flex items-center justify-center w-full max-w-sm mx-auto mt-6 rounded-2xl overflow-hidden shadow-sm">
-            {/* Income tab */}
+          {/* Stat Badges: Income ↓ and Expense ↑ (Interactive Toggles) */}
+          <div className="flex items-center justify-center space-x-3 mt-3">
+            {/* Green Income Toggle Button */}
             <button
               type="button"
               onClick={() => {
                 onHaptic?.('light');
                 setCategoryMode('income');
               }}
-              className={`flex-1 py-3 px-4 font-bold text-[15px] flex items-center justify-center space-x-1.5 transition-all ${
+              className={`flex items-center space-x-2 px-4 py-1.5 rounded-full font-bold text-[14px] transition-all active:scale-95 cursor-pointer select-none ${
                 categoryMode === 'income'
-                  ? 'bg-[#111827] text-white'
-                  : 'bg-[#E5E7EB] dark:bg-[#1E1F26] text-[#111827] dark:text-gray-300'
+                  ? 'bg-[#34C759] text-white shadow-sm'
+                  : 'bg-[#ECFDF5] dark:bg-[#14231E] text-[#10B981] border border-emerald-200/60 dark:border-emerald-900/30'
               }`}
             >
-              <span>↓</span>
-              <span>{Math.round(periodIncome)}₽</span>
+              <div
+                className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold leading-none ${
+                  categoryMode === 'income'
+                    ? 'bg-white text-[#34C759]'
+                    : 'bg-emerald-100 dark:bg-emerald-950/80 text-[#10B981]'
+                }`}
+              >
+                ↓
+              </div>
+              <span>
+                {periodIncome.toLocaleString('ru-RU', {
+                  minimumFractionDigits: 0,
+                })}{' '}
+                ₽
+              </span>
             </button>
 
-            {/* Expense tab */}
+            {/* Red Expense Toggle Button */}
             <button
               type="button"
               onClick={() => {
                 onHaptic?.('light');
                 setCategoryMode('expense');
               }}
-              className={`flex-1 py-3 px-4 font-bold text-[15px] flex items-center justify-center space-x-1.5 transition-all ${
+              className={`flex items-center space-x-2 px-4 py-1.5 rounded-full font-bold text-[14px] transition-all active:scale-95 cursor-pointer select-none ${
                 categoryMode === 'expense'
-                  ? 'bg-[#111827] text-white'
-                  : 'bg-[#E5E7EB] dark:bg-[#1E1F26] text-[#111827] dark:text-gray-300'
+                  ? 'bg-[#FF4B55] text-white shadow-sm'
+                  : 'bg-[#FEE2E2] dark:bg-[#28181E] text-[#EF4444] border border-red-200/60 dark:border-red-900/30'
               }`}
             >
-              <span>↑</span>
-              <span>{Math.round(periodExpense)}₽</span>
-            </button>
-          </div>
-
-          {/* Lime Green Banner: «Все транзакции» */}
-          <div className="mt-4 w-full max-w-sm mx-auto">
-            <button
-              type="button"
-              onClick={() => {
-                onHaptic?.('light');
-                onOpenTransactions?.();
-              }}
-              className="w-full py-3 px-4 rounded-2xl bg-[#8CFF54] hover:bg-[#7CE643] text-black font-bold text-[15px] shadow-sm flex items-center justify-center active:scale-[0.99] transition-all"
-            >
-              Все транзакции
+              <div
+                className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold leading-none ${
+                  categoryMode === 'expense'
+                    ? 'bg-white text-[#FF4B55]'
+                    : 'bg-red-100 dark:bg-red-950/80 text-[#EF4444]'
+                }`}
+              >
+                ↑
+              </div>
+              <span>
+                {periodExpense.toLocaleString('ru-RU', {
+                  minimumFractionDigits: 0,
+                })}{' '}
+                ₽
+              </span>
             </button>
           </div>
         </div>
 
-        {/* Category Minimalist Square Cards (Horizontal scroll) */}
+        {/* Category Circular Tiles (Horizontal scroll, sorted by spending) */}
         <div className="my-6">
-          <div className="flex items-stretch space-x-3 overflow-x-auto no-scrollbar py-2">
+          <div className="flex items-center space-x-4 overflow-x-auto no-scrollbar py-2 px-1">
             {topCategories.map((cat) => {
+              const radius = 29;
+              const circumference = 2 * Math.PI * radius;
+              const pct = cat.amount > 0 ? (cat.percentage || 0) : 0;
+              const strokeDashoffset = circumference - (pct / 100) * circumference;
+
               return (
                 <button
                   key={cat.id}
@@ -458,47 +486,88 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     onHaptic?.('light');
                     onSelectCategory?.(cat as any, monthLabel, monthTransactions);
                   }}
-                  className="bg-white dark:bg-[#1E1F26] rounded-2xl p-3 min-w-[96px] w-[96px] flex flex-col justify-between items-start border border-gray-100 dark:border-gray-800 shadow-sm active:scale-95 transition-transform text-left shrink-0"
+                  className="flex flex-col items-center flex-shrink-0 group active:scale-95 transition-all min-w-[72px]"
                 >
-                  <div className="w-12 h-12 rounded-xl bg-gray-50 dark:bg-gray-800/80 flex items-center justify-center text-2xl mx-auto mb-3 shadow-inner">
-                    {cat.icon}
-                  </div>
-                  <div>
-                    <div className="text-[15px] font-bold text-[#111827] dark:text-white leading-tight flex items-center">
-                      <span>{Math.round(cat.amount)}</span>
-                      <span className="text-[#9CA3AF] dark:text-gray-500 font-normal text-xs ml-0.5">₽</span>
+                  {/* Concentric Progress Ring with Emoji Icon inside */}
+                  <div className="relative w-[68px] h-[68px] flex items-center justify-center mb-1.5 shrink-0">
+                    <svg className="w-[68px] h-[68px] -rotate-90 transform absolute inset-0" viewBox="0 0 68 68">
+                      {/* Track */}
+                      <circle
+                        cx="34"
+                        cy="34"
+                        r={radius}
+                        className="stroke-gray-200"
+                        strokeWidth="3.5"
+                        fill="none"
+                      />
+                      {/* Colored Progress Arc */}
+                      <circle
+                        cx="34"
+                        cy="34"
+                        r={radius}
+                        stroke={cat.color}
+                        strokeWidth="3.5"
+                        strokeDasharray={circumference}
+                        strokeDashoffset={strokeDashoffset}
+                        strokeLinecap="round"
+                        fill="none"
+                        className="transition-all duration-700"
+                      />
+                    </svg>
+
+                    {/* Centered Emoji Circle */}
+                    <div className="w-[52px] h-[52px] rounded-full bg-white dark:bg-[#1E1F26] shadow-sm flex items-center justify-center text-[26px] z-10 border border-gray-100 dark:border-gray-800 group-hover:scale-105 transition-transform select-none">
+                      {cat.icon}
                     </div>
-                    <span className="text-[12px] font-medium text-[#6B7280] dark:text-gray-400 block mt-0.5 truncate max-w-[74px]">
-                      {cat.name}
-                    </span>
                   </div>
+
+                  {/* Category Name */}
+                  <span className="text-[13px] font-semibold text-[#111827] dark:text-gray-200 text-center truncate max-w-[76px] block leading-tight">
+                    {cat.name}
+                  </span>
+
+                  {/* Formatted Amount (e.g. 11,7 тыс. ₽) */}
+                  <span className="text-[11px] font-medium text-[#6B7280] dark:text-gray-400 text-center mt-1 block whitespace-nowrap leading-none">
+                    {formatCompactAmount(cat.amount)}
+                  </span>
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* Recent Transactions Section */}
-        <div className="mt-6 mb-12">
-          <div className="space-y-6">
-            {recentTwoDaysGroups.map((group) => {
-              const dateMatch = group.label.match(/^([^,]+),\s*(.+)$/);
-              const dayNumMonth = dateMatch ? dateMatch[2] : group.label;
-              const relativeTag = dateMatch ? `[${dateMatch[1]}]` : '';
+        {/* Recent Transactions Section («Недавние») */}
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-[18px] font-bold text-[#111827] dark:text-white">Недавние</h3>
+            <button
+              type="button"
+              onClick={() => {
+                onHaptic?.('light');
+                onOpenTransactions?.();
+              }}
+              className="text-[13px] font-semibold text-[#2B5BFF] dark:text-[#5B82FF] flex items-center space-x-1 hover:underline active:opacity-75"
+            >
+              <span>Все транзакции</span>
+              <RightOutlined className="text-[12px]" />
+            </button>
+          </div>
 
+          {/* Transactions List */}
+          <div className="space-y-4">
+            {recentTwoDaysGroups.map((group) => {
               return (
-                <div key={group.key} className="space-y-3">
-                  {/* Centered Date Header: e.g. 18 сентября [Сегодня] */}
-                  <div className="text-center text-[13px] font-medium text-gray-500 dark:text-gray-400">
-                    <span className="font-semibold text-gray-700 dark:text-gray-300">{dayNumMonth}</span>{' '}
-                    <span>{relativeTag}</span>
+                <div key={group.key} className="space-y-2">
+                  <div className="flex items-center justify-between pl-1">
+                    <span className="text-[13px] font-semibold text-[#6B7280] dark:text-gray-300">
+                      {group.label}
+                    </span>
                   </div>
 
                   {group.transactions.length > 0 ? (
-                    <div className="space-y-1">
+                    <div className="flex items-center space-x-3 overflow-x-auto no-scrollbar pb-1">
                       {group.transactions.map((tx) => {
                         const resolved = resolveCategoryAndSubcategory(tx);
-                        const isIncome = tx.type === 'income';
 
                         return (
                           <div
@@ -507,20 +576,25 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                               onHaptic?.('light');
                               onSelectTransaction?.(tx);
                             }}
-                            className="w-full flex items-center justify-between py-3 px-1 border-b border-gray-100/60 dark:border-gray-800/60 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer"
+                            className="flex-shrink-0 bg-white dark:bg-[#1E1F26] rounded-[22px] px-4 py-3 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center space-x-3 min-w-[175px] text-left hover:border-gray-200 dark:hover:border-gray-700 active:scale-95 transition-all cursor-pointer select-none"
                           >
-                            <div className="flex items-center space-x-3 min-w-0 flex-1">
-                              <span className="text-2xl shrink-0">{resolved.icon}</span>
-                              <div className="min-w-0 flex-1">
-                                <span className="text-[15px] font-medium text-[#111827] dark:text-white truncate block">
-                                  {resolved.displayTitle}
-                                </span>
+                            <div className="text-2xl flex-shrink-0">{resolved.icon}</div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-[14px] font-semibold text-[#111827] dark:text-white leading-tight truncate max-w-[130px]">
+                                {resolved.displayTitle}
                               </div>
-                            </div>
-
-                            <div className="text-right shrink-0 font-bold text-[16px] text-[#111827] dark:text-white ml-3 flex items-center">
-                              <span>{isIncome ? '+' : '-'}{Math.round(tx.amount)}</span>
-                              <span className="text-[#9CA3AF] dark:text-gray-500 font-normal ml-1 text-sm">₽</span>
+                              <div
+                                className={`text-[13px] font-bold mt-1 ${
+                                  tx.type === 'expense'
+                                    ? 'text-[#FF4B55]'
+                                    : tx.type === 'income'
+                                    ? 'text-[#10B981]'
+                                    : 'text-[#6B7280] dark:text-gray-400'
+                                }`}
+                              >
+                                {tx.type === 'expense' ? '−' : tx.type === 'income' ? '+' : ''}
+                                {tx.amount.toLocaleString('ru-RU')} ₽
+                              </div>
                             </div>
                           </div>
                         );
@@ -533,12 +607,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         onHaptic?.('light');
                         onOpenAddTransaction();
                       }}
-                      className="w-full rounded-2xl py-3 px-4 border border-dashed text-[13px] font-medium flex items-center justify-center space-x-1.5 active:scale-[0.99] transition-all bg-white/60 dark:bg-[#1E1F26]/60 hover:bg-white dark:hover:bg-[#1E1F26] border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-500"
+                      className="w-full rounded-[20px] py-2.5 px-4 border border-dashed text-[13px] font-medium flex items-center justify-center space-x-1.5 active:scale-[0.99] transition-all bg-white/60 dark:bg-[#1E1F26]/60 hover:bg-white dark:hover:bg-[#1E1F26] border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-500"
                     >
                       <span>+ Добавить первую операцию за сегодня</span>
                     </button>
                   ) : (
-                    <div className="rounded-2xl py-3 px-4 border border-dashed text-[13px] text-center bg-white/40 dark:bg-[#1E1F26]/40 border-gray-100 dark:border-gray-800/80 text-gray-400 dark:text-gray-500">
+                    <div className="rounded-[20px] py-2.5 px-4 border border-dashed text-[13px] text-center bg-white/40 dark:bg-[#1E1F26]/40 border-gray-100 dark:border-gray-800/80 text-gray-400 dark:text-gray-500">
                       {group.emptyMessage}
                     </div>
                   )}
@@ -549,46 +623,59 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </div>
       </div>
 
-      {/* Solid Dock Bottom Navigation Bar (Camera | Voice | Plus) */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 bg-[#111827] border-t border-black flex items-stretch h-[72px] shadow-2xl">
-        {/* Left: Scan/Camera (Black) */}
-        <button
-          type="button"
-          onClick={() => {
-            onHaptic?.('medium');
-            onScanReceipt?.();
-          }}
-          className="w-[28%] bg-[#111827] hover:bg-black text-white flex items-center justify-center active:opacity-75 transition-all"
-          title="Сканировать чек"
-        >
-          <CameraOutlined className="text-[24px]" />
-        </button>
+      {/* Floating Bottom Navigation Bar */}
+      <div className="fixed bottom-6 left-0 right-0 z-30 flex items-center justify-center">
+        <div className="flex items-center space-x-5">
+          {/* Left: Receipt / QR Scanner Button */}
+          <button
+            type="button"
+            onClick={() => {
+              onHaptic?.('medium');
+              onScanReceipt?.();
+            }}
+            className="w-13 h-13 p-3 rounded-full bg-white dark:bg-[#1E1F26] text-[#111827] dark:text-white shadow-[0_4px_16px_rgba(0,0,0,0.08)] flex items-center justify-center active:scale-90 transition-all border border-gray-100 dark:border-gray-800"
+          >
+            <ScanOutlined className="text-[22px]" />
+          </button>
 
-        {/* Center: Voice (Neon Lime) */}
-        <button
-          type="button"
-          onClick={() => {
-            onHaptic?.('heavy');
-            onOpenVoice();
-          }}
-          className="flex-1 bg-[#8CFF54] hover:bg-[#7CE643] text-black flex items-center justify-center active:opacity-85 transition-all"
-          title="Голосовой ввод"
-        >
-          <AudioOutlined className="text-[26px]" />
-        </button>
+          {/* Center: Big Elevated Royal Blue Microphone Button */}
+          <div className="relative">
+            <div className="absolute -inset-1.5 bg-[#2B5BFF]/30 rounded-full blur-md" />
+            <button
+              type="button"
+              onClick={() => {
+                onHaptic?.('heavy');
+                onOpenVoice();
+              }}
+              className="relative w-18 h-18 p-4 rounded-full bg-[#2B5BFF] text-white shadow-[0_8px_24px_rgba(43,91,255,0.45)] flex items-center justify-center active:scale-95 transition-all"
+            >
+              <AudioOutlined className="text-[30px]" />
+            </button>
+          </div>
 
-        {/* Right: Add (+) (Black) */}
-        <button
-          type="button"
-          onClick={() => {
-            onHaptic?.('medium');
-            onOpenAddTransaction();
-          }}
-          className="w-[28%] bg-[#111827] hover:bg-black text-white flex items-center justify-center active:opacity-75 transition-all"
-          title="Добавить операцию"
-        >
-          <PlusOutlined className="text-[24px]" />
-        </button>
+          {/* Right: Blue Plus (+) Button (matching media_1789747991545.png) */}
+          <button
+            type="button"
+            onClick={() => {
+              onHaptic?.('medium');
+              onOpenAddTransaction();
+            }}
+            className="w-13 h-13 p-3 rounded-full bg-[#DCE6FF] dark:bg-[#1E284A] text-[#2B5BFF] dark:text-[#5B82FF] flex items-center justify-center active:scale-90 transition-all border border-[#B3C8FD] dark:border-[#2B5BFF]/40 shadow-sm"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="w-6 h-6"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   );
