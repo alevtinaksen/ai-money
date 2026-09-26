@@ -39,7 +39,7 @@ async def start(message: Message):
     )
 
 
-async def preview(message: Message, data: bytes | None = None, mime: str | None = None):
+async def preview(message: Message, data: bytes | None = None, mime: str | None = None, text_override: str | None = None):
     uid = message.from_user.id
     try:
         consume_preview(uid)
@@ -47,8 +47,9 @@ async def preview(message: Message, data: bytes | None = None, mime: str | None 
             accounts = await FinanceService.get_accounts(db, uid)
             categories = await FinanceService.get_categories(db, uid)
             names, cats = [a.name for a in accounts], [c.name for c in categories]
+            raw_text = text_override if text_override is not None else (message.text or "")
             result = (await AIParserService.parse_media(data, mime, names, cats) if data is not None
-                      else await AIParserService.parse_financial_text(message.text or "", names, cats))
+                      else await AIParserService.parse_financial_text(raw_text, names, cats))
             if not result.transactions:
                 await message.answer(result.clarification or "Не удалось определить операцию. Уточните сумму.")
                 return
@@ -59,8 +60,9 @@ async def preview(message: Message, data: bytes | None = None, mime: str | None 
             rows = json.loads(draft.payload)
             lines = ["Проверьте черновик. Ничего ещё не записано:"]
             for item in rows:
-                target = f" → {item['to_account_name']}" if item["to_account_name"] else ""
-                lines.append(f"{item['type']}: {item['amount']} {item['currency']} · {item['account_name']}{target}\n{(item.get('note') or '')[:120]}")
+                target = f" → {item['to_account_name']}" if item.get("to_account_name") else ""
+                cat = f" · {item['category_name']}" if item.get("category_name") else ""
+                lines.append(f"{item['type']}: {item['amount']} {item['currency']} · {item['account_name']}{cat}{target}\n{(item.get('note') or '')[:120]}")
             keyboard = InlineKeyboardMarkup(inline_keyboard=[[
                 InlineKeyboardButton(text="Подтвердить всё", callback_data=f"confirm:{draft.id}"),
                 InlineKeyboardButton(text="Отменить", callback_data=f"cancel:{draft.id}"),
@@ -112,7 +114,23 @@ async def media(message: Message):
         return
     buffer = io.BytesIO()
     await message.bot.download(file, destination=buffer)
-    await preview(message, buffer.getvalue(), "audio/ogg" if message.voice else "image/jpeg")
+    data = buffer.getvalue()
+
+    if message.voice:
+        status_msg = await message.answer("🎙️ Распознаю голос...")
+        try:
+            transcribed_text = await AIParserService.transcribe_audio(data)
+        except Exception:
+            transcribed_text = ""
+
+        if not transcribed_text:
+            await status_msg.edit_text("❌ Не удалось распознать речь в голосовом сообщении. Попробуйте еще раз или напишите текстом.")
+            return
+
+        await status_msg.edit_text(f"🗣️ «{transcribed_text}»\nОбрабатываю...")
+        await preview(message, text_override=transcribed_text)
+    else:
+        await preview(message, data=data, mime="image/jpeg")
 
 
 @router.message(F.text)

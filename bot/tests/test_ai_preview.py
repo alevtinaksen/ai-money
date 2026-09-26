@@ -5,7 +5,9 @@ from app.core.config import settings
 
 def test_local_decimal_and_ambiguous_values():
     assert str(parse_local("расход 250,50 кофе").transactions[0].amount) == "250.50"
-    for text in ["26/09 500 кофе", "0.1+0.2", "кофе 100 руб 50 коп", "расход 1 500 кофе", "5 тысяч"]:
+    assert str(parse_local("расход 1 500 кофе").transactions[0].amount) == "1500"
+    assert str(parse_local("5 тысяч корм коту").transactions[0].amount) == "5000"
+    for text in ["26/09 500 кофе", "0.1+0.2", "кофе 100 руб 50 коп"]:
         assert not parse_local(text).transactions
         assert parse_local(text).clarification
 

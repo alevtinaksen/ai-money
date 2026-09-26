@@ -50,7 +50,23 @@ RUS_NUMBERS = {
 
 
 def normalize_numbers(text: str) -> str:
-    text = re.sub(r'(\d+)\s+(\d{3})', r'\1\2', text)
+    # 1. Expand digits + suffix: "5 тыс", "5 тысяч", "5к", "5k", "5 млн"
+    text = re.sub(
+        r'(\d+(?:[.,]\d+)?)\s*(?:тыс(?:\.|яч[а-я]*)?|[кk])\b',
+        lambda m: str(int(float(m.group(1).replace(',', '.')) * 1000)),
+        text,
+        flags=re.IGNORECASE
+    )
+    text = re.sub(
+        r'(\d+(?:[.,]\d+)?)\s*(?:млн|миллион[а-я]*|кк)\b',
+        lambda m: str(int(float(m.group(1).replace(',', '.')) * 1000000)),
+        text,
+        flags=re.IGNORECASE
+    )
+    # 2. Spaces between thousands: "1 500" -> "1500"
+    text = re.sub(r'(\d+)\s+(\d{3})\b', r'\1\2', text)
+
+    # 3. Spoken Russian word numbers: "пять тысяч пятьсот" -> "5500"
     tokens = text.split()
     new_tokens = []
     i = 0
@@ -87,6 +103,9 @@ def normalize_numbers(text: str) -> str:
 
 def parse_local(text: str, accounts: list[str] = None, categories: list[str] = None) -> AIParsedResult:
     """Smart offline parsing with Russian spoken number normalization and entity matching."""
+    if '+' in text or '/' in text or re.search(r'\d+\s*руб.*?\d+\s*коп', text):
+        return AIParsedResult(clarification="Не удалось однозначно распознать сумму. Уточните запись.")
+
     norm = normalize_numbers(text.strip())
     amt_match = re.search(r'(\d+(?:[.,]\d{1,2})?)', norm)
     if not amt_match:
@@ -189,6 +208,8 @@ class AIParserService:
 
     @staticmethod
     async def parse_media(data: bytes, mime: str, accounts: list[str], categories: list[str]) -> AIParsedResult:
+        if settings.AI_PROVIDER == "disabled":
+            raise ValueError("Облачное распознавание отключено. Настройте Gemini и согласие на передачу данных.")
         if not data or len(data) > settings.MAX_UPLOAD_BYTES:
             raise ValueError("Файл пустой или больше 5 МБ")
 
