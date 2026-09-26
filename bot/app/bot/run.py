@@ -4,6 +4,7 @@ from aiogram import Bot, Dispatcher
 from app.core.config import settings
 from app.core.database import engine, init_db
 from app.bot.handlers.safe_flow import router
+from app.bot.notifier import notify_restart
 
 
 async def main():
@@ -15,6 +16,7 @@ async def main():
     async with Bot(settings.BOT_TOKEN) as bot:
         try:
             await bot.delete_webhook(drop_pending_updates=True)
+            asyncio.create_task(notify_restart(bot))
             await dispatcher.start_polling(bot, handle_as_tasks=False, drop_pending_updates=True)
         finally:
             await engine.dispose()

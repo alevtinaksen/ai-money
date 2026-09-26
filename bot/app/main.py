@@ -21,6 +21,7 @@ from app.services import bot_drafts  # noqa: F401
 import asyncio
 from aiogram import Bot, Dispatcher
 from app.bot.handlers.safe_flow import router as bot_router
+from app.bot.notifier import notify_restart
 
 VERSION = "2.0.0"
 logger = logging.getLogger("ai-money")
@@ -52,6 +53,7 @@ async def lifespan(app: FastAPI):
             bot_instance = Bot(settings.BOT_TOKEN)
             dispatcher = Dispatcher()
             dispatcher.include_router(bot_router)
+            asyncio.create_task(notify_restart(bot_instance))
             bot_task = asyncio.create_task(poll_bot_forever(bot_instance, dispatcher))
             logger.info("Telegram Bot polling started in lifespan")
         except Exception as e:
