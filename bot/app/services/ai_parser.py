@@ -37,49 +37,120 @@ def validate_proposals(raw: dict) -> AIParsedResult:
     return result
 
 
+RUS_NUMBERS = {
+    'ноль': 0, 'один': 1, 'одна': 1, 'два': 2, 'две': 2, 'три': 3, 'четыре': 4, 'пять': 5,
+    'шесть': 6, 'семь': 7, 'восемь': 8, 'девять': 9, 'десять': 10, 'одиннадцать': 11,
+    'двенадцать': 12, 'тринадцать': 13, 'четырнадцать': 14, 'пятнадцать': 15, 'шестнадцать': 16,
+    'семнадцать': 17, 'восемнадцать': 18, 'девятнадцать': 19, 'двадцать': 20, 'тридцать': 30,
+    'сорок': 40, 'пятьдесят': 50, 'шестьдесят': 60, 'семьдесят': 70, 'восемьдесят': 80,
+    'девяносто': 90, 'сто': 100, 'двести': 200, 'триста': 300, 'четыреста': 400,
+    'пятьсот': 500, 'шестьсот': 600, 'семьсот': 700, 'восемьсот': 800, 'девятьсот': 900,
+    'тысяча': 1000, 'тысячи': 1000, 'тысяч': 1000, 'полторы': 1500, 'миллион': 1000000
+}
+
+
+def normalize_numbers(text: str) -> str:
+    text = re.sub(r'(\d+)\s+(\d{3})', r'\1\2', text)
+    tokens = text.split()
+    new_tokens = []
+    i = 0
+    while i < len(tokens):
+        wc = tokens[i].lower().strip('.,!?')
+        if wc in RUS_NUMBERS:
+            total = 0
+            current = 0
+            while i < len(tokens):
+                w = tokens[i].lower().strip('.,!?')
+                if w not in RUS_NUMBERS:
+                    break
+                val = RUS_NUMBERS[w]
+                if val == 1000 or val == 1000000:
+                    if current == 1500:
+                        total += 1500
+                        current = 0
+                    else:
+                        current = (current if current != 0 else 1) * val
+                        total += current
+                        current = 0
+                elif val == 1500:
+                    current = 1500
+                else:
+                    current += val
+                i += 1
+            total += current
+            new_tokens.append(str(total))
+        else:
+            new_tokens.append(tokens[i])
+            i += 1
+    return ' '.join(new_tokens)
+
+
 def parse_local(text: str, accounts: list[str] = None, categories: list[str] = None) -> AIParsedResult:
-    """Smart offline parsing for standard Russian financial phrases."""
-    cleaned = text.strip()
-    # 1. Standard pattern: "расход/доход 250 кофе" or "расход/доход 250.50 кофе"
-    m = re.match(r"^(расход|доход|перевод)\s+(\d+(?:[.,]\d{1,2})?)(?:\s+(?:руб(?:лей|ля)?|р\.?))?(?:\s+(.+))?$", cleaned, re.IGNORECASE)
-    if m:
-        action, amt_str, note = m.group(1).lower(), m.group(2).replace(",", "."), (m.group(3) or "").strip()
-        tx_type = "expense" if action == "расход" else ("income" if action == "доход" else "transfer")
-        amount = Decimal(amt_str)
-        matched_cat = None
-        if categories and note:
-            for c in categories:
-                if c.lower() in note.lower():
-                    matched_cat = c
-                    break
-        return validate_proposals({"transactions": [{
-            "amount": str(amount), "type": tx_type,
-            "note": note or action.capitalize(),
-            "category_name": matched_cat
-        }]})
+    """Smart offline parsing with Russian spoken number normalization and entity matching."""
+    norm = normalize_numbers(text.strip())
+    amt_match = re.search(r'(\d+(?:[.,]\d{1,2})?)', norm)
+    if not amt_match:
+        return AIParsedResult(clarification="Не удалось распознать сумму. Напишите или скажите, например: «кофе 300» или «корм коту 5000».")
 
-    # 2. Natural pattern: "Кофе 250" or "Такси 450 руб" or "250 кофе"
-    m2 = re.match(r"^([^\d\n]{1,100})\s+(\d+(?:[.,]\d{1,2})?)(?:\s*(?:руб(?:лей|ля)?|р\.?))?$", cleaned, re.IGNORECASE)
-    m3 = re.match(r"^(\d+(?:[.,]\d{1,2})?)(?:\s*(?:руб(?:лей|ля)?|р\.?))?\s+([^\d\n]{1,100})$", cleaned, re.IGNORECASE)
-    if m2 or m3:
-        note = (m2.group(1) if m2 else m3.group(2)).strip()
-        amt_str = (m2.group(2) if m2 else m3.group(1)).replace(",", ".")
-        amount = Decimal(amt_str)
-        is_income = any(w in note.lower() for w in ["зарплат", "аванс", "доход", "преми", "кешбэк", "пришли"])
-        is_transfer = any(w in note.lower() for w in ["перевод", "перевел", "скинул"])
-        tx_type = "income" if is_income else ("transfer" if is_transfer else "expense")
-        matched_cat = None
-        if categories:
-            for c in categories:
-                if c.lower() in note.lower():
-                    matched_cat = c
-                    break
-        return validate_proposals({"transactions": [{
-            "amount": str(amount), "type": tx_type, "note": note,
-            "category_name": matched_cat
-        }]})
+    amount = Decimal(amt_match.group(1).replace(',', '.'))
+    lower_norm = norm.lower()
 
-    return AIParsedResult(clarification="Не удалось распознать запись. Напишите, например: «кофе 250» или «расход 400 такси».")
+    # Match account
+    matched_acc = None
+    if accounts:
+        for acc in accounts:
+            acc_kw = acc.lower().replace('карта', '').replace('банк', '').replace('счёт', '').strip()
+            if acc_kw and acc_kw in lower_norm:
+                matched_acc = acc
+                break
+            if 'озон' in lower_norm and 'озон' in acc.lower():
+                matched_acc = acc
+                break
+            if 'альф' in lower_norm and 'альф' in acc.lower():
+                matched_acc = acc
+                break
+            if ('тиньк' in lower_norm or 'т-банк' in lower_norm) and ('т-банк' in acc.lower() or 'тиньк' in acc.lower()):
+                matched_acc = acc
+                break
+            if ('налич' in lower_norm or 'налом' in lower_norm) and 'налич' in acc.lower():
+                matched_acc = acc
+                break
+
+    # Match category
+    matched_cat = None
+    cat_keywords = {
+        'Кот': ['кот', 'кота', 'коту', 'корм', 'зоо'],
+        'Еда': ['еда', 'продукты', 'супермаркет', 'пятерочк', 'перекресток', 'магнит', 'окей', 'вкусвилл', 'самокат', 'наланч'],
+        'Кафе': ['кафе', 'кофе', 'ресторан', 'теремок', 'макдоналдс', 'вкусно и точка', 'додо', 'шоколадниц', 'бургер'],
+        'Транспорт': ['такси', 'каршеринг', 'метро', 'автобус', 'поезд', 'бензин', 'заправка', 'проезд'],
+        'Покупки': ['покупк', 'одежда', 'обувь', 'ozon', 'wildberries', 'вб'],
+        'Здоровье': ['аптека', 'лекарств', 'врач', 'стоматолог', 'клиника', 'анализы', 'витамин'],
+        'Личное': ['маникюр', 'стрижк', 'спорт', 'зал', 'косметика'],
+    }
+    if categories:
+        for cat in categories:
+            if cat in cat_keywords:
+                if any(kw in lower_norm for kw in cat_keywords[cat]):
+                    matched_cat = cat
+                    break
+            elif cat.lower() in lower_norm:
+                matched_cat = cat
+                break
+
+    # Determine type
+    is_income = any(w in lower_norm for w in ['зарплат', 'аванс', 'доход', 'преми', 'кешбэк', 'пришли'])
+    is_transfer = any(w in lower_norm for w in ['перевод', 'перевел', 'скинул', 'перевела'])
+    tx_type = "income" if is_income else ("transfer" if is_transfer else "expense")
+
+    # Clean note
+    clean = re.sub(r'(\d+(?:[.,]\d{1,2})?|\bруб(?:лей|ля)?\b|\bр\b|\bна\b|\bс\b|\bсо\b|\bозон(?:а| банк| банка)?\b|\bальф(?:а|ы|у|а-банк)?\b|\bт-банк(?:а)?\b|\bкарты\b|\bкартой\b|\bсчёта\b)', '', norm, flags=re.IGNORECASE)
+    clean = re.sub(r'\s+', ' ', clean).strip()
+    note = clean.capitalize() if clean else (matched_cat or 'Расход')
+
+    return validate_proposals({"transactions": [{
+        "amount": str(amount), "type": tx_type, "note": note,
+        "account_name": matched_acc, "category_name": matched_cat
+    }]})
 
 
 class AIParserService:
