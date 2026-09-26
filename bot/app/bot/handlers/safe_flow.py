@@ -79,8 +79,8 @@ async def preview(message: Message, data: bytes | None = None, mime: str | None 
         await message.answer(str(exc.detail))
     except ValueError as exc:
         await message.answer(str(exc)[:500])
-    except Exception:
-        logger.error("Draft preparation failed (%s)", "internal error")
+    except Exception as exc:
+        logger.error("Draft preparation failed: %s", exc, exc_info=True)
         await message.answer("Не удалось подготовить запись. Данные не изменены; попробуйте позже.")
 
 

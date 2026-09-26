@@ -100,7 +100,8 @@ def normalize_numbers(text: str) -> str:
         text,
         flags=re.IGNORECASE
     )
-    # 2. Spaces between thousands: "1 500" -> "1500"
+    # 2. Spaces or dots between thousands: "1 500" -> "1500", "5.500" -> "5500"
+    text = re.sub(r'\b(\d+)[.](\d{3})\b', r'\1\2', text)
     text = re.sub(r'(\d+)\s+(\d{3})\b', r'\1\2', text)
 
     # 3. Spoken Russian word numbers: "пять тысяч пятьсот" -> "5500"
@@ -242,6 +243,20 @@ class AIParserService:
         # Fallback to local Google Speech Recognition without API key
         text = await asyncio.to_thread(AIParserService._transcribe_speech_recognition, data)
         return text
+
+    @staticmethod
+    async def parse_financial_text(text: str, accounts: list[str], categories: list[str]) -> AIParsedResult:
+        if settings.GROQ_API_KEY:
+            try:
+                return await AIParserService._generate_groq(text, accounts, categories)
+            except Exception:
+                pass
+        if settings.GEMINI_API_KEY and settings.AI_UPLOAD_CONSENT:
+            try:
+                return await AIParserService._generate([{"text": text}], accounts, categories)
+            except Exception:
+                pass
+        return parse_local(text, accounts, categories)
 
     @staticmethod
     async def parse_media(data: bytes, mime: str, accounts: list[str], categories: list[str]) -> AIParsedResult:
