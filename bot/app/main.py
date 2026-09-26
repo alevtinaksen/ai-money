@@ -1,120 +1,168 @@
-import asyncio
+"""HTTP application; Telegram polling is a separate single process."""
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from pathlib import Path
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from aiogram import Bot, Dispatcher
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.api.deps import get_current_user_id, issue_local_token
+from app.api.routes import accounts, categories, transactions, analytics, ai, imports
 from app.core.config import settings
-from app.core.database import init_db
-from app.api.routes import accounts, categories, transactions, analytics, ai
-from app.bot.handlers import start, voice, text, callbacks, receipt
+from app.core.body_limit import BodyLimitMiddleware
+from app.core.database import engine, get_db, init_db
+from app.domain.errors import ConflictError
+from app.services.finance_svc import FinanceService
+from app.services import bot_drafts  # noqa: F401
 
-logging.basicConfig(level=logging.INFO)
+import asyncio
+from aiogram import Bot, Dispatcher
+from app.bot.handlers.safe_flow import router as bot_router
+
+VERSION = "2.0.0"
 logger = logging.getLogger("ai-money")
 
-# Initialize Aiogram
-bot = Bot(token=settings.BOT_TOKEN) if settings.BOT_TOKEN and not settings.BOT_TOKEN.startswith("123456") else None
-dp = Dispatcher()
 
-# Register bot handlers
-dp.include_router(start.router)
-dp.include_router(voice.router)
-dp.include_router(receipt.router)
-dp.include_router(callbacks.router)
-dp.include_router(text.router)
-
-async def poll_bot_forever(bot_instance: Bot, dispatcher: Dispatcher):
-    """Supervisor loop that keeps Telegram polling alive and reconnects on drops/conflicts."""
+async def poll_bot_forever(bot: Bot, dispatcher: Dispatcher):
     while True:
         try:
-            logger.info("Starting Telegram Bot polling...")
-            await dispatcher.start_polling(bot_instance, handle_signals=False)
+            await bot.delete_webhook(drop_pending_updates=True)
+            await dispatcher.start_polling(bot, handle_as_tasks=False, drop_pending_updates=True)
         except asyncio.CancelledError:
-            logger.info("Telegram Bot polling task cancelled.")
             break
         except Exception as e:
-            logger.error(f"Telegram Bot polling error: {e}. Reconnecting in 5 seconds...", exc_info=True)
-            await asyncio.sleep(5)
+            logger.error(f"Bot polling error: {e}, retrying in 3s...")
+            await asyncio.sleep(3)
 
-async def keepalive_loop():
-    """Ping our own /health endpoint every 10 minutes so Render free tier doesn't spin down."""
-    import httpx
-    await asyncio.sleep(60)  # wait for server to fully start
-    while True:
-        try:
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(f"http://localhost:{settings.PORT}/health", timeout=10)
-                logger.info(f"Keepalive ping: {resp.status_code}")
-        except Exception as e:
-            logger.warning(f"Keepalive ping failed: {e}")
-        await asyncio.sleep(600)  # 10 minutes
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 1. Startup: initialize database tables
-    logger.info("Initializing database...")
+    if settings.ALLOW_LOCAL_LOGIN and (settings.APP_ENV != "development"
+            or settings.HOST not in {"127.0.0.1", "localhost", "::1"}):
+        raise RuntimeError("Local login requires development and loopback HOST")
     await init_db()
 
-    # 2. Start Bot Polling with supervisor loop if real token provided
     bot_task = None
-    if bot:
-        logger.info("Starting Telegram Bot polling supervisor in background...")
-        bot_task = asyncio.create_task(poll_bot_forever(bot, dp))
-    else:
-        logger.warning("BOT_TOKEN is not configured or is default mock token. Telegram Bot polling skipped.")
-
-    # 3. Start keepalive loop (prevents Render free tier from sleeping)
-    keepalive_task = asyncio.create_task(keepalive_loop())
+    bot_instance = None
+    if settings.BOT_TOKEN and not settings.ALLOW_LOCAL_LOGIN:
+        try:
+            bot_instance = Bot(settings.BOT_TOKEN)
+            dispatcher = Dispatcher()
+            dispatcher.include_router(bot_router)
+            bot_task = asyncio.create_task(poll_bot_forever(bot_instance, dispatcher))
+            logger.info("Telegram Bot polling started in lifespan")
+        except Exception as e:
+            logger.error(f"Failed to start bot polling: {e}")
 
     yield
 
-    # 4. Shutdown
-    keepalive_task.cancel()
     if bot_task:
         bot_task.cancel()
-        if bot:
-            await bot.session.close()
+        if bot_instance:
+            await bot_instance.session.close()
+    await engine.dispose()
 
-app = FastAPI(
-    title="AI Money API",
-    description="Backend API for Telegram Mini App and AI Finance Bot",
-    version="1.0.4",
-    lifespan=lifespan
+
+app = FastAPI(title="AI Money API", version=VERSION, lifespan=lifespan)
+app.add_middleware(CORSMiddleware,
+    allow_origins=list({"http://localhost:5173", "http://127.0.0.1:5173", settings.WEBAPP_URL}),
+    allow_credentials=False, allow_methods=["GET","POST","PUT","PATCH","DELETE"],
+    allow_headers=["Authorization","Content-Type"],
 )
 
 
-# Enable CORS for Mini App web requests
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.add_middleware(BodyLimitMiddleware, max_bytes=settings.MAX_UPLOAD_BYTES + 65536)
 
-# Mount REST API routers
-app.include_router(accounts.router, prefix="/api/accounts", tags=["Accounts"])
-app.include_router(categories.router, prefix="/api/categories", tags=["Categories"])
-app.include_router(transactions.router, prefix="/api/transactions", tags=["Transactions"])
-app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"])
-app.include_router(ai.router, prefix="/api/ai", tags=["AI"])
 
+@app.middleware("http")
+async def request_limits(request: Request, call_next):
+    length = request.headers.get("content-length")
+    if length:
+        try:
+            if int(length) < 0 or int(length) > settings.MAX_UPLOAD_BYTES + 65536:
+                return JSONResponse({"detail":"Запрос слишком большой"}, 413)
+        except ValueError:
+            return JSONResponse({"detail":"Неверный Content-Length"}, 400)
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+def problem(status: int, detail: str):
+    return JSONResponse(
+        {"type":"about:blank", "title":"Запрос не выполнен", "status":status, "detail":detail},
+        status_code=status, media_type="application/problem+json",
+    )
+
+
+@app.exception_handler(ConflictError)
+async def conflict_handler(request, exc):
+    return problem(409, str(exc))
+
+
+@app.exception_handler(ValueError)
+async def value_handler(request, exc):
+    return problem(400, str(exc))
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_handler(request, exc):
+    # Never echo raw inputs, credentials, or bank rows in error responses/logs.
+    return problem(422, "Проверьте обязательные поля, сумму, дату и формат запроса")
+
+
+@app.exception_handler(Exception)
+async def internal_handler(request, exc):
+    logger.error("Request failed: %s", type(exc).__name__)
+    return problem(500, "Действие не завершено. Обновите данные перед повтором.")
+
+
+for module, name in [(accounts,"accounts"),(categories,"categories"),(transactions,"transactions"),
+                     (analytics,"analytics"),(ai,"ai"),(imports,"imports")]:
+    app.include_router(module.router, prefix=f"/api/{name}", tags=[name])
+
+
+@app.post("/api/auth/local")
+async def local_login(request: Request):
+    return issue_local_token(request)
+
+
+@app.post("/api/onboarding")
+async def onboard(user_id: int = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
+    await FinanceService.ensure_user_seeded(db, user_id)
+    return {"status":"ready"}
+
+
+@app.get("/health/live")
 @app.get("/health")
 async def health():
-    return {"status": "ok", "app": "AI Money", "version": "1.0.6"}
+    return {"status":"alive", "version":VERSION}
 
-@app.get("/version")
+
+@app.get("/health/ready")
+async def ready():
+    try:
+        async with engine.connect() as connection:
+            await connection.execute(text("SELECT 1"))
+    except Exception:
+        raise HTTPException(503, "Хранилище недоступно") from None
+    return {"status":"ready", "version":VERSION}
+
+
 @app.get("/api/version")
-async def get_version():
-    return {"version": "1.0.6", "status": "ok"}
+async def version():
+    return {"version":VERSION}
 
-# Mount frontend Mini App build
-import os
-from fastapi.staticfiles import StaticFiles
 
-dist_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../frontend/dist"))
-if os.path.exists(dist_path):
-    app.mount("/", StaticFiles(directory=dist_path, html=True), name="frontend")
+dist = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+if dist.is_dir():
+    app.mount("/", StaticFiles(directory=dist, html=True), name="frontend")
+
 
 if __name__ == "__main__":
     import uvicorn

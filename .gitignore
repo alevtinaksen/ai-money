@@ -1,20 +1,20 @@
-# Python
+.venv/
+node_modules/
+frontend/dist/
+*.tsbuildinfo
 __pycache__/
 *.py[cod]
-*$py.class
-.venv/
-env/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 .env
-
-# Node
-node_modules/
-dist/
-dist-ssr/
-*.local
-
-# Logs
-*.log
-npm-debug.log*
-
-# OS
+.env.*
+!.env.example
+*.db
+*.db-*
+work/
+backups/
 .DS_Store
+*.log
+*.zip

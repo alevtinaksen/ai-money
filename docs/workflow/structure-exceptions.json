@@ -1,0 +1,46 @@
+{
+  "frontend/src/App.tsx": {
+    "reason": "Rich interactive TMA app layout, state coordinator and sheet manager faithfully matching Figma/App Store specs",
+    "max_lines": 1000
+  },
+  "frontend/src/utils/voiceParser.ts": {
+    "reason": "Client-side offline voice recognition parser with semantic slot extraction",
+    "max_lines": 500
+  },
+  "frontend/src/components/transaction/AddTransactionScreen.tsx": {
+    "reason": "iOS calculator transaction creation view with custom Cyrillic keypad and account picker",
+    "max_lines": 900
+  },
+  "frontend/src/components/modals/CategoriesManagerModal.tsx": {
+    "reason": "Category management sheet with drag-and-drop ordering and custom icon picker",
+    "max_lines": 1000
+  },
+  "frontend/src/components/modals/EditAccountModal.tsx": {
+    "reason": "Account editing and color/icon configuration modal",
+    "max_lines": 500
+  },
+  "frontend/src/components/modals/EditTransactionModal.tsx": {
+    "reason": "Full-featured transaction editing sheet with category/account reassignment and split support",
+    "max_lines": 1600
+  },
+  "frontend/src/components/modals/CategoryDetailModal.tsx": {
+    "reason": "Category monthly breakdown detail view with filtered transactions list",
+    "max_lines": 600
+  },
+  "frontend/src/components/dashboard/DashboardScreen.tsx": {
+    "reason": "Main financial dashboard with monthly balance summaries, circular emoji categories and recent feed",
+    "max_lines": 900
+  },
+  "frontend/src/components/transactions/TransactionsScreen.tsx": {
+    "reason": "Interactive transaction feed with in-day drag-and-drop reordering, searching and date grouping",
+    "max_lines": 1200
+  },
+  "frontend/src/components/voice/VoiceOverlay.tsx": {
+    "reason": "Voice recording animation and transcription preview modal",
+    "max_lines": 500
+  },
+  "frontend/src/api/client.ts": {
+    "reason": "Robust frontend client with mock fallbacks, local storage cache and API synchronization",
+    "max_lines": 1300
+  }
+}

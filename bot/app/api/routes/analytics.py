@@ -7,10 +7,12 @@ from app.services.finance_svc import FinanceService
 
 router = APIRouter()
 
+
 @router.get("/dashboard", response_model=DashboardSummary)
 async def get_dashboard(
-    month_offset: int = Query(0),
+    month_offset: int = Query(0, ge=-120, le=120),
+    currency: str = Query("RUB", pattern="^[A-Z]{3}$"),
     user_id: int = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    return await FinanceService.get_dashboard_summary(db, user_id, month_offset)
+    return await FinanceService.get_dashboard_summary(db, user_id, month_offset, currency)

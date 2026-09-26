@@ -1,0 +1,348 @@
+{
+ "target": "C:\\Users\\ElectricRate\\Documents\\Codex\\2026-09-26\\iso-27001-rfc-protocol-compliance-engine\\work\\source",
+ "name": "source",
+ "stack": {
+  "kinds": [
+   "docker",
+   "node",
+   "python"
+  ],
+  "bot": "aiogram",
+  "web": "python-web",
+  "has_git": false,
+  "head": "",
+  "branch": "",
+  "github": "",
+  "py_files": 24,
+  "js_files": 27,
+  "md_files": 3,
+  "total_files": 67,
+  "compose_files": [],
+  "dockerfiles": [
+   "Dockerfile"
+  ],
+  "python": "C:\\Users\\ElectricRate\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+  "entry": "bot/app/main.py",
+  "typing_declared": false,
+  "exts": [
+   ".css",
+   ".example",
+   ".html",
+   ".js",
+   ".json",
+   ".md",
+   ".py",
+   ".sql",
+   ".ts",
+   ".tsbuildinfo",
+   ".tsx",
+   ".txt",
+   ".yaml"
+  ]
+ },
+ "facts": [
+  {
+   "id": "tests.present",
+   "dim": "tests",
+   "status": "PASS",
+   "detail": "тестовых файлов: 1",
+   "evidence": "bot/tests/test_finance.py",
+   "fix": "",
+   "lesson": "",
+   "value": 1
+  },
+  {
+   "id": "tests.run",
+   "dim": "tests",
+   "status": "NA",
+   "detail": "прогон тестов отключён (--quick/--no-tests)",
+   "evidence": "",
+   "fix": "",
+   "lesson": "",
+   "value": null
+  },
+  {
+   "id": "sec.secrets_in_code",
+   "dim": "security",
+   "status": "PASS",
+   "detail": "литералов-секретов в коде не найдено",
+   "evidence": "git grep по шаблону key/secret/password/token + PRIVATE KEY",
+   "fix": "",
+   "lesson": "",
+   "value": null
+  },
+  {
+   "id": "sec.tracked_secret_files",
+   "dim": "security",
+   "status": "NA",
+   "detail": "не git-репозиторий",
+   "evidence": "",
+   "fix": "",
+   "lesson": "",
+   "value": null
+  },
+  {
+   "id": "sec.gitignore",
+   "dim": "security",
+   "status": "WARN",
+   "detail": ".gitignore отсутствует",
+   "evidence": "",
+   "fix": "добавить .gitignore с .env, *.key, data/",
+   "lesson": "",
+   "value": null
+  },
+  {
+   "id": "sec.sql_fstring",
+   "dim": "security",
+   "status": "PASS",
+   "detail": "no unresolved formatted SQL; literal DDL loops excluded",
+   "evidence": "AST checks local literals and imported constant definitions",
+   "fix": "",
+   "lesson": "",
+   "value": null
+  },
+  {
+   "id": "sec.bandit",
+   "dim": "security",
+   "status": "WARN",
+   "detail": "bandit (статический сканер): 1 medium+",
+   "evidence": ".\\bot\\app\\core\\config.py:21 B104 MEDIUM",
+   "fix": "разобрать каждое, подавить только с # nosec и причиной",
+   "lesson": "",
+   "value": 1
+  },
+  {
+   "id": "inv.dockerignore",
+   "dim": "security",
+   "status": "WARN",
+   "detail": "build context secret exclusion",
+   "evidence": "Dockerfile: context=., ignore=.dockerignore, .env exclusion=not established",
+   "fix": "exclude .env in each actual build context",
+   "lesson": "",
+   "value": null
+  },
+  {
+   "id": "inv.hardcoded_ip",
+   "dim": "security",
+   "status": "PASS",
+   "detail": "публичных IP в коде нет",
+   "evidence": "",
+   "fix": "",
+   "lesson": "feedback_hardcoded_node_ip_in_sub_generator",
+   "value": 0
+  },
+  {
+   "id": "inv.tz_without_tzdata",
+   "dim": "security",
+   "status": "PASS",
+   "detail": "часовой пояс в образе согласован",
+   "evidence": "",
+   "fix": "",
+   "lesson": "feedback_zoneinfo_missing_in_container",
+   "value": null
+  },
+  {
+   "id": "quality.lint",
+   "dim": "quality",
+   "status": "FAIL",
+   "detail": "ruff (линтер): 41 замечаний — F401×21, E402×14, F541×3, F841×2",
+   "evidence": "ruff check .",
+   "fix": "ruff check --fix, остальное руками",
+   "lesson": "",
+   "value": 41
+  },
+  {
+   "id": "quality.types",
+   "dim": "quality",
+   "status": "NA",
+   "detail": "типизация не заявлена (нет mypy.ini/[tool.mypy])",
+   "evidence": "",
+   "fix": "",
+   "lesson": "",
+   "value": null
+  },
+  {
+   "id": "quality.long_functions",
+   "dim": "quality",
+   "status": "FAIL",
+   "detail": "функций длиннее 50 строк: 13",
+   "evidence": "bot/app/bot/handlers/common.py:132 handle_user_input (80 стр.)\nbot/app/bot/handlers/common.py:213 process_and_save_transactions (209 стр.)\nbot/app/bot/handlers/common.py:423 complete_clarification (55 стр.)\nbot/app/bot/handlers/common.py:479 send_updated_tx_card (61 стр.)\nbot/app/bot/handlers/receipt.py:23 handle_receipt_photo (156 стр.)",
+   "fix": "распилить по смыслу (refactoring-engineer)",
+   "lesson": "",
+   "value": 13
+  },
+  {
+   "id": "quality.lint",
+   "dim": "quality",
+   "status": "NA",
+   "detail": "eslint не настроен",
+   "evidence": "",
+   "fix": "",
+   "lesson": "",
+   "value": null
+  },
+  {
+   "id": "quality.big_files",
+   "dim": "quality",
+   "status": "FAIL",
+   "detail": "файлов-переростков: 15",
+   "evidence": "bot/app/bot/handlers/common.py: 539 стр. (порог 500)\nbot/app/services/finance_svc.py: 647 стр. (порог 500)\nfrontend/backups/classic_blue_design/App.tsx: 837 стр. (порог 300)\nfrontend/backups/classic_blue_design/DashboardScreen.tsx: 682 стр. (порог 300)\nfrontend/src/App.tsx: 837 стр. (порог 300)",
+   "fix": "распилить по cohesion",
+   "lesson": "",
+   "value": 15
+  },
+  {
+   "id": "run.compile",
+   "dim": "runnable",
+   "status": "PASS",
+   "detail": "все 24 .py файлов разбираются",
+   "evidence": "",
+   "fix": "",
+   "lesson": "",
+   "value": 0
+  },
+  {
+   "id": "run.compile",
+   "dim": "runnable",
+   "status": "FAIL",
+   "detail": "package.json битый",
+   "evidence": "",
+   "fix": "",
+   "lesson": "",
+   "value": null
+  },
+  {
+   "id": "run.entry",
+   "dim": "runnable",
+   "status": "PASS",
+   "detail": "точка входа: bot/app/main.py",
+   "evidence": "",
+   "fix": "",
+   "lesson": "",
+   "value": null
+  },
+  {
+   "id": "git.repo",
+   "dim": "git",
+   "status": "FAIL",
+   "detail": "не под git — истории и отката нет",
+   "evidence": "",
+   "fix": "git init + первый коммит",
+   "lesson": "",
+   "value": null
+  },
+  {
+   "id": "docs.readme",
+   "dim": "docs",
+   "status": "PASS",
+   "detail": "README: 121 строк, есть раздела запуска",
+   "evidence": "README.md",
+   "fix": "",
+   "lesson": "",
+   "value": 121
+  },
+  {
+   "id": "docs.docstrings",
+   "dim": "docs",
+   "status": "FAIL",
+   "detail": "docstring у публичных функций/классов: 11% (13/118)",
+   "evidence": "",
+   "fix": "docstring на публичный API (Google style)",
+   "lesson": "",
+   "value": 11
+  },
+  {
+   "id": "structure.deps",
+   "dim": "structure",
+   "status": "FAIL",
+   "detail": "версии запинены: 0/18",
+   "evidence": "",
+   "fix": "pip freeze → запинить ==",
+   "lesson": "",
+   "value": 0
+  },
+  {
+   "id": "structure.deps",
+   "dim": "structure",
+   "status": "WARN",
+   "detail": "lock-файла нет — сборка невоспроизводима",
+   "evidence": "",
+   "fix": "закоммитить package-lock.json",
+   "lesson": "",
+   "value": null
+  },
+  {
+   "id": "structure.layout",
+   "dim": "structure",
+   "status": "PASS",
+   "detail": "в корне 0 .py, масштаб 24 py / 27 js",
+   "evidence": "",
+   "fix": "",
+   "lesson": "",
+   "value": null
+  },
+  {
+   "id": "ux.menu",
+   "dim": "ux",
+   "status": "NA",
+   "detail": "dynamic callbacks/routing unmeasured: 7; literals: 7",
+   "evidence": "",
+   "fix": "",
+   "lesson": "",
+   "value": null
+  },
+  {
+   "id": "ci.workflows",
+   "dim": "ci",
+   "status": "NA",
+   "detail": "нет GitHub-remote — CI не применим",
+   "evidence": "",
+   "fix": "",
+   "lesson": "",
+   "value": null
+  },
+  {
+   "id": "inv.tests_outside_run_path",
+   "dim": "tests",
+   "status": "NA",
+   "detail": "путь прогона тестов нигде не задан — сверить не с чем",
+   "evidence": "",
+   "fix": "",
+   "lesson": "feedback_test_outside_run_path_is_zero_coverage",
+   "value": null
+  }
+ ],
+ "scores": {
+  "tests": 5.0,
+  "security": 5.0,
+  "quality": 0.0,
+  "runnable": 10.0,
+  "git": 2.0,
+  "docs": 6.0,
+  "structure": 3.0,
+  "ux": null,
+  "ci": null
+ },
+ "total": 4.5,
+ "caps": [],
+ "ceiling_scores": {
+  "tests": 5.0,
+  "security": 10.0,
+  "quality": 10.0,
+  "runnable": 10.0,
+  "git": 10.0,
+  "docs": 10.0,
+  "structure": 10.0,
+  "ux": null,
+  "ci": null
+ },
+ "ceiling_total": 9.0,
+ "meta": {
+  "date": "2026-09-26",
+  "version": "1.0",
+  "quick": true,
+  "tests_run": false,
+  "remote": ""
+ },
+ "delta": null
+}

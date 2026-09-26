@@ -1,99 +1,51 @@
-from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.api.deps import get_current_user_id
 from app.schemas.finance import TransactionCreate, TransactionUpdate, TransactionResponse
 from app.services.finance_svc import FinanceService
 
-import logging
-logger = logging.getLogger(__name__)
-
-from typing import List
-from sqlalchemy import select, desc
-from app.models.models import Transaction
-
 router = APIRouter()
 
-@router.get("", response_model=List[TransactionResponse])
-async def list_transactions(
-    limit: int = 50,
-    offset: int = 0,
-    user_id: int = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
-):
-    stmt = (
-        select(Transaction)
-        .where(Transaction.user_id == user_id)
-        .order_by(desc(Transaction.created_at))
-        .limit(limit)
-        .offset(offset)
+
+async def response(db, user_id, tx):
+    from app.services.finance_transactions import owned
+    from app.models.models import Account, Category
+
+    result = TransactionResponse.model_validate(tx)
+    account = await owned(db, Account, user_id, tx.account_id, active=False)
+    category = (
+        await owned(db, Category, user_id, tx.category_id, active=False) if tx.category_id else None
     )
-    res = await db.execute(stmt)
-    tx_list = res.scalars().all()
-
-    accounts = await FinanceService.get_accounts(db, user_id)
-    categories = await FinanceService.get_categories(db, user_id)
-    acc_map = {a.id: a for a in accounts}
-    cat_map = {c.id: c for c in categories}
-
-    result = []
-    for tx in tx_list:
-        acc = acc_map.get(tx.account_id)
-        cat = cat_map.get(tx.category_id)
-        result.append(
-            TransactionResponse(
-                id=tx.id,
-                user_id=tx.user_id,
-                account_id=tx.account_id,
-                to_account_id=tx.to_account_id,
-                category_id=tx.category_id,
-                amount=float(tx.amount),
-                type=tx.type,
-                note=tx.note,
-                created_at=tx.created_at,
-                account_name=acc.name if acc else None,
-                category_name=cat.name if cat else None,
-                category_icon=cat.icon if cat else None,
-            )
-        )
+    result.currency = account.currency
+    result.account_name = account.name
+    result.category_name = category.name if category else None
+    result.category_icon = category.icon if category else None
     return result
+
+
+@router.get("", response_model=list[TransactionResponse])
+async def list_transactions(
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0, le=100000),
+    month_offset: int | None = Query(None, ge=-120, le=120),
+    currency: str | None = Query(None, pattern="^[A-Z]{3}$"),
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    return await FinanceService.list_transactions(
+        db, user_id, limit, offset, month_offset, currency
+    )
+
 
 @router.post("", response_model=TransactionResponse)
 async def create_transaction(
     payload: TransactionCreate,
     user_id: int = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    try:
-        tx = await FinanceService.create_transaction(db, user_id, payload)
-        # Convert to response
-        accounts = await FinanceService.get_accounts(db, user_id)
-        categories = await FinanceService.get_categories(db, user_id)
-        acc_map = {a.id: a for a in accounts}
-        cat_map = {c.id: c for c in categories}
-        acc = acc_map.get(tx.account_id)
-        cat = cat_map.get(tx.category_id)
-
-        return TransactionResponse(
-            id=tx.id,
-            user_id=tx.user_id,
-            account_id=tx.account_id,
-            to_account_id=tx.to_account_id,
-            category_id=tx.category_id,
-            amount=float(tx.amount),
-            type=tx.type,
-            note=tx.note,
-            created_at=tx.created_at,
-            account_name=acc.name if acc else None,
-            category_name=cat.name if cat else None,
-            category_icon=cat.icon if cat else None
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Failed to create transaction: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {str(e)}")
+    tx = await FinanceService.create_transaction(db, user_id, payload)
+    return await response(db, user_id, tx)
 
 
 @router.put("/{transaction_id}", response_model=TransactionResponse)
@@ -101,58 +53,23 @@ async def update_transaction(
     transaction_id: str,
     payload: TransactionUpdate,
     user_id: int = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    try:
-        tx = await FinanceService.update_transaction(
-            db, user_id, transaction_id, payload.model_dump(exclude_unset=True)
-        )
-        if not tx:
-            raise HTTPException(status_code=404, detail="Транзакция не найдена")
+    tx = await FinanceService.update_transaction(
+        db, user_id, transaction_id, payload.model_dump(exclude_unset=True)
+    )
+    if tx is None:
+        raise HTTPException(404, "Операция не найдена")
+    return await response(db, user_id, tx)
 
-        accounts = await FinanceService.get_accounts(db, user_id)
-        categories = await FinanceService.get_categories(db, user_id)
-        acc_map = {a.id: a for a in accounts}
-        cat_map = {c.id: c for c in categories}
-        acc = acc_map.get(tx.account_id)
-        cat = cat_map.get(tx.category_id)
-
-        c_at = tx.created_at
-        if isinstance(c_at, str):
-            try:
-                c_at = datetime.fromisoformat(c_at.replace("Z", "+00:00"))
-            except Exception:
-                c_at = datetime.now(timezone.utc)
-        elif not c_at:
-            c_at = datetime.now(timezone.utc)
-
-        return TransactionResponse(
-            id=tx.id,
-            user_id=tx.user_id,
-            account_id=tx.account_id,
-            to_account_id=tx.to_account_id,
-            category_id=tx.category_id,
-            amount=float(tx.amount),
-            type=tx.type,
-            note=tx.note,
-            created_at=c_at,
-            account_name=acc.name if acc else None,
-            category_name=cat.name if cat else None,
-            category_icon=cat.icon if cat else None
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to update transaction {transaction_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {str(e)}")
 
 @router.delete("/{transaction_id}")
 async def delete_transaction(
     transaction_id: str,
+    revision: int = Query(..., ge=1),
     user_id: int = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    success = await FinanceService.delete_transaction(db, user_id, transaction_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Транзакция не найдена")
+    if not await FinanceService.delete_transaction(db, user_id, transaction_id, revision):
+        raise HTTPException(404, "Операция не найдена")
     return {"status": "success", "deleted_id": transaction_id}

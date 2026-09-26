@@ -1,0 +1,31 @@
+services:
+  api:
+    build: .
+    image: ai-money:handoff
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file:
+      - bot/.env
+    environment:
+      HOST: 0.0.0.0
+      APP_ENV: production
+      ALLOW_LOCAL_LOGIN: "false"
+      DATABASE_URL: sqlite+aiosqlite:////data/finance.db
+    volumes:
+      - finance-data:/data
+    restart: unless-stopped
+  bot:
+    image: ai-money:handoff
+    profiles: ["telegram"]
+    command: ["python", "-m", "app.bot.run"]
+    env_file:
+      - bot/.env
+    environment:
+      APP_ENV: production
+      ALLOW_LOCAL_LOGIN: "false"
+      DATABASE_URL: sqlite+aiosqlite:////data/finance.db
+    volumes:
+      - finance-data:/data
+    restart: unless-stopped
+volumes:
+  finance-data:

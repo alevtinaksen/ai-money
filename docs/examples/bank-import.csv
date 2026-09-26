@@ -1,0 +1,4 @@
+date,amount,currency,description,source_id,status
+2026-09-20T12:00:00Z,-100.25,RUB,Synthetic grocery,example-expense-1,posted
+2026-09-21T12:00:00Z,1000.00,RUB,Synthetic income,example-income-1,posted
+2026-09-22T12:00:00Z,-20.00,RUB,Synthetic pending,example-pending-1,pending

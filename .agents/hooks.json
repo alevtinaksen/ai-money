@@ -1,0 +1,12 @@
+{
+  "ai-money-evidence": {
+    "enabled": true,
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "/Users/al.ksenofontova/ai-money/.venv/bin/python /Users/al.ksenofontova/ai-money/scripts/antigravity_hook.py",
+        "timeout": 10
+      }
+    ]
+  }
+}
