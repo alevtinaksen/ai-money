@@ -50,6 +50,43 @@ RUS_NUMBERS = {
 
 
 def normalize_numbers(text: str) -> str:
+    # 0. Handle "X с половиной тысяч/миллионов"
+    word_to_num = {'один': 1, 'два': 2, 'две': 2, 'три': 3, 'четыре': 4, 'пять': 5,
+                   'шесть': 6, 'семь': 7, 'восемь': 8, 'девять': 9, 'десять': 10}
+
+    def _half_k_repl(m):
+        raw = m.group(1).lower()
+        val = word_to_num.get(raw, None)
+        if val is None:
+            try:
+                val = float(raw.replace(',', '.'))
+            except ValueError:
+                return m.group(0)
+        return str(int((val + 0.5) * 1000))
+
+    def _half_m_repl(m):
+        raw = m.group(1).lower()
+        val = word_to_num.get(raw, None)
+        if val is None:
+            try:
+                val = float(raw.replace(',', '.'))
+            except ValueError:
+                return m.group(0)
+        return str(int((val + 0.5) * 1000000))
+
+    text = re.sub(
+        r'\b(\d+|один|два|две|три|четыре|пять|шесть|семь|восемь|девять|десять)\s+с\s+половиной\s+(?:тыс(?:\.|яч[а-я]*)?|[кk])\b',
+        _half_k_repl,
+        text,
+        flags=re.IGNORECASE
+    )
+    text = re.sub(
+        r'\b(\d+|один|два|две|три|четыре|пять|шесть|семь|восемь|девять|десять)\s+с\s+половиной\s+(?:млн|миллион[а-я]*|кк)\b',
+        _half_m_repl,
+        text,
+        flags=re.IGNORECASE
+    )
+
     # 1. Expand digits + suffix: "5 тыс", "5 тысяч", "5к", "5k", "5 млн"
     text = re.sub(
         r'(\d+(?:[.,]\d+)?)\s*(?:тыс(?:\.|яч[а-я]*)?|[кk])\b',
