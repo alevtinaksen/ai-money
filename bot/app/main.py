@@ -28,15 +28,30 @@ logger = logging.getLogger("ai-money")
 
 
 async def poll_bot_forever(bot: Bot, dispatcher: Dispatcher):
+    try:
+        await bot.delete_webhook(drop_pending_updates=False)
+    except Exception as e:
+        logger.warning(f"delete_webhook error: {e}")
+
     while True:
         try:
-            await bot.delete_webhook(drop_pending_updates=True)
-            await dispatcher.start_polling(bot, handle_as_tasks=False, drop_pending_updates=True)
+            await dispatcher.start_polling(bot, handle_as_tasks=True, drop_pending_updates=False)
         except asyncio.CancelledError:
             break
         except Exception as e:
             logger.error(f"Bot polling error: {e}, retrying in 3s...")
             await asyncio.sleep(3)
+
+
+async def keepalive_loop():
+    import httpx
+    while True:
+        await asyncio.sleep(240)
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                await client.get(f"http://127.0.0.1:{settings.PORT}/health")
+        except Exception:
+            pass
 
 
 @asynccontextmanager
@@ -48,6 +63,8 @@ async def lifespan(app: FastAPI):
 
     bot_task = None
     bot_instance = None
+    keepalive_task = asyncio.create_task(keepalive_loop())
+
     if settings.BOT_TOKEN and not settings.ALLOW_LOCAL_LOGIN:
         try:
             bot_instance = Bot(settings.BOT_TOKEN)
@@ -61,6 +78,8 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    if keepalive_task:
+        keepalive_task.cancel()
     if bot_task:
         bot_task.cancel()
         if bot_instance:

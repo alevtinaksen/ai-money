@@ -15,9 +15,9 @@ async def main():
     dispatcher.include_router(router)
     async with Bot(settings.BOT_TOKEN) as bot:
         try:
-            await bot.delete_webhook(drop_pending_updates=True)
+            await bot.delete_webhook(drop_pending_updates=False)
             asyncio.create_task(notify_restart(bot))
-            await dispatcher.start_polling(bot, handle_as_tasks=False, drop_pending_updates=True)
+            await dispatcher.start_polling(bot, handle_as_tasks=True, drop_pending_updates=False)
         finally:
             await engine.dispose()
 
