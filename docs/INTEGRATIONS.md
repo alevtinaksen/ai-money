@@ -37,7 +37,7 @@ TELEGRAM_MODE=polling: отдельный scripts/project.py bot; API не по�
 TELEGRAM_MODE=webhook: API регистрирует HTTPS SERVER_URL/api/telegram/webhook; обязательны BOT_TOKEN и TELEGRAM_WEBHOOK_SECRET, local-login запрещён.
 TELEGRAM_MODE=disabled: без Telegram. Один токен — один владелец updates.
 
-Render blueprint собирает Docker frontend+backend. Render production требует внешнюю PostgreSQL DATABASE_URL. SQLite разрешается только с явным SQLITE_PERSISTENT_STORAGE=true после настройки постоянного тома (как в compose); без него старт отклоняется. Значения env задаются владельцем; конфигурация не является выполненным deployment.
+Render blueprint собирает frontend+backend в существующем native Python service. Render production требует внешнюю PostgreSQL DATABASE_URL. SQLite разрешается только с явным SQLITE_PERSISTENT_STORAGE=true после настройки постоянного тома (как в compose); без него старт отклоняется. Значения env задаются владельцем; конфигурация не является выполненным deployment.
 
 ## Groq
 

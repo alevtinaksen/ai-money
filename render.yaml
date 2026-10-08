@@ -1,15 +1,21 @@
-# Optional Docker blueprint. Configure durable external PostgreSQL before any deploy.
+# Native Python service with the frontend built into the same release.
+# Match an existing service deliberately; a blueprint is not a migration tool.
 # No deployment or purchase is performed by editing this file.
 services:
   - type: web
-    name: ai-money
+    name: ai-money-bot
     plan: free
-    runtime: docker
-    dockerfilePath: ./Dockerfile
+    runtime: python
+    buildCommand: pip install -r bot/requirements.txt && npm --prefix frontend ci && npm --prefix frontend run build
+    startCommand: cd bot && uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health/ready
     envVars:
       - key: APP_ENV
         value: production
+      - key: PYTHON_VERSION
+        value: 3.12.12
+      - key: NODE_VERSION
+        value: 22.16.0
       - key: HOST
         value: 0.0.0.0
       - key: ALLOW_LOCAL_LOGIN
@@ -17,6 +23,8 @@ services:
       - key: TELEGRAM_MODE
         value: webhook
       - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_SCHEMA
         sync: false
       - key: BOT_TOKEN
         sync: false

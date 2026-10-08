@@ -22,6 +22,7 @@ def api_environment(port: int, stand_port: int) -> dict[str, str]:
             "DEBUG": "false", "ALLOW_LOCAL_LOGIN": "true", "TELEGRAM_MODE": "disabled", "WEB_CONCURRENCY": "1",
             "BOT_TOKEN": "", "GROQ_API_KEY": "", "GEMINI_API_KEY": "", "AI_PROVIDER": "disabled",
             "AI_UPLOAD_CONSENT": "false", "DATABASE_URL": f"sqlite+aiosqlite:///{database}",
+            "DATABASE_SCHEMA": "", "DATABASE_SSL_CA_FILE": "",
             "WEBAPP_URL": f"http://127.0.0.1:{stand_port}", "SERVER_URL": ""}
 
 
