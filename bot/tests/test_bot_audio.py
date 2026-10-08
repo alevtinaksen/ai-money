@@ -21,6 +21,42 @@ WAV = b"RIFF" + bytes(4) + b"WAVE" + bytes(40)
 M4A = bytes(4) + b"ftypM4A " + bytes(40)
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("finish", ["MAX_TOKENS", "SAFETY", "STOP"])
+async def test_gemini_completed_audio_required_before_draft(audio_context, monkeypatch, caplog, finish):
+    bot, factory = audio_context
+    monkeypatch.setattr(settings, "AI_PROVIDER", "gemini")
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "synthetic")
+    transcript = "расход двести пятьдесят рублей пятьдесят копеек кофе"
+
+    async def download(file, destination, **kwargs):
+        destination.write(OGG)
+
+    async def provider(request):
+        raw = {"transcript": transcript, "transactions": [{"amount": "250.50"}]}
+        return httpx.Response(200, json={"candidates": [{"finishReason": finish,
+            "finishMessage": "synthetic-private", "content": {"parts": [{"text": json.dumps(raw)}]}}]})
+
+    monkeypatch.setattr(bot, "download", download)
+    original = httpx.AsyncClient
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: original(**kw, transport=httpx.MockTransport(provider)))
+    await safe_flow.router.propagate_event("message", audio_message(bot), bot=bot)
+    texts = [call.args[1].text for call in bot.session.await_args_list]
+    async with factory() as db:
+        draft = await db.scalar(select(BotDraft))
+        if finish == "STOP":
+            assert json.loads(draft.payload)[0]["amount"] == "250.50"
+            assert any("250,50 RUB" in text for text in texts)
+        else:
+            assert draft is None
+            assert all("Черновик" not in text for text in texts)
+            assert any("Ничего не записано" in text for text in texts)
+            assert f"finish={finish}" in caplog.text
+        assert await db.scalar(select(Transaction.id)) is None
+        assert (await db.scalar(select(Account))).balance == 1000
+    assert transcript not in caplog.text and "synthetic-private" not in caplog.text
+
+
 @pytest.fixture
 async def audio_context(tmp_path, monkeypatch):
     engine, factory = create_engine_and_session(f"sqlite+aiosqlite:///{tmp_path / 'audio.db'}")

@@ -337,19 +337,10 @@ class AIParserService:
                                  "maxOutputTokens":4096},
         }
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:generateContent"
-        try:
-            async with cloud_slot(), httpx.AsyncClient(timeout=httpx.Timeout(45, connect=10)) as client:
-                response = await client.post(url, json=payload,
-                    headers={"x-goog-api-key": settings.GEMINI_API_KEY})
-                response.raise_for_status()
-                body = response.json()
-            parts_out = body["candidates"][0]["content"]["parts"]
-            content = "".join(p.get("text","") for p in parts_out if not p.get("thought"))
-            raw = json.loads(content)
-            if audio:
-                return validate_source_amounts(raw, raw.get("transcript") if isinstance(raw, dict) else None)
-            if all("text" in part for part in parts):
-                return validate_source_amounts(raw, " ".join(part["text"] for part in parts))
-            return validate_proposals(raw)
-        except (httpx.HTTPError, TimeoutError, KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
-            raise ValueError("Распознавание недоступно или ответ некорректен. Ничего не записано; повторите позже.") from exc
+        from app.services.gemini_response import generate_json
+        raw = await generate_json(url, payload, settings.GEMINI_API_KEY)
+        if audio:
+            return validate_source_amounts(raw, raw.get("transcript"))
+        if all("text" in part for part in parts):
+            return validate_source_amounts(raw, " ".join(part["text"] for part in parts))
+        return validate_proposals(raw)

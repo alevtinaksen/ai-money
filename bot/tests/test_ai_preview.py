@@ -94,7 +94,7 @@ async def test_gemini_audio_inline_wire_and_proposal(monkeypatch, mime, data, wi
         assert inline['mime_type'] == wire_mime
         assert base64.b64decode(inline['data']) == data
         proposal = json.dumps({'transcript': 'расход 250 рублей кофе', 'transactions': [{'amount': 250, 'type': 'expense'}]})
-        return httpx.Response(200, json={'candidates': [{'content': {'parts': [{'text': proposal}]}}]})
+        return httpx.Response(200, json={'candidates': [{'finishReason': 'STOP', 'content': {'parts': [{'text': proposal}]}}]})
 
     original = httpx.AsyncClient
     monkeypatch.setattr(httpx, 'AsyncClient', lambda **kw: original(**kw, transport=httpx.MockTransport(handler)))
@@ -165,7 +165,7 @@ async def test_gemini_audio_amount_conflict_or_missing_transcript(monkeypatch, t
     async def handler(request):
         result = {'transactions': [{'amount': amount}], 'transcript': transcript}
         content = json.dumps(result)
-        return httpx.Response(200, json={'candidates': [{'content': {'parts': [{'text': content}]}}]})
+        return httpx.Response(200, json={'candidates': [{'finishReason': 'STOP', 'content': {'parts': [{'text': content}]}}]})
     original = httpx.AsyncClient
     monkeypatch.setattr(httpx, 'AsyncClient', lambda **kw: original(**kw, transport=httpx.MockTransport(handler)))
     result = await AIParserService.parse_media(b'OggS' + bytes(100), 'audio/ogg', [], [])
@@ -180,7 +180,7 @@ async def test_gemini_receipt_multiple_proposals_are_not_audio_guarded(monkeypat
     monkeypatch.setattr(settings, 'GEMINI_API_KEY', 'synthetic')
     async def handler(request):
         content = json.dumps({'transactions': [{'amount': 250}, {'amount': 55}]})
-        return httpx.Response(200, json={'candidates': [{'content': {'parts': [{'text': content}]}}]})
+        return httpx.Response(200, json={'candidates': [{'finishReason': 'STOP', 'content': {'parts': [{'text': content}]}}]})
     original = httpx.AsyncClient
     monkeypatch.setattr(httpx, 'AsyncClient', lambda **kw: original(**kw, transport=httpx.MockTransport(handler)))
     result = await AIParserService.parse_media(b'synthetic receipt', 'image/jpeg', [], [])

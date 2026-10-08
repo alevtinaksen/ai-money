@@ -74,7 +74,7 @@ async def test_generation_and_transcription_share_slots_without_nested_lock(monk
             return httpx.Response(200, json={"text": "расход 250 рублей кофе"})
         if request.url.host == "api.groq.com":
             return httpx.Response(200, json={"choices": [{"message": {"content": proposal}}]})
-        return httpx.Response(200, json={"candidates": [{"content": {"parts": [{"text": proposal}]}}]})
+        return httpx.Response(200, json={"candidates": [{"finishReason": "STOP", "content": {"parts": [{"text": proposal}]}}]})
 
     original = httpx.AsyncClient
     monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: original(**kw, transport=httpx.MockTransport(handler)))
