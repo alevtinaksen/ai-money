@@ -18,7 +18,8 @@ def local_request_allowed(request: Request) -> bool:
         and request.client and request.client.host in _LOOPBACK
         and request.url.hostname in _LOOPBACK
         and (not origin or urlparse(origin).netloc in {
-            "localhost:5173", "127.0.0.1:5173", "localhost:8000", "127.0.0.1:8000"
+            "localhost:5173", "127.0.0.1:5173", "localhost:8000", "127.0.0.1:8000",
+            urlparse(settings.WEBAPP_URL).netloc if urlparse(settings.WEBAPP_URL).hostname in _LOOPBACK else ""
         })
     )
 

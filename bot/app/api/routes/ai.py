@@ -36,7 +36,7 @@ async def parse_text(payload: TextParseRequest, user_id: int = Depends(get_curre
 @router.post("/parse-receipt", response_model=AIParsedResult)
 async def parse_media(file: UploadFile = File(...), user_id: int = Depends(get_current_user_id),
                       db: AsyncSession = Depends(get_db)):
-    allowed = {"audio/ogg","audio/mpeg","audio/wav","audio/mp4","image/jpeg","image/png","image/webp"}
+    allowed = {"audio/webm","audio/ogg","audio/mpeg","audio/wav","audio/mp4","image/jpeg","image/png","image/webp"}
     if file.content_type not in allowed:
         raise HTTPException(415, "Поддерживаются аудио OGG/MP3/WAV/M4A и изображения JPEG/PNG/WebP")
     try:

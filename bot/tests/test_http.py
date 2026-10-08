@@ -63,3 +63,36 @@ async def test_chunked_upload_rejected_before_parsing(client):
 async def test_local_login_foreign_origin_forbidden(client):
     response = await client.post("/api/auth/local", headers={"Origin":"https://evil.example"})
     assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_null_date_rejected_without_financial_mutation(client):
+    login = await client.post('/api/auth/local')
+    client.headers['Authorization'] = f"Bearer {login.json()['access_token']}"
+    await client.post('/api/onboarding')
+    account = (await client.get('/api/accounts')).json()[0]
+    tx = (await client.post('/api/transactions', json={
+        'account_id': account['id'], 'amount': '1.00', 'client_id': 'null-date'
+    })).json()
+    result = await client.put(f"/api/transactions/{tx['id']}", json={
+        'revision': 1, 'amount': '2.00', 'created_at': None
+    })
+    assert result.status_code == 422
+    assert (await client.get('/api/accounts')).json()[0]['balance'] == -1
+    assert (await client.get('/api/transactions')).json()[0]['revision'] == 1
+    assert (await client.get('/api/analytics/dashboard')).status_code == 200
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('name', ['', 'x' * 101])
+async def test_invalid_account_name_update_never_persists(client, name):
+    login = await client.post('/api/auth/local')
+    client.headers['Authorization'] = f"Bearer {login.json()['access_token']}"
+    account = (await client.post('/api/accounts', json={'name': 'Original', 'balance': 100})).json()
+    response = await client.put(f"/api/accounts/{account['id']}", json={
+        'name': name, 'color': '#123456',
+    })
+    assert response.status_code == 422
+    listing = await client.get('/api/accounts')
+    assert listing.status_code == 200
+    assert listing.json() == [account]

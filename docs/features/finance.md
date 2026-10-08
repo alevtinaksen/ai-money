@@ -26,6 +26,12 @@ in integer cents. Overflow rolls back the entire operation, including both trans
 Edits apply the net change per account, so a harmless note edit cannot fail on a temporary
 reversal at the limit. JSON account/transaction responses expose numbers for the UI boundary.
 
+Note/date edits, including requests repeating unchanged financial fields, may retain owned
+historical account/category links after archiving or a category type change. They do not apply
+balance updates. Any actual amount/type/account/destination/category change requires all final
+links to be active and type-compatible, as does creation. Historical links never permit foreign
+ownership or new archived links. Metadata edits still require the current transaction revision.
+
 An expense decreases its account; income increases it; a transfer decreases its source and increases
 its destination by the identical amount. Transfers require distinct active accounts in the same
 currency and have no category. Currency conversion is intentionally unsupported.
@@ -48,10 +54,16 @@ before its savepoint so rollback does not accidentally persist a released outerm
 - `GET/POST /api/accounts`: list active accounts / create with explicit opening balance.
 - `GET /api/accounts?include_archived=true`: include archived metadata.
 - `PUT /api/accounts/{id}`: metadata only; direct balance/currency rewriting is rejected.
+  Names use the same 1–100 character bound on create/update; invalid updates return 422 before
+  any mutation, leaving the original account and list readable.
 - `DELETE /api/accounts/{id}`: archive; preserve transactions and money.
 - `GET/POST /api/categories`, `PUT/DELETE /api/categories/{id}`: create/update/archive categories.
   Type is `expense`, `income` or `both`; optional `parent_id` must be owned and acyclic.
   A parent with active children cannot be archived until they are moved/archived.
+  Create, update and archive serialize each owner's graph check plus mutation in the database:
+  SQLite acquires its writer transaction before reading; PostgreSQL uses a transaction advisory
+  lock in an owner-specific category namespace. Commit/rollback releases the lock. This works
+  before onboarding and requires no schema changes; invalid writes roll back the whole mutation.
 - `GET /api/transactions?limit=50&offset=0`: stable newest-first order by time and ID.
   Limits: 1–100; offsets: 0–100000; optional month_offset and currency filters.
 - `POST /api/transactions`: account_id, amount, type plus optional to_account_id, category_id,
@@ -80,7 +92,14 @@ create/retry/delete identity; >20 operations over multiple periods; separate cur
 history; exact maximum cents and repeated fractions; transfer conservation; category ownership and
 cycle detection; outer batch rollback; concurrent independent-session deltas, edit conflicts, and
 idempotent creation. Concurrency was executed against file-backed SQLite. PostgreSQL concurrent
-execution is not verified locally; it uses the same UNIQUE/CAS/atomic SQL mechanisms.
+execution is not verified locally; financial writes use UNIQUE/CAS/atomic SQL mechanisms and
+category writes additionally use the owner advisory lock. `test_category_graph.py` forces
+independent-session interleavings for reciprocal moves, child creation versus parent archive,
+and child reparenting versus parent archive. `test_finance_history.py` checks historical note/date
+edits and rejection of financial changes/new archived or foreign links. The HTTP invalid-name
+regression verifies a subsequent unchanged account GET. Nine added regressions failed before
+the fixes; SQLite runtime checks pass after the fixes. Production/Telegram/PostgreSQL acceptance
+remains separate.
 
 Implementation: [facade](../../bot/app/services/finance_svc.py),
 [transaction engine](../../bot/app/services/finance_transactions.py),

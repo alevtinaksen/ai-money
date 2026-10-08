@@ -1,6 +1,8 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@import "./components/design/design.css";
+@config "../tailwind.config.js";
+@custom-variant dark (&:where(.dark, .dark *));
+@layer base { *, ::before, ::after { border-color: var(--color-gray-200, currentColor); } }
 
 @layer utilities {
   /* Hide scrollbar for Chrome, Safari and Opera */

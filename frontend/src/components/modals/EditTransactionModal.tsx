@@ -1,14 +1,9 @@
+import { moneyInput, currencyLabel } from '../../utils/money';
 import React, { useState } from 'react';
-import {
-  CloseOutlined,
-  DeleteOutlined,
-  CalendarOutlined,
-  DownOutlined,
-  CheckOutlined,
-  SwapOutlined,
-} from '@ant-design/icons';
+import { TransactionEditor, CategoryChoices } from '../design/TransactionEditor';
+import { AccountSelectSheet } from './AccountSelectSheet';
+import { ConfirmPanel } from '../design/Support';
 import { Transaction, Account, Category } from '../../types';
-import { resolveAccountBankAndName } from '../../utils/bankUtils';
 
 interface EditTransactionModalProps {
   isOpen: boolean;
@@ -23,10 +18,10 @@ interface EditTransactionModalProps {
     to_account_id?: string;
     category_id?: string;
     type: 'expense' | 'income' | 'transfer';
-    note?: string;
+    note?: string | null;
     created_at?: string;
-  }) => void;
-  onDelete: (id: string) => void;
+  }) => Promise<boolean>;
+  onDelete: (id: string) => Promise<boolean>;
   onHaptic?: (style?: 'light' | 'medium' | 'heavy') => void;
 }
 
@@ -137,19 +132,12 @@ export const CATEGORIES_CATALOG: CategoryCatalogItem[] = [
 ];
 
 export function evaluateMathSum(expr: string): number {
-  if (!expr) return 0;
-  const clean = expr.replace(/,/g, '.').replace(/\s+/g, '');
-  const parts = clean.split('+');
-  let sum = 0;
-  let hasValid = false;
-  for (const part of parts) {
-    const num = parseFloat(part);
-    if (!isNaN(num)) {
-      sum += num;
-      hasValid = true;
-    }
-  }
-  return hasValid ? Math.round(sum * 100) / 100 : 0;
+  try {
+    const parts = expr.replace(/\s+/g, '').split('+');
+    const cents = parts.reduce((sum, part) => sum + BigInt(moneyInput(part).replace('.', '')), 0n);
+    if (cents > 99999999999999n) return 0;
+    return Number(cents) / 100;
+  } catch { return 0; }
 }
 
 export const SUBCATEGORY_ICONS: Record<string, string> = {
@@ -485,185 +473,12 @@ export const SUBCATEGORY_KEYWORDS_MAP: Record<string, { main: string; sub: strin
 };
 
 export function resolveCategoryAndSubcategory(tx: {
-  category_name?: string | null;
-  note?: string | null;
-  category_icon?: string | null;
-  type?: string | null;
+  category_name?: string | null; category_icon?: string | null;
+  note?: string | null; type?: string | null;
 }): ResolvedCategoryInfo {
-  const rawCat = (tx.category_name || '').trim();
-  const rawNote = (tx.note || '').trim();
-  const normalizeRu = (s: string) => s.toLowerCase().replace(/ё/g, 'е').trim();
-  const normCat = normalizeRu(rawCat);
-  const normNote = normalizeRu(rawNote);
-
-  // 1. Check if rawNote begins with an official subcategory: e.g. "Дом • мелкая покупка", "ТО авто: Масло"
-  if (rawNote) {
-    const prefixMatch = rawNote.match(/^([^•·:\-]+?)\s*[•·:\-]\s*(.+)$/);
-    if (prefixMatch) {
-      const candidateNorm = normalizeRu(prefixMatch[1]);
-      for (const cat of CATEGORIES_CATALOG) {
-        const sub = cat.subcategories.find((s) => normalizeRu(s) === candidateNorm);
-        if (sub) {
-          const icon =
-            SUBCATEGORY_ICONS[sub] ||
-            (tx.category_icon && tx.category_icon !== '📦' ? tx.category_icon : cat.icon);
-          return {
-            mainCategory: cat.name,
-            subcategory: sub,
-            displayTitle: `${cat.name} · ${sub}`,
-            icon,
-          };
-        }
-      }
-    }
-  }
-
-  // 2. Check if rawCat is an official subcategory in any catalog group
-  // (e.g. rawCat === "ТО авто" -> parent is "Машина", subcategory is "ТО авто")
-  for (const cat of CATEGORIES_CATALOG) {
-    const matchingSub = cat.subcategories.find(
-      (sc) => normalizeRu(sc) === normCat
-    );
-    if (matchingSub) {
-      const icon =
-        SUBCATEGORY_ICONS[matchingSub] ||
-        (tx.category_icon && tx.category_icon !== '📦' ? tx.category_icon : cat.icon);
-      return {
-        mainCategory: cat.name,
-        subcategory: matchingSub,
-        displayTitle: `${cat.name} · ${matchingSub}`,
-        icon,
-      };
-    }
-  }
-
-  // 3. Check if rawNote matches semantic keyword dictionary (with Russian 'ё'/'е' normalization)
-  if (normNote) {
-    for (const [kw, match] of Object.entries(SUBCATEGORY_KEYWORDS_MAP)) {
-      if (normNote.includes(normalizeRu(kw))) {
-        const icon =
-          SUBCATEGORY_ICONS[match.sub] ||
-          (tx.category_icon && tx.category_icon !== '📦' ? tx.category_icon : '🛍️');
-        return {
-          mainCategory: match.main,
-          subcategory: match.sub,
-          displayTitle: `${match.main} · ${match.sub}`,
-          icon,
-        };
-      }
-    }
-  }
-
-  // 4. Check if rawCat matches an official main category in catalog
-  const catalogItem = CATEGORIES_CATALOG.find(
-    (c) => normalizeRu(c.name) === normCat
-  );
-
-  if (catalogItem) {
-    if (normNote) {
-      // 4a. Exact subcategory of this category
-      const exactSub = catalogItem.subcategories.find(
-        (sc) => normalizeRu(sc) === normNote
-      );
-      if (exactSub) {
-        const icon =
-          SUBCATEGORY_ICONS[exactSub] ||
-          (tx.category_icon && tx.category_icon !== '📦' ? tx.category_icon : catalogItem.icon);
-        return {
-          mainCategory: catalogItem.name,
-          subcategory: exactSub,
-          displayTitle: `${catalogItem.name} · ${exactSub}`,
-          icon,
-        };
-      }
-
-      // 4b. Partial subcategory: e.g. "в самокате" -> "Самокат", "для дома" -> "Дом"
-      const partialSub = catalogItem.subcategories.find((sc) =>
-        normNote.includes(normalizeRu(sc))
-      );
-      if (partialSub) {
-        const icon =
-          SUBCATEGORY_ICONS[partialSub] ||
-          (tx.category_icon && tx.category_icon !== '📦' ? tx.category_icon : catalogItem.icon);
-        return {
-          mainCategory: catalogItem.name,
-          subcategory: partialSub,
-          displayTitle: `${catalogItem.name} · ${partialSub}`,
-          icon,
-        };
-      }
-
-      // 4c. Category-specific smart heuristics for common notes
-      if (catalogItem.name === 'Машина') {
-        if (normNote.includes('магазин') || normNote.includes('покупк') || normNote.includes('сигнал') || normNote.includes('детал') || normNote.includes('видео')) {
-          return {
-            mainCategory: 'Машина',
-            subcategory: 'ТО авто',
-            displayTitle: 'Машина · ТО авто',
-            icon: SUBCATEGORY_ICONS['ТО авто'] || '🔧',
-          };
-        }
-      } else if (catalogItem.name === 'Покупки') {
-        if (normNote.includes('мелк') || normNote.includes('быт')) {
-          return {
-            mainCategory: 'Покупки',
-            subcategory: 'Дом',
-            displayTitle: 'Покупки · Дом',
-            icon: SUBCATEGORY_ICONS['Дом'] || '🏡',
-          };
-        }
-      }
-    }
-
-    // No official subcategory match!
-    return {
-      mainCategory: catalogItem.name,
-      subcategory: null,
-      displayTitle: catalogItem.name,
-      icon: tx.category_icon && tx.category_icon !== '📦' ? tx.category_icon : catalogItem.icon,
-    };
-  }
-
-  // 5. If rawCat wasn't matched, check if rawNote matches any subcategory in catalog
-  if (normNote) {
-    for (const cat of CATEGORIES_CATALOG) {
-      const matched = cat.subcategories.find(
-        (sc) =>
-          normalizeRu(sc) === normNote ||
-          normNote.includes(normalizeRu(sc))
-      );
-      if (matched) {
-        const icon =
-          SUBCATEGORY_ICONS[matched] ||
-          (tx.category_icon && tx.category_icon !== '📦' ? tx.category_icon : cat.icon);
-        return {
-          mainCategory: cat.name,
-          subcategory: matched,
-          displayTitle: `${cat.name} · ${matched}`,
-          icon,
-        };
-      }
-    }
-  }
-
-  // 6. Transfers
-  if (tx.type === 'transfer') {
-    return {
-      mainCategory: 'Переводы',
-      subcategory: null,
-      displayTitle: rawCat || 'Перевод',
-      icon: tx.category_icon || '🔄',
-    };
-  }
-
-  // 7. Fallback: return rawCat or generic label, without arbitrary comment
-  const fallbackName = rawCat || (tx.type === 'income' ? 'Доход' : 'Расход');
-  return {
-    mainCategory: fallbackName,
-    subcategory: null,
-    displayTitle: fallbackName,
-    icon: tx.category_icon || (tx.type === 'income' ? '💰' : '📦'),
-  };
+  const name = tx.type === 'transfer' ? 'Перевод' : tx.category_name?.trim() || 'Без категории';
+  return { mainCategory: name, subcategory: null, displayTitle: name,
+    icon: tx.category_icon || (tx.type === 'transfer' ? '🔄' : tx.type === 'income' ? '💰' : '📦') };
 }
 
 export function formatTransactionSubtitleNote(
@@ -703,10 +518,10 @@ interface EditTransactionContentProps {
     to_account_id?: string;
     category_id?: string;
     type: 'expense' | 'income' | 'transfer';
-    note?: string;
+    note?: string | null;
     created_at?: string;
   }) => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: string) => Promise<boolean>;
   onHaptic?: (type: 'light' | 'medium' | 'heavy') => void;
 }
 
@@ -720,84 +535,13 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
   onDelete,
   onHaptic,
 }) => {
-  const resolveInitialAcc = () => {
-    if (transaction.account_id) {
-      const byId = accounts.find((a) => a.id === transaction.account_id);
-      if (byId) return byId.id;
-    }
-    if (transaction.account_name) {
-      const tName = transaction.account_name.toLowerCase();
-      const byName = accounts.find((a) => {
-        const aName = a.name.toLowerCase();
-        return (
-          aName === tName ||
-          aName.includes(tName) ||
-          tName.includes(aName) ||
-          (tName.includes('едок') && aName.includes('едок')) ||
-          (tName.includes('влад') && aName.includes('влад')) ||
-          (tName.includes('т-банк') && aName.includes('т-банк') && !aName.includes('usd') && !aName.includes('инвест')) ||
-          (tName.includes('альфа') && aName.includes('альфа') && !aName.includes('счёт') && !aName.includes('копилка'))
-        );
-      });
-      if (byName) return byName.id;
-    }
-    return accounts[0]?.id;
-  };
+  const resolveInitialAcc = () => transaction.account_id;
+  const resolveInitialCat = () => transaction.category_id || undefined;
 
-  const resolveInitialCat = () => {
-    // 1. Check if category_name matches a category in categories
-    if (transaction.category_name) {
-      const catName = transaction.category_name.toLowerCase();
-      const byName = categories.find((c) => c.name.toLowerCase() === catName);
-      if (byName) return byName.id;
-    }
-    // 2. Check if note matches a category name directly
-    if (transaction.note) {
-      const noteStr = transaction.note.toLowerCase();
-      const byNote = categories.find((c) => c.name.toLowerCase() === noteStr);
-      if (byNote) return byNote.id;
+  const resolveInitialSubcat = () => '';
 
-      // 3. Check if note is a subcategory in catalog
-      for (const cat of CATEGORIES_CATALOG) {
-        if (cat.subcategories.some((sc) => sc.toLowerCase() === noteStr)) {
-          const matchCat = categories.find((c) => c.name.toLowerCase() === cat.name.toLowerCase());
-          if (matchCat) return matchCat.id;
-        }
-      }
-    }
-    // 4. Check if category_id exists in categories list
-    if (transaction.category_id) {
-      const byId = categories.find((c) => c.id === transaction.category_id);
-      if (byId) return byId.id;
-    }
-    // 5. Transfer check
-    if (transaction.type === 'transfer') {
-      const tc = categories.find((c) => c.name === 'Переводы' || c.name.toLowerCase().includes('перевод'));
-      if (tc) return tc.id;
-    }
-    return categories[0]?.id;
-  };
-
-  const resolveInitialSubcat = () => {
-    const resolved = resolveCategoryAndSubcategory(transaction);
-    if (resolved.subcategory) return resolved.subcategory;
-    const initCat = categories.find((c) => c.id === resolveInitialCat());
-    const catalog = CATEGORIES_CATALOG.find(
-      (c) => c.name.toLowerCase() === initCat?.name?.toLowerCase()
-    );
-    const noteVal = transaction.note;
-    if (
-      noteVal &&
-      catalog?.subcategories.some(
-        (sc) => sc.toLowerCase() === noteVal.toLowerCase()
-      )
-    ) {
-      return noteVal;
-    }
-    return '';
-  };
-
-  const initialResolved = resolveCategoryAndSubcategory(transaction);
+  const [formError, setFormError] = useState('');
+  const [saving, setSaving] = useState(false);
   const [type, setType] = useState<'expense' | 'income' | 'transfer'>(
     transaction.type || 'expense'
   );
@@ -806,9 +550,7 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
   const [toAccountId, setToAccountId] = useState<string | null>(transaction.to_account_id || null);
   const [accPickerTarget, setAccPickerTarget] = useState<'from' | 'to'>('from');
   const [categoryId, setCategoryId] = useState<string | undefined>(resolveInitialCat());
-  const [note, setNote] = useState<string>(() =>
-    formatTransactionSubtitleNote(transaction.note, initialResolved)
-  );
+  const [note, setNote] = useState<string>(transaction.note ?? '');
   const [selectedSubcat, setSelectedSubcat] = useState<string>(resolveInitialSubcat());
   const [selectedDate, setSelectedDate] = useState<Date>(() =>
     transaction.created_at ? new Date(transaction.created_at) : new Date()
@@ -830,15 +572,13 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
     const initialAccId = resolveInitialAcc();
     const initialCatId = resolveInitialCat();
     const initialSub = resolveInitialSubcat();
-    const res = resolveCategoryAndSubcategory(transaction);
-    const cleanNote = formatTransactionSubtitleNote(transaction.note, res);
 
     setType(transaction.type || 'expense');
     setAmountStr(transaction.amount.toString());
     setAccountId(initialAccId);
     setToAccountId(transaction.to_account_id || null);
     setCategoryId(initialCatId);
-    setNote(cleanNote);
+    setNote(transaction.note ?? '');
     setSelectedSubcat(initialSub);
     setSelectedDate(transaction.created_at ? new Date(transaction.created_at) : new Date());
 
@@ -847,10 +587,6 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
     setShowDeleteConfirm(false);
   }, [transaction]);
 
-  const transferCat = categories.find((c) => c.name === 'Переводы' || c.name.toLowerCase().includes('перевод'));
-  const defaultCat = (type === 'transfer' || transaction.type === 'transfer')
-    ? (transferCat || categories[0])
-    : categories[0];
   const selectedAcc =
     accounts.find((a) => a.id === accountId) ||
     (transaction.account_name
@@ -870,31 +606,7 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
   const selectedToAcc = toAccountId
     ? accounts.find((a) => a.id === toAccountId)
     : accounts.find((a) => a.id !== accountId && a.group_name !== 'Кредиты') || null;
-  const selectedCat = categories.find((c) => c.id === categoryId) || defaultCat;
-
-  const resolvedAcc = React.useMemo(() => selectedAcc ? resolveAccountBankAndName(selectedAcc) : null, [selectedAcc]);
-  const resolvedToAcc = React.useMemo(() => selectedToAcc ? resolveAccountBankAndName(selectedToAcc) : null, [selectedToAcc]);
-
-  // Resolve matching catalog entry for categories and subcategories
-  const activeCatalog =
-    CATEGORIES_CATALOG.find((c) => c.name.toLowerCase() === selectedCat?.name?.toLowerCase()) ||
-    CATEGORIES_CATALOG.find((c) => selectedCat?.name?.toLowerCase().includes(c.name.toLowerCase())) ||
-    CATEGORIES_CATALOG[0];
-
-  const currentSubcategories = activeCatalog.subcategories;
-
-  const orderedSubcategories = React.useMemo(() => {
-    if (!selectedSubcat) return currentSubcategories;
-    const match = currentSubcategories.find((s) => s === selectedSubcat);
-    const others = currentSubcategories.filter((s) => s !== selectedSubcat);
-    return match ? [match, ...others] : currentSubcategories;
-  }, [currentSubcategories, selectedSubcat]);
-
-  const filteredCatalog = CATEGORIES_CATALOG.filter((c) => {
-    if (type === 'income') return c.type === 'income' || c.name === 'Подарки' || c.name === 'Переводы';
-    if (type === 'transfer') return c.type === 'transfer' || c.name === 'Накопления';
-    return c.type === 'expense';
-  });
+  const selectedCat = categories.find((c) => c.id === categoryId);
 
   const liveSum = amountStr.includes('+') ? evaluateMathSum(amountStr) : null;
 
@@ -913,12 +625,15 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     onHaptic?.('heavy');
-    const evaluated = evaluateMathSum(amountStr);
-    const parsedAmount = evaluated > 0 ? evaluated : (parseFloat(amountStr) || transaction.amount);
+    if (saving) return;
+    let parsedAmount: number;
+    try { parsedAmount = Number(moneyInput(amountStr)); }
+    catch (cause) { setFormError((cause as Error).message); return; }
+    setFormError(''); setSaving(true);
     
-    let finalNote = note.trim();
+    let finalNote = note;
     if (selectedSubcat) {
       const cleanSub = selectedSubcat.trim();
       if (finalNote) {
@@ -935,483 +650,58 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
       finalNote = undefined as any;
     }
 
-    onSave({
+    await onSave({
       id: transaction.id,
       amount: parsedAmount,
       account_id: accountId,
       to_account_id: type === 'transfer' ? (toAccountId || selectedToAcc?.id || undefined) : undefined,
       category_id: categoryId,
       type,
-      note: finalNote || undefined,
+      note: finalNote || null,
       created_at: selectedDate.toISOString(),
     });
+    setSaving(false);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     onHaptic?.('heavy');
-    onDelete(transaction.id);
-    onClose();
+    if (await onDelete(transaction.id)) onClose();
   };
 
   // Format date for pill: "21 сент."
   const dateLabel = selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 
 
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-between bg-[#F6F7FB] dark:bg-[#121318] px-5 pt-12 pb-8 animate-fade-in select-none transition-colors duration-200">
-      {/* Top Bar: Close (X) & Delete (Trash) */}
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => {
-            onHaptic?.('light');
-            onClose();
-          }}
-          className="w-11 h-11 rounded-full bg-white dark:bg-[#1E1F26] border border-gray-100 dark:border-gray-800 shadow-sm flex items-center justify-center text-[#111827] dark:text-white active:bg-gray-100 dark:active:bg-gray-800"
-        >
-          <CloseOutlined className="text-[18px]" />
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            onHaptic?.('medium');
-            setShowDeleteConfirm(true);
-          }}
-          className="w-11 h-11 rounded-full bg-white dark:bg-[#1E1F26] border border-gray-100 dark:border-gray-800 shadow-sm flex items-center justify-center text-gray-600 dark:text-gray-300 hover:text-red-500 active:bg-red-50 dark:active:bg-red-950/30 transition-colors"
-        >
-          <DeleteOutlined className="text-[18px]" />
-        </button>
-      </div>
-
-      {/* Center Form Area */}
-      <div className="space-y-6 max-w-sm mx-auto w-full mt-auto mb-auto">
-        {/* Row 1: Account Selector(s) & Date Pill */}
-        <div className="flex items-center justify-between gap-2">
-          {type === 'transfer' ? (
-            <div className="flex items-center space-x-1.5 flex-1 min-w-0">
-              {/* From Account Pill */}
-              <button
-                type="button"
-                onClick={() => {
-                  onHaptic?.('light');
-                  setAccPickerTarget('from');
-                  setIsAccPickerOpen(true);
-                  setIsPickerOpen(false);
-                }}
-                className="inline-flex items-center space-x-1.5 bg-white dark:bg-[#1E1F26] px-3 py-2 rounded-full shadow-sm border border-gray-100 dark:border-gray-800 active:scale-[0.98] transition-all flex-1 min-w-0"
-              >
-                <span className="text-base flex-shrink-0">{selectedAcc?.icon || '💳'}</span>
-                <span className="text-[13px] font-semibold text-[#111827] dark:text-white truncate">
-                  {resolvedAcc?.cleanName || selectedAcc?.name || 'Откуда'}
-                </span>
-              </button>
-
-              {/* Two-way Swap Button */}
-              <button
-                type="button"
-                onClick={() => {
-                  onHaptic?.('medium');
-                  const oldFrom = accountId;
-                  const oldTo = toAccountId;
-                  if (oldTo) {
-                    setAccountId(oldTo);
-                    setToAccountId(oldFrom);
-                  }
-                }}
-                title="Поменять счета местами"
-                className="w-7 h-7 rounded-full bg-white dark:bg-[#1E1F26] border border-gray-200 dark:border-gray-700 shadow-sm flex items-center justify-center text-[#2B5BFF] flex-shrink-0 active:scale-90 hover:bg-blue-50 dark:hover:bg-[#2A2B36] transition-all"
-              >
-                <SwapOutlined className="text-[12px]" />
-              </button>
-
-              {/* To Account Pill */}
-              <button
-                type="button"
-                onClick={() => {
-                  onHaptic?.('light');
-                  setAccPickerTarget('to');
-                  setIsAccPickerOpen(true);
-                  setIsPickerOpen(false);
-                }}
-                className="inline-flex items-center space-x-1.5 bg-white dark:bg-[#1E1F26] px-3 py-2 rounded-full shadow-sm border border-gray-100 dark:border-gray-800 active:scale-[0.98] transition-all flex-1 min-w-0"
-              >
-                <span className="text-base flex-shrink-0">{selectedToAcc?.icon || '🪙'}</span>
-                <span className="text-[13px] font-semibold text-[#111827] dark:text-white truncate">
-                  {resolvedToAcc?.cleanName || selectedToAcc?.name || 'Куда'}
-                </span>
-              </button>
-            </div>
-          ) : (
-            /* Account Pill */
-            <button
-              type="button"
-              onClick={() => {
-                onHaptic?.('light');
-                setAccPickerTarget('from');
-                setIsAccPickerOpen(!isAccPickerOpen);
-                setIsPickerOpen(false);
-              }}
-              className="inline-flex items-center space-x-2 bg-white dark:bg-[#1E1F26] px-4 py-2.5 rounded-full shadow-sm border border-gray-100 dark:border-gray-800 active:scale-[0.98] transition-all max-w-[200px] sm:max-w-[240px] min-w-0 flex-shrink"
-            >
-              <span className="text-lg flex-shrink-0">{selectedAcc?.icon || '💳'}</span>
-              <div className="text-left min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 leading-tight truncate">
-                  {resolvedAcc?.bank && (
-                    <span className="text-[9px] font-semibold px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-[#4B5563] dark:text-gray-300 shrink-0">
-                      {resolvedAcc.bank.shortName}
-                    </span>
-                  )}
-                  <span className="text-[14px] font-semibold text-[#111827] dark:text-white truncate">
-                    {resolvedAcc?.cleanName || selectedAcc?.name || 'Счёт'}
-                  </span>
-                </div>
-                <span className="text-[11px] text-[#9CA3AF] dark:text-gray-400 block leading-none mt-0.5 whitespace-nowrap">
-                  {selectedAcc ? (selectedAcc.balance / 1000).toFixed(2) : 0} тыс. ₽
-                </span>
-              </div>
-            </button>
-          )}
-
-          {/* Date Pill with real Date Picker */}
-          <div className="relative inline-flex items-center space-x-1.5 bg-white dark:bg-[#1E1F26] px-3.5 py-2.5 rounded-full shadow-sm border border-gray-100 dark:border-gray-800 text-[#111827] dark:text-white flex-shrink-0 cursor-pointer active:scale-95 transition-all overflow-hidden hover:border-[#2B5BFF]/40">
-            <CalendarOutlined className="text-[13px] text-[#9CA3AF] dark:text-gray-400 pointer-events-none" />
-            <span className="text-[13px] font-semibold pointer-events-none">{dateLabel}</span>
-            <input
-              type="date"
-              value={toInputValue(selectedDate)}
-              onChange={(e) => {
-                if (e.target.value) {
-                  const [y, m, d] = e.target.value.split('-').map(Number);
-                  const newD = new Date(selectedDate);
-                  newD.setFullYear(y, m - 1, d);
-                  setSelectedDate(newD);
-                  onHaptic?.('light');
-                }
-              }}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-            />
-          </div>
-
-        </div>
-
-        {/* Row 2: Amount & Type Toggle */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            {/* [- + ⇄] Toggle button */}
-            <div className="bg-white dark:bg-[#1E1F26] rounded-full p-1 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center space-x-1">
-              <button
-                type="button"
-                onClick={() => {
-                  onHaptic?.('light');
-                  setType('expense');
-                }}
-                className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-lg transition-all ${
-                  type === 'expense'
-                    ? 'bg-[#FF4B55] text-white shadow-sm'
-                    : 'text-gray-400 hover:text-gray-600'
-                }`}
-              >
-                −
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onHaptic?.('light');
-                  setType('income');
-                }}
-                className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-lg transition-all ${
-                  type === 'income'
-                    ? 'bg-[#10B981] text-white shadow-sm'
-                    : 'text-gray-400 hover:text-gray-600'
-                }`}
-              >
-                +
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onHaptic?.('light');
-                  setType('transfer');
-                  if (transferCat) setCategoryId(transferCat.id);
-                }}
-                className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
-                  type === 'transfer'
-                    ? 'bg-[#2B5BFF] text-white shadow-sm'
-                    : 'text-gray-400 hover:text-gray-600'
-                }`}
-              >
-                ⇄
-              </button>
-            </div>
-
-            {/* Amount Input with Live Calculation hint */}
-            <div className="flex flex-col flex-1 min-w-0">
-              <input
-                type="text"
-                value={amountStr}
-                onChange={(e) => setAmountStr(e.target.value)}
-                onBlur={handleAmountBlur}
-                onKeyDown={handleAmountKeyDown}
-                placeholder="0"
-                className={`text-[36px] font-extrabold bg-transparent w-full tracking-tight focus:outline-none truncate ${
-                  type === 'expense'
-                    ? 'text-[#FF4B55]'
-                    : type === 'income'
-                    ? 'text-[#10B981]'
-                    : 'text-[#2B5BFF]'
-                }`}
-              />
-              {liveSum !== null && liveSum > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setAmountStr(liveSum.toString())}
-                  className="text-[13px] font-bold text-[#2B5BFF] hover:underline text-left -mt-1"
-                >
-                  = {liveSum.toLocaleString('ru-RU')} ₽
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Currency Pill */}
-          <div className="w-10 h-10 rounded-full bg-white dark:bg-[#1E1F26] shadow-sm border border-gray-100 dark:border-gray-800 flex items-center justify-center text-gray-400 dark:text-gray-300 font-bold text-[18px] flex-shrink-0">
-            ₽
-          </div>
-        </div>
-
-        {/* Row 3: Category & Subcategories Horizontal Strip (matching Screenshot 2) */}
-        <div className="flex items-center space-x-2.5 overflow-x-auto no-scrollbar py-1 w-full">
-          {/* Main Category Dropdown Pill */}
-          <button
-            type="button"
-            onClick={() => {
-              onHaptic?.('light');
-              setIsPickerOpen(!isPickerOpen);
-              setIsAccPickerOpen(false);
-            }}
-            className="inline-flex items-center space-x-2 bg-[#2B5BFF] text-white px-4 py-2.5 rounded-full font-semibold text-[15px] shadow-sm active:scale-[0.98] transition-all flex-shrink-0"
-          >
-            <span>{selectedCat?.icon || activeCatalog.icon || '📦'}</span>
-            <span>{selectedCat?.name || activeCatalog.name}</span>
-            <DownOutlined className="text-[14px] ml-0.5" />
-          </button>
-
-          {/* Subcategories Horizontal Pills (matching Screenshot 2: • Одежда, • Электроника...) */}
-          {orderedSubcategories.map((sc) => {
-            const isSelected = selectedSubcat === sc;
-            return (
-              <button
-                key={sc}
-                type="button"
-                onClick={() => {
-                  onHaptic?.('light');
-                  if (isSelected) {
-                    setSelectedSubcat('');
-                  } else {
-                    setSelectedSubcat(sc);
-                    if (!note || currentSubcategories.includes(note)) {
-                      setNote(sc);
-                    }
-                  }
-                }}
-                className={`inline-flex items-center space-x-2 px-4 py-2.5 rounded-full font-semibold text-[14px] flex-shrink-0 transition-all active:scale-95 ${
-                  isSelected
-                    ? 'bg-[#EFF6FF] dark:bg-[#1E293B] text-[#2B5BFF] dark:text-[#60A5FA] border border-[#2B5BFF] shadow-sm'
-                    : 'bg-white dark:bg-[#1E1F26] text-[#111827] dark:text-gray-200 border border-gray-100 dark:border-gray-800 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800'
-                }`}
-              >
-                <span
-                  className={`w-1.5 h-1.5 rounded-full ${
-                    isSelected ? 'bg-[#2B5BFF]' : 'bg-[#9CA3AF]'
-                  }`}
-                />
-                <span>{sc}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Category & Subcategory Picker Popup Sheet */}
-        {isPickerOpen && (
-          <div className="bg-white dark:bg-[#1E1F26] rounded-3xl p-4 shadow-xl border border-gray-100 dark:border-gray-800 max-h-[340px] overflow-y-auto space-y-3.5 animate-slide-up">
-            <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-gray-800">
-              <span className="text-[13px] font-bold text-gray-400 uppercase tracking-wider">
-                Категории и подкатегории
-              </span>
-              <button
-                type="button"
-                onClick={() => setIsPickerOpen(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-white"
-              >
-                <CloseOutlined className="text-[14px]" />
-              </button>
-            </div>
-
-            {filteredCatalog.map((catItem) => {
-              const isCatActive =
-                selectedCat?.name.toLowerCase() === catItem.name.toLowerCase();
-
-              return (
-                <div key={catItem.name} className="space-y-1.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onHaptic?.('light');
-                      const found = categories.find(
-                        (c) => c.name.toLowerCase() === catItem.name.toLowerCase()
-                      );
-                      if (found) setCategoryId(found.id);
-                      setSelectedSubcat('');
-                      setIsPickerOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition-colors ${
-                      isCatActive
-                        ? 'bg-blue-50 dark:bg-blue-950/40 text-[#2B5BFF] font-bold'
-                        : 'text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-2.5">
-                      <span className="text-xl">{catItem.icon}</span>
-                      <span className="text-[15px] font-semibold">{catItem.name}</span>
-                    </div>
-                    {isCatActive && <CheckOutlined className="text-[14px] text-[#2B5BFF]" />}
-                  </button>
-
-                  {/* Subcategories Chips inside picker */}
-                  <div className="flex flex-wrap gap-1.5 pl-8">
-                    {catItem.subcategories.map((sub) => {
-                      const isSubSelected =
-                        isCatActive &&
-                        (selectedSubcat === sub || note.toLowerCase() === sub.toLowerCase());
-
-                      return (
-                        <button
-                          key={sub}
-                          type="button"
-                          onClick={() => {
-                            onHaptic?.('light');
-                            const found = categories.find(
-                              (c) => c.name.toLowerCase() === catItem.name.toLowerCase()
-                            );
-                            if (found) setCategoryId(found.id);
-                            setSelectedSubcat(sub);
-                            setNote(sub);
-                            setIsPickerOpen(false);
-                          }}
-                          className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                            isSubSelected
-                              ? 'bg-[#2B5BFF] text-white shadow-xs'
-                              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                          }`}
-                        >
-                          {sub}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Account Picker Dropdown Sheet */}
-        {isAccPickerOpen && (
-          <div className="bg-white dark:bg-[#1E1F26] rounded-2xl p-3 shadow-lg border border-gray-100 dark:border-gray-800 max-h-56 overflow-y-auto space-y-1 animate-slide-up">
-            <div className="flex items-center justify-between px-2 pb-1.5 text-[12px] font-bold text-gray-400 uppercase tracking-wider">
-              <span>{accPickerTarget === 'to' ? 'Счёт зачисления' : 'Счёт списания'}</span>
-              <button
-                type="button"
-                onClick={() => setIsAccPickerOpen(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-white"
-              >
-                <CloseOutlined className="text-[12px]" />
-              </button>
-            </div>
-            {accounts
-              .filter((a) => a.group_name !== 'Кредиты' && (accPickerTarget === 'to' ? a.id !== accountId : true))
-              .map((a) => (
-                <button
-                  key={a.id}
-                  type="button"
-                  onClick={() => {
-                    onHaptic?.('light');
-                    if (accPickerTarget === 'to') {
-                      setToAccountId(a.id);
-                    } else {
-                      setAccountId(a.id);
-                    }
-                    setIsAccPickerOpen(false);
-                  }}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-left hover:bg-gray-50 dark:hover:bg-gray-800"
-                >
-                  <div className="flex items-center space-x-2.5">
-                    <span className="text-lg">{a.icon}</span>
-                    <span className="text-[14px] font-semibold text-gray-800 dark:text-white">{a.name}</span>
-                  </div>
-                  <span className="text-[13px] font-medium text-gray-500 dark:text-gray-400">
-                    {a.balance.toLocaleString('ru-RU')} ₽
-                  </span>
-                </button>
-              ))}
-          </div>
-        )}
-      </div>
-
-      {/* Bottom Bar: Description Input & Big Blue Checkmark (✓) */}
-      <div className="flex items-center space-x-3 max-w-sm mx-auto w-full">
-        <input
-          type="text"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="Описание"
-          className="flex-1 bg-white dark:bg-[#1E1F26] rounded-[22px] px-4 py-4 shadow-sm border border-gray-100 dark:border-gray-800 text-[15px] font-medium text-gray-800 dark:text-white placeholder-gray-400 focus:outline-none focus:border-[#2B5BFF]"
-        />
-
-        <button
-          type="button"
-          onClick={handleSave}
-          className="w-14 h-14 rounded-full bg-[#2B5BFF] text-white flex items-center justify-center shadow-[0_8px_20px_rgba(43,91,255,0.4)] active:scale-95 transition-all flex-shrink-0"
-        >
-          <CheckOutlined className="text-[26px]" />
-        </button>
-      </div>
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 backdrop-blur-xs p-5">
-          <div className="bg-white dark:bg-[#1E1F26] rounded-3xl p-6 max-w-xs w-full shadow-2xl text-center space-y-4 animate-scale-up border border-transparent dark:border-gray-800">
-            <div className="w-12 h-12 rounded-full bg-red-50 dark:bg-red-950/40 text-red-500 mx-auto flex items-center justify-center">
-              <DeleteOutlined className="text-[22px]" />
-            </div>
-            <div>
-              <h4 className="text-[17px] font-bold text-gray-900 dark:text-white">Удалить операцию?</h4>
-              <p className="text-[13px] text-gray-500 dark:text-gray-400 mt-1">
-                Баланс счёта будет автоматически восстановлен.
-              </p>
-            </div>
-            <div className="flex space-x-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-semibold text-[14px]"
-              >
-                Отмена
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                className="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-semibold text-[14px] shadow-sm"
-              >
-                Удалить
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  const changeType = (next: 'expense' | 'income' | 'transfer') => {
+    onHaptic?.('light'); setType(next);
+    if (next === 'transfer') setCategoryId(undefined);
+    else if (!categories.some(c => c.id === categoryId && (c.type === next || c.type === 'both'))) {
+      setCategoryId(categories.find(c => c.type === next || c.type === 'both')?.id);
+    }
+  };
+  const today = new Date(); const yesterday = new Date(today); yesterday.setDate(today.getDate()-1);
+  const calendarLabel = selectedDate.toDateString() === today.toDateString() ? 'Сегодня' : selectedDate.toDateString() === yesterday.toDateString() ? 'Вчера' : dateLabel;
+  const parentCategory = categories.find(c => c.id === selectedCat?.parent_id) || selectedCat;
+  const childCategories = categories.filter(c => c.parent_id === parentCategory?.id);
+  return <TransactionEditor onClose={onClose} onDelete={() => setShowDeleteConfirm(true)} type={type} onType={changeType}
+    dateValue={toInputValue(selectedDate)} dateLabel={calendarLabel} onDate={value => {
+      const [y,m,d] = value.split('-').map(Number); const next = new Date(selectedDate); next.setFullYear(y,m-1,d); setSelectedDate(next);
+    }} source={selectedAcc} destination={selectedToAcc}
+    onSource={() => { setAccPickerTarget('from'); setIsAccPickerOpen(true); }} onDestination={() => { setAccPickerTarget('to'); setIsAccPickerOpen(true); }}
+    onSwap={() => { if(selectedToAcc) { setAccountId(selectedToAcc.id); setToAccountId(accountId); } }}
+    amount={amountStr} onAmount={setAmountStr} onAmountBlur={handleAmountBlur} onAmountKeyDown={handleAmountKeyDown}
+    amountHint={liveSum !== null && liveSum > 0 ? <button onClick={() => setAmountStr(liveSum.toString())}>= {liveSum} {currencyLabel(selectedAcc?.currency || 'RUB')}</button> : null}
+    category={parentCategory} onCategory={() => setIsPickerOpen(open => !open)}
+    choices={isPickerOpen ? <CategoryChoices categories={categories.filter(c => c.type === type || c.type === 'both')} selected={categoryId}
+      onSelect={cat => { setCategoryId(cat.id); setSelectedSubcat(''); setIsPickerOpen(false); }} /> : childCategories.length ? <CategoryChoices categories={childCategories} selected={categoryId} onSelect={cat => setCategoryId(cat.id)} /> : null}
+    note={note} onNote={setNote} onSave={() => void handleSave()} saving={saving} error={formError}>
+    <AccountSelectSheet isOpen={isAccPickerOpen} onClose={() => setIsAccPickerOpen(false)}
+      accounts={accounts.filter(a => a.group_name !== 'Кредиты' && (accPickerTarget === 'to' ? a.id !== accountId : true))}
+      selectedAccountId={accPickerTarget === 'to' ? toAccountId || '' : accountId}
+      onSelectAccount={a => { if(accPickerTarget === 'to') setToAccountId(a.id); else setAccountId(a.id); setIsAccPickerOpen(false); }} />
+    {showDeleteConfirm && <ConfirmPanel title="Удалить операцию?" description="Баланс счёта будет автоматически восстановлен."
+      action="Удалить" onCancel={() => setShowDeleteConfirm(false)} onConfirm={() => void handleDelete()} />}
+  </TransactionEditor>;
 };
 
 export const EditTransactionModal: React.FC<EditTransactionModalProps> = (props) => {
@@ -1423,4 +713,3 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = (props)
     />
   );
 };
-

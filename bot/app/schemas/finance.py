@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import Optional, List, Literal
-from pydantic import BaseModel, Field, ConfigDict, AfterValidator, AwareDatetime
+from pydantic import BaseModel, Field, ConfigDict, AfterValidator, AwareDatetime, field_validator
 from decimal import Decimal
 from typing import Annotated
 
@@ -43,7 +43,7 @@ class AccountCreate(AccountBase):
 
 
 class AccountUpdate(StrictModel):
-    name: Optional[str] = None
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
     group_name: Optional[str] = None
     bank_name: Optional[str] = None
     icon: Optional[str] = None
@@ -118,6 +118,14 @@ class TransactionUpdate(StrictModel):
     type: Optional[Literal["expense", "income", "transfer"]] = None
     note: Optional[str] = Field(default=None, max_length=2000)
     created_at: Optional[UTCInput] = None
+
+
+    @field_validator("created_at", mode="before")
+    @classmethod
+    def date_cannot_be_null(cls, value):
+        if value is None:
+            raise ValueError("Дата операции не может быть пустой")
+        return value
 
 
 class TransactionResponse(BaseModel):
@@ -202,5 +210,6 @@ class DashboardSummary(BaseModel):
     period_label: str
     period_income: float
     period_expense: float
+    income_categories: List[CategoryStat] = Field(default_factory=list)
     categories: List[CategoryStat]
     recent_transactions: List[TransactionResponse]

@@ -62,3 +62,21 @@ async def test_expired_draft_never_applies(session):
     with pytest.raises(ValueError):
         await confirm_draft(session, 1, draft_id)
     assert await session.scalar(select(Transaction.id)) is None
+
+
+@pytest.mark.asyncio
+async def test_confirmation_after_loading_in_new_sqlite_session(tmp_path):
+    engine, factory = create_engine_and_session(f"sqlite+aiosqlite:///{tmp_path / 'new-session.db'}")
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        async with factory() as db:
+            await FinanceService.create_account(db, 1, AccountCreate(name='Test', balance=100))
+            draft = await make_draft(db, 1, 'fresh', [AIParsedTransaction(amount='10')])
+            draft_id = draft.id
+        async with factory() as db:
+            assert await confirm_draft(db, 1, draft_id)
+            assert not await confirm_draft(db, 1, draft_id)
+            assert (await FinanceService.get_accounts(db, 1))[0].balance == 90
+    finally:
+        await engine.dispose()

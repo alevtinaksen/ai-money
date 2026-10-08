@@ -71,7 +71,7 @@ async def confirm_draft(db, user_id, draft_id):
     result = await db.execute(update(BotDraft).where(
         BotDraft.id == draft_id, BotDraft.user_id == user_id, BotDraft.status == "pending",
         BotDraft.expires_at > datetime.now(timezone.utc)
-    ).values(status="confirmed"))
+    ).values(status="confirmed").execution_options(synchronize_session=False))
     if result.rowcount != 1:
         await db.rollback()
         raise ConflictError("Черновик истёк или отменён; создайте новый")
@@ -80,6 +80,7 @@ async def confirm_draft(db, user_id, draft_id):
             clean = {k:v for k,v in item.items() if k not in ("account_name","currency","to_account_name")}
             await FinanceService.create_transaction(db, user_id, TransactionCreate(**clean), commit=False)
         await db.commit()
+        await db.refresh(draft)
     except Exception:
         await db.rollback()
         raise
@@ -89,6 +90,6 @@ async def confirm_draft(db, user_id, draft_id):
 async def cancel_draft(db, user_id, draft_id):
     result = await db.execute(update(BotDraft).where(
         BotDraft.id == draft_id, BotDraft.user_id == user_id, BotDraft.status == "pending"
-    ).values(status="cancelled"))
+    ).values(status="cancelled").execution_options(synchronize_session=False))
     await db.commit()
     return result.rowcount == 1

@@ -123,9 +123,10 @@ def quality() -> bool:
     environment.update({"PYTHONPATH": str(ROOT / "bot"), "BOT_TOKEN": "", "ALLOW_LOCAL_LOGIN": "false"})
     before = fingerprint()
     commands = [
-        ("lint", [interpreter, "-m", "ruff", "check", "bot/app", "bot/tests", "scripts"], ROOT),
+        ("lint", [interpreter, "-m", "ruff", "check", "bot/app", "bot/tests", "scripts", "preview"], ROOT),
         ("toolkit", [interpreter, "-m", "unittest", "discover", "-s", "scripts/tests", "-v"], ROOT),
         ("structure", [interpreter, "scripts/structure_check.py"], ROOT),
+        ("backend", [interpreter, "-m", "pytest", "bot/tests", "-q"], ROOT),
         ("frontend-tests", [npm(), "test"], ROOT / "frontend"),
         ("frontend-build", [npm(), "run", "build"], ROOT / "frontend"),
     ]

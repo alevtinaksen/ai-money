@@ -95,25 +95,25 @@ async def get_dashboard_summary(
     selected = totals.get(currency, {"income": 0.0, "expense": 0.0})
     stats_query = (
         select(
-            Category.id, Category.name, Category.icon, Category.color, func.sum(Transaction.amount)
+            Category.id, Category.name, Category.icon, Category.color, Transaction.type, func.sum(Transaction.amount)
         )
         .select_from(Transaction)
         .join(Account, Transaction.account_id == Account.id)
         .outerjoin(Category, Transaction.category_id == Category.id)
-        .where(*filters, Account.currency == currency, Transaction.type == "expense")
-        .group_by(Category.id, Category.name, Category.icon, Category.color)
+        .where(*filters, Account.currency == currency, Transaction.type != "transfer")
+        .group_by(Category.id, Category.name, Category.icon, Category.color, Transaction.type)
     )
-    stats = []
-    for cid, name, icon, color, amount in (await db.execute(stats_query)).all():
-        stats.append(
+    stats = {"expense": [], "income": []}
+    for cid, name, icon, color, kind, amount in (await db.execute(stats_query)).all():
+        stats[kind].append(
             CategoryStat(
                 id=cid or "uncategorized",
                 name=name or "Без категории",
                 icon=icon or "📦",
                 color=color or "#F3F4F6",
                 total_amount=float(amount),
-                percentage=round(float(amount) / selected["expense"] * 100, 1)
-                if selected["expense"]
+                percentage=round(float(amount) / selected[kind] * 100, 1)
+                if selected[kind]
                 else 0,
             )
         )
@@ -125,6 +125,7 @@ async def get_dashboard_summary(
         period_label=start.strftime("%Y-%m"),
         period_income=selected["income"],
         period_expense=selected["expense"],
-        categories=stats,
+        categories=stats["expense"],
+        income_categories=stats["income"],
         recent_transactions=await list_transactions(db, user_id, limit=20),
     )

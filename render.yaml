@@ -1,22 +1,32 @@
+# Optional Docker blueprint. Configure durable external PostgreSQL before any deploy.
+# No deployment or purchase is performed by editing this file.
 services:
   - type: web
-    name: ai-money-bot
+    name: ai-money
     plan: free
-    runtime: python
-    buildCommand: pip install --upgrade pip && (if [ -f bot/requirements.txt ]; then pip install -r bot/requirements.txt; else pip install -r requirements.txt; fi)
-    startCommand: sh -c "if [ -d bot ]; then cd bot; fi && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health/ready
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.12.8
+      - key: APP_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: ALLOW_LOCAL_LOGIN
+        value: "false"
+      - key: TELEGRAM_MODE
+        value: webhook
+      - key: DATABASE_URL
+        sync: false
       - key: BOT_TOKEN
         sync: false
-      - key: GROQ_API_KEY
-        sync: false
-      - key: GEMINI_API_KEY
+      - key: SERVER_URL
         sync: false
       - key: WEBAPP_URL
         sync: false
-      - key: DATABASE_URL
+      - key: TELEGRAM_WEBHOOK_SECRET
         sync: false
-      - key: PYTHONPATH
-        value: bot:.
+      - key: AI_PROVIDER
+        value: disabled
+      - key: AI_UPLOAD_CONSENT
+        value: "false"

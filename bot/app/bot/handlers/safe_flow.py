@@ -1,5 +1,7 @@
 """One explicit draft -> confirm flow for text, voice, and receipts."""
 import io
+import asyncio
+from decimal import Decimal
 import json
 import logging
 from fastapi import HTTPException
@@ -17,6 +19,20 @@ router = Router()
 router.message.filter(F.chat.type == "private")
 router.callback_query.filter(F.message.chat.type == "private")
 logger = logging.getLogger(__name__)
+
+
+class UploadBuffer(io.BytesIO):
+    """Telegram file_size is metadata; enforce the cap while receiving bytes."""
+    def write(self, data):
+        if self.tell() + len(data) > settings.MAX_UPLOAD_BYTES:
+            raise ValueError("Максимальный размер — 5 МБ.")
+        return super().write(data)
+
+
+def format_money(value, currency: str) -> str:
+    """Keep decimal amounts exact and use familiar Russian separators."""
+    amount = Decimal(str(value))
+    return f"{amount:,.2f}".replace(",", " ").replace(".", ",") + f" {currency}"
 
 
 def app_keyboard():
@@ -53,22 +69,23 @@ async def start(message: Message):
         "Я твой персональный финансовый ассистент с искусственным интеллектом.\n\n"
         "⚡ Быстрый ввод расходов:\n"
         "• Отправь голосовое сообщение (например: «Кофе 250 с карты Альфа»)\n"
-        "• Или напиши текстом (например: «Такси 450 и аптека 1200»)\n\n"
+        "• Или напиши текстом (например: «Такси 450»)\n\n"
         "📊 Нажми кнопку «Бюджет» внизу или используй Mini App для просмотра красивых дашбордов, счетов и аналитики!"
     )
     await message.answer(text, reply_markup=app_keyboard())
 
 
-async def preview(message: Message, data: bytes | None = None, mime: str | None = None, text_override: str | None = None):
+async def preview(message: Message, data: bytes | None = None, mime: str | None = None, text_override: str | None = None, budget_consumed=False):
     uid = message.from_user.id
     try:
-        consume_preview(uid)
+        if not budget_consumed:
+            consume_preview(uid)
         async with AsyncSessionLocal() as db:
             accounts = await FinanceService.get_accounts(db, uid)
             categories = await FinanceService.get_categories(db, uid)
             names, cats = [a.name for a in accounts], [c.name for c in categories]
             acc_map = {a.name: a for a in accounts}
-            cat_map = {c.name: c for c in categories}
+            cat_map = {c.id: c for c in categories}
 
             raw_text = text_override if text_override is not None else (message.text or "")
             result = (await AIParserService.parse_media(data, mime, names, cats) if data is not None
@@ -84,10 +101,9 @@ async def preview(message: Message, data: bytes | None = None, mime: str | None 
 
             for item in rows:
                 type_sym = "💸 Расход" if item["type"] == "expense" else ("💰 Доход" if item["type"] == "income" else "🔄 Перевод")
-                amt_val = float(item["amount"])
-                amt_formatted = f"{amt_val:,.2f} ₽"
+                amt_formatted = format_money(item["amount"], item["currency"])
                 acc_obj = acc_map.get(item.get("account_name")) or (accounts[0] if accounts else None)
-                cat_obj = cat_map.get(item.get("category_name"))
+                cat_obj = cat_map.get(item.get("category_id"))
 
                 acc_icon = acc_obj.icon if acc_obj and getattr(acc_obj, "icon", None) else "💳"
                 acc_title = acc_obj.name if acc_obj else (item.get("account_name") or "Основной")
@@ -95,41 +111,37 @@ async def preview(message: Message, data: bytes | None = None, mime: str | None 
                 cat_title = cat_obj.name if cat_obj else (item.get("category_name") or "Без категории")
 
                 lines = [
-                    f"✅ {type_sym} записан:\n",
+                    f"📝 Черновик: {type_sym}. Проверьте перед сохранением.\n",
                     f"💵 Сумма: {amt_formatted}",
                     f"📁 Категория: {cat_icon} {cat_title}",
                     f"💳 Счёт: {acc_icon} {acc_title}",
                 ]
                 if item.get("note"):
-                    lines.append(f"📝 Заметка: {item['note']}")
+                    lines.append(f"📝 Заметка: {item['note'][:300]}")
                 if acc_obj:
-                    bal_val = float(acc_obj.balance)
-                    lines.append(f"\nОстаток на счете: {bal_val:,.2f} ₽")
+                    lines.append(f"\nТекущий остаток: {format_money(acc_obj.balance, item['currency'])}")
 
-                card_text = "\n".join(lines)
-                buttons = [
-                    [
-                        InlineKeyboardButton(text="✏️ Редактировать", callback_data=f"confirm:{draft.id}"),
-                        InlineKeyboardButton(text="❌ Отменить", callback_data=f"cancel:{draft.id}"),
-                    ]
-                ]
-                if settings.WEBAPP_URL and settings.WEBAPP_URL.startswith("https://"):
-                    buttons.append([
-                        InlineKeyboardButton(text="📱 Открыть в приложении", web_app=WebAppInfo(url=settings.WEBAPP_URL))
-                    ])
-                keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-                await message.answer(card_text, reply_markup=keyboard)
+                if item.get("to_account_name"):
+                    lines.append(f"Счёт зачисления: {item['to_account_name']}")
+                await message.answer("\n".join(lines))
+            buttons = [[InlineKeyboardButton(text=f"Подтвердить все ({len(rows)})", callback_data=f"confirm:{draft.id}")],
+                       [InlineKeyboardButton(text="Исправить запись", callback_data=f"edit:{draft.id}"),
+                        InlineKeyboardButton(text="Отменить", callback_data=f"cancel:{draft.id}")]]
+            await message.answer(f"Подтверждение сохранит весь пакет: {len(rows)} операций. Сейчас они не записаны.",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
     except HTTPException as exc:
         await message.answer(str(exc.detail))
     except ValueError as exc:
         await message.answer(str(exc)[:500])
     except Exception as exc:
-        logger.error("Draft preparation failed: %s", exc, exc_info=True)
+        # SQL/provider exception representations can include notes, amounts or keys.
+        logger.error("Draft preparation failed (%s)", type(exc).__name__)
         await message.answer("Не удалось подготовить запись. Данные не изменены; попробуйте позже.")
 
 
 @router.callback_query(F.data.startswith("confirm:"))
 @router.callback_query(F.data.startswith("cancel:"))
+@router.callback_query(F.data.startswith("edit:"))
 async def decide(callback: CallbackQuery):
     action, draft_id = callback.data.split(":", 1)
     await callback.answer()
@@ -138,43 +150,51 @@ async def decide(callback: CallbackQuery):
             if action == "confirm":
                 changed = await confirm_draft(db, callback.from_user.id, draft_id)
                 text = "✅ Запись сохранена в бюджете." if changed else "Уже было сохранено."
-                await callback.message.answer(text, reply_markup=app_keyboard())
+                await callback.message.edit_text(text)
             else:
                 changed = await cancel_draft(db, callback.from_user.id, draft_id)
-                text = "❌ Запись отменена." if changed else "Черновик уже обработан или недоступен."
+                text = ("Отправьте исправленную запись новым сообщением. Прежний черновик отменён."
+                        if changed and action == "edit" else
+                        "❌ Запись отменена." if changed else "Черновик уже обработан или недоступен.")
                 await callback.message.edit_text(text)
     except ValueError as exc:
         await callback.message.answer(str(exc)[:500])
-    except Exception:
-        logger.error("Draft confirmation failed")
+    except Exception as exc:
+        logger.error("Draft confirmation failed (%s)", type(exc).__name__)
         await callback.message.answer("Не удалось завершить действие. Попробуйте позже.")
 
 
-@router.message(F.voice | F.photo)
+@router.message(F.voice | F.audio | F.document | F.photo)
 async def media(message: Message):
-    file = message.voice or message.photo[-1]
-    if not file.file_size or file.file_size > settings.MAX_UPLOAD_BYTES:
+    file = message.voice or message.audio or message.document or message.photo[-1]
+    is_audio = bool(message.voice or message.audio or message.document)
+    if file.file_size is not None and file.file_size <= 0:
+        await message.answer("Файл пустой. Отправьте новую запись или введите расход текстом.")
+        return
+    if file.file_size is not None and file.file_size > settings.MAX_UPLOAD_BYTES:
         await message.answer("Максимальный размер — 5 МБ.")
         return
-    buffer = io.BytesIO()
-    await message.bot.download(file, destination=buffer)
-    data = buffer.getvalue()
-
-    if message.voice:
-        status_msg = await message.answer("🎙️ Распознаю голос...")
-        try:
-            transcribed_text = await AIParserService.transcribe_audio(data)
-        except Exception:
-            transcribed_text = ""
-
-        if not transcribed_text:
-            await status_msg.edit_text("❌ Не удалось распознать речь в голосовом сообщении. Попробуйте еще раз или напишите текстом.")
-            return
-
-        await status_msg.edit_text(f"🗣️ «{transcribed_text}»\nОбрабатываю...")
-        await preview(message, text_override=transcribed_text)
-    else:
-        await preview(message, data=data, mime="image/jpeg")
+    try:
+        from app.services.ai_provider import provider_for, audio_mime, validate_audio
+        mime = (audio_mime(getattr(file, "mime_type", None) or ("audio/ogg" if message.voice else None),
+                           getattr(file, "file_name", None)) if is_audio else "image/jpeg")
+        provider_for("audio" if is_audio else "image")
+        consume_preview(message.from_user.id)
+        with UploadBuffer() as buffer:
+            # Include getFile in the deadline, not only Telegram's streaming IO.
+            async with asyncio.timeout(35):
+                await message.bot.download(file, destination=buffer, timeout=30)
+            data = buffer.getvalue()
+        if not data:
+            raise ValueError("Файл пустой. Отправьте новую запись или введите расход текстом.")
+        if is_audio:
+            mime = validate_audio(data, mime)
+        await preview(message, data=data, mime=mime, budget_consumed=True)
+    except (ValueError, HTTPException) as exc:
+        await message.answer(str(getattr(exc, "detail", exc))[:500])
+    except Exception as exc:
+        logger.warning("Telegram media download failed (%s)", type(exc).__name__)
+        await message.answer("Не удалось загрузить файл. Ничего не записано; отправьте его снова или введите расход текстом.")
 
 
 @router.message(F.text)

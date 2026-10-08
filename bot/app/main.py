@@ -18,73 +18,51 @@ from app.domain.errors import ConflictError
 from app.services.finance_svc import FinanceService
 from app.services import bot_drafts  # noqa: F401
 
-import asyncio
+import secrets
 from aiogram import Bot, Dispatcher
 from app.bot.handlers.safe_flow import router as bot_router
-from app.bot.notifier import notify_restart
 
 VERSION = "2.0.0"
 logger = logging.getLogger("ai-money")
 
 
-async def poll_bot_forever(bot: Bot, dispatcher: Dispatcher):
-    try:
-        await bot.delete_webhook(drop_pending_updates=False)
-    except Exception as e:
-        logger.warning(f"delete_webhook error: {e}")
-
-    while True:
-        try:
-            await dispatcher.start_polling(bot, handle_as_tasks=True, drop_pending_updates=False)
-        except asyncio.CancelledError:
-            break
-        except Exception as e:
-            logger.error(f"Bot polling error: {e}, retrying in 3s...")
-            await asyncio.sleep(3)
-
-
-async def keepalive_loop():
-    import httpx
-    while True:
-        await asyncio.sleep(240)
-        try:
-            async with httpx.AsyncClient(timeout=5) as client:
-                await client.get(f"http://127.0.0.1:{settings.PORT}/health")
-        except Exception:
-            pass
+bot_instance: Bot | None = None
+dispatcher: Dispatcher | None = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global bot_instance, dispatcher
     if settings.ALLOW_LOCAL_LOGIN and (settings.APP_ENV != "development"
             or settings.HOST not in {"127.0.0.1", "localhost", "::1"}):
         raise RuntimeError("Local login requires development and loopback HOST")
+    if settings.TELEGRAM_MODE == "webhook":
+        if (not settings.BOT_TOKEN or not settings.TELEGRAM_WEBHOOK_SECRET
+                or not settings.SERVER_URL or not settings.SERVER_URL.startswith("https://")):
+            raise RuntimeError("Webhook requires BOT_TOKEN, HTTPS SERVER_URL and TELEGRAM_WEBHOOK_SECRET")
+        if settings.ALLOW_LOCAL_LOGIN:
+            raise RuntimeError("Webhook cannot run with local login")
+    if settings.APP_ENV == "production" and (not settings.DATABASE_URL or (settings.DATABASE_URL.startswith("sqlite") and not settings.SQLITE_PERSISTENT_STORAGE)):
+        raise RuntimeError("Production requires PostgreSQL or explicitly confirmed persistent SQLite storage")
     await init_db()
-
-    bot_task = None
-    bot_instance = None
-    keepalive_task = asyncio.create_task(keepalive_loop())
-
-    if settings.BOT_TOKEN and not settings.ALLOW_LOCAL_LOGIN:
-        try:
+    try:
+        if settings.TELEGRAM_MODE == "webhook":
             bot_instance = Bot(settings.BOT_TOKEN)
             dispatcher = Dispatcher()
             dispatcher.include_router(bot_router)
-            asyncio.create_task(notify_restart(bot_instance))
-            bot_task = asyncio.create_task(poll_bot_forever(bot_instance, dispatcher))
-            logger.info("Telegram Bot polling started in lifespan")
-        except Exception as e:
-            logger.error(f"Failed to start bot polling: {e}")
-
-    yield
-
-    if keepalive_task:
-        keepalive_task.cancel()
-    if bot_task:
-        bot_task.cancel()
+            await bot_instance.set_webhook(
+                url=f"{settings.SERVER_URL.rstrip('/')}/api/telegram/webhook",
+                secret_token=settings.TELEGRAM_WEBHOOK_SECRET,
+                drop_pending_updates=False,
+                allowed_updates=["message", "callback_query"],
+            )
+        yield
+    finally:
         if bot_instance:
             await bot_instance.session.close()
-    await engine.dispose()
+        bot_instance = None
+        dispatcher = None
+        await engine.dispose()
 
 
 app = FastAPI(title="AI Money API", version=VERSION, lifespan=lifespan)
@@ -146,6 +124,26 @@ async def internal_handler(request, exc):
 for module, name in [(accounts,"accounts"),(categories,"categories"),(transactions,"transactions"),
                      (analytics,"analytics"),(ai,"ai"),(imports,"imports")]:
     app.include_router(module.router, prefix=f"/api/{name}", tags=[name])
+
+
+@app.post("/api/telegram/webhook")
+async def telegram_webhook(request: Request):
+    if settings.TELEGRAM_MODE != "webhook" or not settings.TELEGRAM_WEBHOOK_SECRET:
+        raise HTTPException(404, "Webhook отключён")
+    secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+    if not secrets.compare_digest(secret, settings.TELEGRAM_WEBHOOK_SECRET):
+        raise HTTPException(403, "Неверный webhook secret")
+    if not bot_instance or not dispatcher:
+        raise HTTPException(503, "Бот недоступен")
+    try:
+        from aiogram.types import Update
+        payload = await request.json()
+        update = Update.model_validate(payload, context={"bot": bot_instance})
+        await dispatcher.feed_update(bot_instance, update)
+        return {"ok": True}
+    except Exception as exc:
+        logger.error("Webhook processing error: %s", type(exc).__name__)
+        return JSONResponse({"status": "error", "detail": "Событие не обработано"}, 400)
 
 
 @app.post("/api/auth/local")

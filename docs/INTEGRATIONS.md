@@ -8,6 +8,8 @@
 4. Отправить /start в личном чате. Это явная инициализация нулевого счёта и стандартных категорий; обычные GET-запросы ничего не создают.
 5. Написать «расход 250,50 кофе», убедиться, что до подтверждения баланс прежний; подтвердить и проверить Mini App. Повторное нажатие не должно создать вторую запись.
 6. Проверить реальное закрытие/повторное открытие Mini App, изменение операции, недоступность сети и восстановление.
+7. Отправить тестовую фразу «расход 250 рублей кофе» голосом OGG/Opus, затем аудиофайлами MP3/M4A/WAV; можно приложить их как document. Проверить сумму250 и счёт в черновике, прежний баланс до подтверждения и ровно одно списание после повторного подтверждения. Пустой/повреждённый файл и ошибка загрузки должны дать ответ, сохранив баланс. Лимит5МБ применяется к реальным байтам при загрузке, даже если Telegram сообщает меньший размер.
+8. Повторить голосом «расход пять тысяч рублей кофе» и «расход двести пятьдесят рублей пятьдесят копеек кофе». Черновик должен показывать соответственно5 000,00 и250,50; при несовпадении модельной суммы с распознанным текстом бот показывает этот текст и просит уточнить, без кнопки сохранения ошибочного черновика. Для Gemini требуется transcript в ответе аудио; согласованность transcript/amount не заменяет проверки человеком.
 
 Локальный браузерный профиль ID1 и Telegram-профиль независимы; произвольный user_id или X-User-Id не выбирает чужую личность.
 Telegram initData проверяется по HMAC, возрасту до часа и допустимому будущему смещению30секунд. Это выбранная политика приложения.
@@ -28,3 +30,17 @@ Gemini получает текст/выбранный файл и названи
 В интерфейсе загружается аудиофайл; запись микрофона непосредственно браузером не реализована.
 
 Официальные источники: [Telegram Mini Apps](https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app), [Gemini generateContent](https://ai.google.dev/api/generate-content), [Structured output](https://ai.google.dev/gemini-api/docs/structured-output). Проверены26.09.2026.
+
+## Режим доставки и production
+
+TELEGRAM_MODE=polling: отдельный scripts/project.py bot; API не получает updates.
+TELEGRAM_MODE=webhook: API регистрирует HTTPS SERVER_URL/api/telegram/webhook; обязательны BOT_TOKEN и TELEGRAM_WEBHOOK_SECRET, local-login запрещён.
+TELEGRAM_MODE=disabled: без Telegram. Один токен — один владелец updates.
+
+Render blueprint собирает Docker frontend+backend. Render production требует внешнюю PostgreSQL DATABASE_URL. SQLite разрешается только с явным SQLITE_PERSISTENT_STORAGE=true после настройки постоянного тома (как в compose); без него старт отклоняется. Значения env задаются владельцем; конфигурация не является выполненным deployment.
+
+## Groq
+
+AI_PROVIDER=groq, GROQ_API_KEY и AI_UPLOAD_CONSENT=true явно разрешают текст и аудио. Аудио направляется в Groq OpenAI-compatible /audio/transcriptions (whisper-large-v3-turbo, language=ru), затем текст в chat/completions для финансовых предложений; фото требует Gemini. Каждая стадия использует общий лимит4 запросов, без вложенного захвата слота. Ошибка не переключает поставщика и не записывает операцию. Wire-contract проверяется mock-тестом без загрузки в облако; доступность модели/аккаунта требует синтетической внешней приёмки.
+
+Аудио-контракты сверены8октября2026: [Groq transcriptions](https://github.com/groq/groq-python/blob/main/_autodocs/api-reference/audio.md), [Gemini audio formats](https://ai.google.dev/gemini-api/docs/audio), [aiogram file download](https://docs.aiogram.dev/en/latest/api/download_file.html).

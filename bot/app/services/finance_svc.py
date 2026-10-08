@@ -14,6 +14,7 @@ from app.services.finance_transactions import (
     delete_transaction,
 )
 from app.services.finance_analytics import get_dashboard_summary, list_transactions
+from app.services.category_graph import graph_mutation
 
 
 def to_dec(value: Any) -> Decimal:
@@ -126,11 +127,11 @@ class FinanceService:
     @staticmethod
     async def create_category(db: AsyncSession, user_id: int, data: CategoryCreate) -> Category:
         data = CategoryCreate.model_validate(data.model_dump())
-        if data.parent_id and not await owned(db, Category, user_id, data.parent_id):
-            raise ValueError("Родительская категория не найдена")
-        category = Category(user_id=user_id, **data.model_dump())
-        db.add(category)
-        await db.commit()
+        async with graph_mutation(db, user_id):
+            if data.parent_id and not await owned(db, Category, user_id, data.parent_id):
+                raise ValueError("Родительская категория не найдена")
+            category = Category(user_id=user_id, **data.model_dump())
+            db.add(category)
         await db.refresh(category)
         return category
 
@@ -139,41 +140,41 @@ class FinanceService:
         db: AsyncSession, user_id: int, category_id: str, data: dict[str, Any]
     ) -> Category | None:
         data = CategoryUpdate(**data).model_dump(exclude_unset=True)
-        category = await owned(db, Category, user_id, category_id)
-        if category is None:
-            return None
-        current = data.get("parent_id")
-        seen = {category_id}
-        while current:
-            if current in seen:
-                raise ValueError("Циклическая вложенность категорий")
-            seen.add(current)
-            parent = await owned(db, Category, user_id, current)
-            if parent is None:
-                raise ValueError("Родительская категория не найдена")
-            current = parent.parent_id
-        for key, value in data.items():
-            if value is None and key not in ("parent_id", "budget_limit"):
-                raise ValueError("Поле не может быть пустым")
-            setattr(category, key, value)
-        await db.commit()
+        async with graph_mutation(db, user_id):
+            category = await owned(db, Category, user_id, category_id)
+            if category is None:
+                return None
+            current = data.get("parent_id")
+            seen = {category_id}
+            while current:
+                if current in seen:
+                    raise ValueError("Циклическая вложенность категорий")
+                seen.add(current)
+                parent = await owned(db, Category, user_id, current)
+                if parent is None:
+                    raise ValueError("Родительская категория не найдена")
+                current = parent.parent_id
+            for key, value in data.items():
+                if value is None and key not in ("parent_id", "budget_limit"):
+                    raise ValueError("Поле не может быть пустым")
+                setattr(category, key, value)
         await db.refresh(category)
         return category
 
     @staticmethod
     async def delete_category(db: AsyncSession, user_id: int, category_id: str) -> bool:
-        category = await owned(db, Category, user_id, category_id)
-        if category is None:
-            return False
-        children = await db.scalar(
-            select(Category.id).where(
-                Category.parent_id == category_id, Category.is_archived.is_(False)
+        async with graph_mutation(db, user_id):
+            category = await owned(db, Category, user_id, category_id)
+            if category is None:
+                return False
+            children = await db.scalar(
+                select(Category.id).where(
+                    Category.parent_id == category_id, Category.is_archived.is_(False)
+                )
             )
-        )
-        if children:
-            raise ValueError("Сначала перенесите или удалите подкатегории")
-        category.is_archived = True
-        await db.commit()
+            if children:
+                raise ValueError("Сначала перенесите или удалите подкатегории")
+            category.is_archived = True
         return True
 
     @staticmethod

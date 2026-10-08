@@ -1,16 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import {
-  ArrowLeftOutlined,
-  CalendarOutlined,
-  SearchOutlined,
-  SwapOutlined,
-  DownOutlined,
-  CloseOutlined,
-  CheckOutlined,
-  HolderOutlined,
-} from '@ant-design/icons';
+import { ActionBar, Amount, DateLabel, Icon, IconButton, ScreenHeader, transactionTitle } from '../design/Primitives';
 import { Transaction, Account, Category, TransactionType } from '../../types';
-import { resolveCategoryAndSubcategory, formatTransactionSubtitleNote } from '../modals/EditTransactionModal';
+import { resolveCategoryAndSubcategory } from '../modals/EditTransactionModal';
 
 interface TransactionsScreenProps {
   onBack: () => void;
@@ -71,7 +62,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
   const [selectedPeriod, setSelectedPeriod] = useState<'all' | 'month' | '7days'>('all');
 
   // Filter picker dropdown sheet states
-  const [activePicker, setActivePicker] = useState<'period' | 'type' | 'category' | null>(null);
+
 
   // Group and filter transactions
   const filteredTransactions = useMemo(() => {
@@ -262,6 +253,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
     sourceDateKey: string,
     fromHandle = false
   ) => {
+    if (!onUpdateTransaction) return;
     if (e.button !== 0 && e.pointerType === 'mouse') return;
     if (!e.isPrimary) return;
 
@@ -473,498 +465,51 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
   };
 
 
-  return (
-    <div className="min-h-screen bg-[#F6F7FB] dark:bg-[#121318] text-[#111827] dark:text-white flex flex-col pb-24 select-none animate-fade-in transition-colors duration-200">
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 bg-[#111827]/90 dark:bg-white/90 text-white dark:text-[#111827] backdrop-blur-md px-4 py-2 rounded-full shadow-lg text-[13px] font-semibold flex items-center space-x-2 animate-bounce">
-          <span>{toastMessage}</span>
-        </div>
-      )}
 
-      {/* Top Header Bar (matching media_1789747928430.png) */}
-      <div className="sticky top-0 z-30 bg-[#F6F7FB]/95 dark:bg-[#121318]/95 backdrop-blur-md px-5 pt-12 pb-3 border-b border-gray-100 dark:border-gray-800/60">
-        <div className="flex items-center justify-between">
-          {/* Back Button */}
-          <button
-            type="button"
-            onClick={() => {
-              onHaptic?.('light');
-              onBack();
-            }}
-            className="w-11 h-11 rounded-full bg-white dark:bg-[#1E1F26] border border-gray-100 dark:border-gray-800 shadow-sm flex items-center justify-center text-[#111827] dark:text-white active:scale-95 transition-all"
-          >
-            <ArrowLeftOutlined className="text-[18px]" />
-          </button>
-
-          {/* Title */}
-          <h1 className="text-[20px] font-bold text-[#111827] dark:text-white tracking-tight">
-            Транзакции
-          </h1>
-
-          {/* Action Buttons Right */}
-          <div className="flex items-center space-x-2">
-            {/* Quick Filter: Transfers Only */}
-            <button
-              type="button"
-              onClick={() => {
-                onHaptic?.('light');
-                setSelectedType((prev) => (prev === 'transfer' ? 'all' : 'transfer'));
-              }}
-              className={`w-11 h-11 rounded-full border shadow-sm flex items-center justify-center transition-all relative ${
-                selectedType === 'transfer'
-                  ? 'bg-[#2B5BFF] text-white border-transparent'
-                  : 'bg-white dark:bg-[#1E1F26] border-gray-100 dark:border-gray-800 text-[#111827] dark:text-white'
-              }`}
-            >
-              <SwapOutlined className="text-[18px]" />
-              <span className="absolute -top-1 -right-1 text-[11px]">🚀</span>
-            </button>
-
-            {/* Calendar / Period Filter Button */}
-            <button
-              type="button"
-              onClick={() => {
-                onHaptic?.('light');
-                setActivePicker(activePicker === 'period' ? null : 'period');
-              }}
-              className={`w-11 h-11 rounded-full border shadow-sm flex items-center justify-center transition-all ${
-                selectedPeriod !== 'all'
-                  ? 'bg-[#2B5BFF] text-white border-transparent'
-                  : 'bg-white dark:bg-[#1E1F26] border-gray-100 dark:border-gray-800 text-[#111827] dark:text-white'
-              }`}
-            >
-              <CalendarOutlined className="text-[18px]" />
-            </button>
-
-            {/* Search Button */}
-            <button
-              type="button"
-              onClick={() => {
-                onHaptic?.('light');
-                setIsSearchOpen(!isSearchOpen);
-                if (isSearchOpen) setSearchQuery('');
-              }}
-              className={`w-11 h-11 rounded-full border shadow-sm flex items-center justify-center transition-all ${
-                isSearchOpen || searchQuery
-                  ? 'bg-[#2B5BFF] text-white border-transparent'
-                  : 'bg-white dark:bg-[#1E1F26] border-gray-100 dark:border-gray-800 text-[#111827] dark:text-white'
-              }`}
-            >
-              <SearchOutlined className="text-[18px]" />
-            </button>
-          </div>
-        </div>
-
-        {/* Expandable Search Input */}
-        {isSearchOpen && (
-          <div className="mt-3 relative animate-slide-down">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Поиск по сумме, категории, счёту..."
-              autoFocus
-              className="w-full bg-white dark:bg-[#1E1F26] border border-gray-200 dark:border-gray-700/80 rounded-2xl px-4 py-2.5 text-[14px] text-[#111827] dark:text-white placeholder-gray-400 focus:outline-none focus:border-[#2B5BFF]"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-200"
-              >
-                <CloseOutlined className="text-[14px]" />
+  return <section className="design-screen" aria-label="Транзакции">
+    <ScreenHeader title="Транзакции" onBack={onBack}
+      action={<IconButton icon="filters" label="Поиск и фильтры" onClick={() => setIsSearchOpen(open => !open)} />} />
+    {isSearchOpen && <div className="design-filter-panel">
+      <label>Поиск<input placeholder="Категория, счёт, комментарий или сумма" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} /></label>
+      <label>Период<select value={selectedPeriod} onChange={e => setSelectedPeriod(e.target.value as typeof selectedPeriod)}>
+        {Object.entries(periodLabelMap).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+      </select></label>
+      <label>Тип<select value={selectedType} onChange={e => setSelectedType(e.target.value as typeof selectedType)}>
+        {Object.entries(typeLabelMap).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+      </select></label>
+      <label>Категория<select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)}>
+        <option value="all">Все категории</option>{categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+      </select></label>
+      <button onClick={() => { setSearchQuery(''); setSelectedPeriod('all'); setSelectedType('all'); setSelectedCategory('all'); }}>Сбросить фильтры</button>
+    </div>}
+    <div className="design-history">
+      {groupedByDate.map(group => <section className="design-day" key={group.dateKey} data-date-key={group.dateKey}>
+        <h2 className="design-day-label"><DateLabel day={group.dateKey} /></h2>
+        <div className="design-rows">
+          {group.items.map(tx => {
+            const resolved = transactionTitle(tx);
+            return <div key={tx.id} className="design-transaction-wrapper" data-tx-id={tx.id} data-tx-date-key={group.dateKey}
+              style={{ opacity: draggingTx?.id === tx.id ? .4 : 1, outline: dragOverTarget?.targetTxId === tx.id ? '2px solid #97ff64' : undefined }}>
+              <button className="design-row" onPointerDown={e => handlePointerDown(e, tx, group.dateKey)}
+                onClick={() => { if (!justDraggedRef.current) onSelectTransaction(tx); }}>
+                <span className="design-row-emoji">{resolved.icon}</span><span className="design-row-title">{resolved.title}</span>
+                <Amount value={tx.amount} currency={tx.currency} fixed sign={tx.type === 'expense' ? '-' : tx.type === 'income' ? '+' : ''} />
               </button>
-            )}
-          </div>
-        )}
-
-        {/* Filter Pills Row (matching media_1789747928430.png: Все время ⌵, Все типы ⌵, Все категории ⌵) */}
-        <div className="flex items-center space-x-2 overflow-x-auto no-scrollbar pt-3.5 pb-1">
-          {/* Period Pill */}
-          <button
-            type="button"
-            onClick={() => {
-              onHaptic?.('light');
-              setActivePicker(activePicker === 'period' ? null : 'period');
-            }}
-            className={`inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-[13px] font-semibold border shadow-sm flex-shrink-0 transition-all ${
-              selectedPeriod !== 'all'
-                ? 'bg-[#2B5BFF] text-white border-transparent'
-                : 'bg-white dark:bg-[#1E1F26] text-[#111827] dark:text-gray-300 border-gray-100 dark:border-gray-800'
-            }`}
-          >
-            <span>{periodLabelMap[selectedPeriod]}</span>
-            <DownOutlined className="text-[10px]" />
-          </button>
-
-          {/* Type Pill */}
-          <button
-            type="button"
-            onClick={() => {
-              onHaptic?.('light');
-              setActivePicker(activePicker === 'type' ? null : 'type');
-            }}
-            className={`inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-[13px] font-semibold border shadow-sm flex-shrink-0 transition-all ${
-              selectedType !== 'all'
-                ? 'bg-[#2B5BFF] text-white border-transparent'
-                : 'bg-white dark:bg-[#1E1F26] text-[#111827] dark:text-gray-300 border-gray-100 dark:border-gray-800'
-            }`}
-          >
-            <span>{typeLabelMap[selectedType]}</span>
-            <DownOutlined className="text-[10px]" />
-          </button>
-
-          {/* Category Pill */}
-          <button
-            type="button"
-            onClick={() => {
-              onHaptic?.('light');
-              setActivePicker(activePicker === 'category' ? null : 'category');
-            }}
-            className={`inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-[13px] font-semibold border shadow-sm flex-shrink-0 transition-all ${
-              selectedCategory !== 'all'
-                ? 'bg-[#2B5BFF] text-white border-transparent'
-                : 'bg-white dark:bg-[#1E1F26] text-[#111827] dark:text-gray-300 border-gray-100 dark:border-gray-800'
-            }`}
-          >
-            <span>{selectedCategory === 'all' ? 'Все категории' : selectedCategory}</span>
-            <DownOutlined className="text-[10px]" />
-          </button>
+              {onUpdateTransaction && <span className="design-drag-slot" aria-hidden="true"
+                onPointerDown={e => handlePointerDown(e, tx, group.dateKey, true)}>
+                <Icon name="drag" />
+              </span>}
+            </div>;
+          })}
+          {!group.items.length && <button className="design-empty" onClick={onOpenAddTransaction}>+ Добавить первую операцию за сегодня</button>}
         </div>
-
-        {/* Dropdown Sheets for Filter Pills */}
-        {activePicker === 'period' && (
-          <div className="mt-2.5 bg-white dark:bg-[#1E1F26] rounded-2xl p-2 border border-gray-100 dark:border-gray-800 shadow-xl flex flex-col space-y-1 animate-scale-up">
-            {(['all', 'month', '7days'] as const).map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => {
-                  onHaptic?.('light');
-                  setSelectedPeriod(p);
-                  setActivePicker(null);
-                }}
-                className={`flex items-center justify-between px-3 py-2 rounded-xl text-[14px] font-medium text-left ${
-                  selectedPeriod === p
-                    ? 'bg-[#2B5BFF]/10 text-[#2B5BFF] dark:text-[#5B82FF] font-semibold'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                }`}
-              >
-                <span>{periodLabelMap[p]}</span>
-                {selectedPeriod === p && <CheckOutlined className="text-[14px]" />}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {activePicker === 'type' && (
-          <div className="mt-2.5 bg-white dark:bg-[#1E1F26] rounded-2xl p-2 border border-gray-100 dark:border-gray-800 shadow-xl flex flex-col space-y-1 animate-scale-up">
-            {(['all', 'expense', 'income', 'transfer'] as const).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => {
-                  onHaptic?.('light');
-                  setSelectedType(t);
-                  setActivePicker(null);
-                }}
-                className={`flex items-center justify-between px-3 py-2 rounded-xl text-[14px] font-medium text-left ${
-                  selectedType === t
-                    ? 'bg-[#2B5BFF]/10 text-[#2B5BFF] dark:text-[#5B82FF] font-semibold'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                }`}
-              >
-                <span>{typeLabelMap[t]}</span>
-                {selectedType === t && <CheckOutlined className="text-[14px]" />}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {activePicker === 'category' && (
-          <div className="mt-2.5 bg-white dark:bg-[#1E1F26] rounded-2xl p-2 border border-gray-100 dark:border-gray-800 shadow-xl max-h-60 overflow-y-auto flex flex-col space-y-1 animate-scale-up">
-            <button
-              type="button"
-              onClick={() => {
-                onHaptic?.('light');
-                setSelectedCategory('all');
-                setActivePicker(null);
-              }}
-              className={`flex items-center justify-between px-3 py-2 rounded-xl text-[14px] font-medium text-left ${
-                selectedCategory === 'all'
-                  ? 'bg-[#2B5BFF]/10 text-[#2B5BFF] dark:text-[#5B82FF] font-semibold'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-              }`}
-            >
-              <span>Все категории</span>
-              {selectedCategory === 'all' && <CheckOutlined className="text-[14px]" />}
-            </button>
-            {categories.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => {
-                  onHaptic?.('light');
-                  setSelectedCategory(c.name);
-                  setActivePicker(null);
-                }}
-                className={`flex items-center justify-between px-3 py-2 rounded-xl text-[14px] font-medium text-left ${
-                  selectedCategory === c.name
-                    ? 'bg-[#2B5BFF]/10 text-[#2B5BFF] dark:text-[#5B82FF] font-semibold'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                }`}
-              >
-                <div className="flex items-center space-x-2">
-                  <span>{c.icon}</span>
-                  <span>{c.name}</span>
-                </div>
-                {selectedCategory === c.name && <CheckOutlined className="text-[14px]" />}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Grouped Transactions List */}
-      <div className="px-5 pt-4 space-y-6 flex-1">
-        {groupedByDate.length === 0 ? (
-          <div className="text-center py-16 space-y-3">
-            <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 mx-auto flex items-center justify-center text-3xl">
-              📂
-            </div>
-            <p className="text-gray-500 dark:text-gray-400 font-medium">
-              Транзакций не найдено
-            </p>
-          </div>
-        ) : (
-          groupedByDate.map((group) => {
-            const isDifferentDateDropTarget =
-              dragOverTarget?.dateKey === group.dateKey &&
-              dragSessionRef.current?.sourceDateKey !== group.dateKey;
-
-            return (
-              <div
-                key={group.dateKey}
-                data-date-key={group.dateKey}
-                className={`space-y-2.5 p-2 rounded-3xl transition-all ${
-                  isDifferentDateDropTarget
-                    ? 'bg-blue-50/80 dark:bg-blue-950/30 ring-2 ring-blue-500 ring-dashed'
-                    : ''
-                }`}
-              >
-                {/* Date Header + Day Expense Badge */}
-                <div className="flex items-center justify-between px-1">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-[14px] font-bold text-gray-500 dark:text-gray-400">
-                      {group.dateLabel}
-                    </span>
-                    {isDifferentDateDropTarget && (
-                      <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/60 px-2 py-0.5 rounded-full animate-pulse">
-                        Перенести сюда
-                      </span>
-                    )}
-                  </div>
-
-                  {group.totalExpense > 0 && (
-                    <span className="text-[13px] font-bold text-[#EF4444] bg-red-50 dark:bg-red-950/40 px-2.5 py-0.5 rounded-full">
-                      −{group.totalExpense.toLocaleString('ru-RU')} ₽
-                    </span>
-                  )}
-                </div>
-
-                {/* Empty Placeholder Day (e.g. drop target for Today) */}
-                {group.isPlaceholder && group.items.length === 0 && (
-                  <div
-                    className={`border-2 border-dashed rounded-2xl p-4 text-center text-[13px] font-medium transition-all ${
-                      isDifferentDateDropTarget
-                        ? 'border-[#2B5BFF] bg-blue-50 dark:bg-blue-950/40 text-[#2B5BFF] dark:text-[#5B82FF] shadow-sm'
-                        : 'border-gray-200 dark:border-gray-800 bg-white/40 dark:bg-[#1E1F26]/40 text-gray-400 dark:text-gray-500'
-                    }`}
-                  >
-                    {isDifferentDateDropTarget ? '✨ Отпустите, чтобы перенести сюда' : '📥 Перетащите операцию сюда, чтобы назначить на сегодня'}
-                  </div>
-                )}
-
-                {/* Transactions Cards for this date */}
-                <div className="space-y-2">
-                  {group.items.map((tx) => {
-                    const isTransfer = tx.type === 'transfer';
-                    const isIncome = tx.type === 'income';
-                    const isExpense = tx.type === 'expense';
-                    const resolved = resolveCategoryAndSubcategory(tx);
-                    const displayNote = formatTransactionSubtitleNote(tx.note, resolved);
-                    const isBeingDragged = draggingTx?.id === tx.id;
-
-                    const isDropTargetItem =
-                      dragOverTarget?.dateKey === group.dateKey &&
-                      dragOverTarget?.targetTxId === tx.id &&
-                      draggingTx?.id !== tx.id;
-                    const showInsertBefore = isDropTargetItem && dragOverTarget?.insertPos === 'before';
-                    const showInsertAfter = isDropTargetItem && dragOverTarget?.insertPos === 'after';
-
-                    return (
-                      <React.Fragment key={tx.id}>
-                        {showInsertBefore && (
-                          <div className="h-1 bg-[#2B5BFF] rounded-full mx-2 my-1 shadow-[0_0_8px_rgba(43,91,255,0.6)] animate-pulse" />
-                        )}
-
-                        <div
-                          data-tx-id={tx.id}
-                          data-tx-date-key={group.dateKey}
-                          onPointerDown={(e) => handlePointerDown(e, tx, group.dateKey, false)}
-                          className={`bg-white dark:bg-[#1E1F26] border border-gray-100 dark:border-gray-800/80 rounded-2xl p-3.5 flex items-center justify-between shadow-xs active:scale-[0.99] transition-all cursor-grab active:cursor-grabbing select-none touch-none ${
-                            isBeingDragged
-                              ? 'opacity-35 scale-95 border-dashed border-blue-400'
-                              : 'hover:border-gray-200 dark:hover:border-gray-700'
-                          }`}
-                        >
-                          {/* Left Icon */}
-                          <div className="flex items-center space-x-3 min-w-0 pointer-events-none">
-                            <div
-                              className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 text-[20px] ${
-                                isTransfer
-                                  ? 'bg-blue-50 dark:bg-blue-950/50 text-[#3B82F6]'
-                                  : isIncome
-                                  ? 'bg-emerald-50 dark:bg-emerald-950/50 text-[#10B981]'
-                                  : 'bg-gray-100 dark:bg-[#282933]'
-                              }`}
-                            >
-                              {isTransfer ? (
-                                <SwapOutlined className="text-[18px]" />
-                              ) : (
-                                resolved.icon
-                              )}
-                            </div>
-
-                            {/* Middle Titles */}
-                            <div className="min-w-0 flex-1">
-                              {isTransfer ? (
-                                <div>
-                                  <span className="text-[14px] font-bold text-[#111827] dark:text-white block leading-tight truncate">
-                                    {tx.account_name || 'Счёт'}
-                                  </span>
-                                  <span className="text-[12px] text-gray-500 dark:text-gray-400 block leading-tight truncate mt-0.5">
-                                    → {tx.note || 'Перевод'}
-                                  </span>
-                                </div>
-                              ) : (
-                                <div>
-                                  <div className="flex items-center space-x-1.5 truncate">
-                                    <span className="text-[15px] font-bold text-[#111827] dark:text-white leading-tight truncate">
-                                      {resolved.displayTitle}
-                                    </span>
-                                  </div>
-
-                                  <div className="flex items-center space-x-1.5 text-[12px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">
-                                    <span className="truncate">
-                                      {displayNote ? `${displayNote} • ` : ''}
-                                      {tx.account_name || 'Карта Альфа'}
-                                    </span>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Right Amount + Drag Handle */}
-                          <div className="flex items-center space-x-2 flex-shrink-0 ml-3">
-                            <div className="text-right pointer-events-none">
-                              <span
-                                className={`text-[16px] font-extrabold tracking-tight ${
-                                  isExpense
-                                    ? 'text-[#EF4444]'
-                                    : isIncome
-                                    ? 'text-[#10B981]'
-                                    : 'text-[#3B82F6]'
-                                }`}
-                              >
-                                {tx.type === 'expense'
-                                  ? `−${tx.amount.toLocaleString('ru-RU')}`
-                                  : tx.type === 'income'
-                                  ? `+${tx.amount.toLocaleString('ru-RU')}`
-                                  : `${tx.amount.toLocaleString('ru-RU')}`}{' '}
-                                ₽
-                              </span>
-                            </div>
-
-                            {/* Grip Handle for Drag & Drop with Pointer Events */}
-                            <div
-                              onPointerDown={(e) => {
-                                e.stopPropagation();
-                                handlePointerDown(e, tx, group.dateKey, true);
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                              }}
-                              title="Перетащить на другую дату"
-                              className="w-10 h-10 -mr-1 flex items-center justify-center text-gray-300 dark:text-gray-600 hover:text-[#2B5BFF] dark:hover:text-[#5B82FF] active:text-[#2B5BFF] cursor-grab active:cursor-grabbing touch-none select-none rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
-                            >
-                              <HolderOutlined className="text-[19px]" />
-                            </div>
-                          </div>
-                        </div>
-
-                        {showInsertAfter && (
-                          <div className="h-1 bg-[#2B5BFF] rounded-full mx-2 my-1 shadow-[0_0_8px_rgba(43,91,255,0.6)] animate-pulse" />
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {/* Floating Drag Preview Clone that follows finger */}
-      {draggingTx && dragPos && (
-        <div
-          className="fixed z-50 pointer-events-none -translate-x-1/2 -translate-y-[55px] shadow-2xl rounded-2xl bg-white dark:bg-[#1E1F26] border-2 border-[#2B5BFF] p-3.5 flex items-center space-x-3 w-[290px] opacity-95 scale-105 transition-transform"
-          style={{ left: dragPos.x, top: dragPos.y }}
-        >
-          <div className="w-10 h-10 rounded-full flex items-center justify-center text-xl bg-blue-50 dark:bg-blue-950/60 text-[#2B5BFF] flex-shrink-0">
-            {resolveCategoryAndSubcategory(draggingTx).icon}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-[14px] font-bold text-[#111827] dark:text-white truncate">
-              {resolveCategoryAndSubcategory(draggingTx).displayTitle}
-            </div>
-            <div className="text-[12px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
-              {draggingTx.account_name || 'Счёт'}
-            </div>
-          </div>
-          <div className="text-[14px] font-extrabold text-[#EF4444] flex-shrink-0">
-            {draggingTx.type === 'expense' ? '−' : draggingTx.type === 'income' ? '+' : ''}
-            {draggingTx.amount.toLocaleString('ru-RU')} ₽
-          </div>
-        </div>
-      )}
-
-      {/* Floating Action Button (FAB) Blue Plus (matching media_1789747991545.png) */}
-      <button
-        type="button"
-        onClick={() => {
-          onHaptic?.('medium');
-          onOpenAddTransaction();
-        }}
-        className="fixed bottom-6 right-5 w-14 h-14 rounded-full bg-[#DCE6FF] dark:bg-[#1E284A] text-[#2B5BFF] dark:text-[#5B82FF] flex items-center justify-center active:scale-90 transition-all border border-[#B3C8FD] dark:border-[#2B5BFF]/40 shadow-[0_4px_16px_rgba(43,91,255,0.2)] z-40"
-      >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="3.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="w-7 h-7"
-        >
-          <line x1="12" y1="5" x2="12" y2="19" />
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-      </button>
+      </section>)}
+      {!filteredTransactions.length && <p className="design-empty">{searchQuery || selectedType !== 'all' || selectedCategory !== 'all' ? 'Ничего не найдено' : 'Операций пока нет'}</p>}
     </div>
-  );
+    {toastMessage && <p role="status" className="design-empty">{toastMessage}</p>}
+    {draggingTx && dragPos && <div className="design-drag-preview" style={{ left: dragPos.x, top: dragPos.y }}>
+      {transactionTitle(draggingTx).title}
+    </div>}
+    <ActionBar single><IconButton icon="add" label="Добавить операцию" onClick={onOpenAddTransaction} /></ActionBar>
+  </section>;
 };

@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Money Flow Testbench v1.3.0 · Универсальный дизайн-стенд</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            'mono-jb': ['"JetBrains Mono"', 'monospace'],
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+          },
+          colors: {
+            aegis: {
+              bg: '#0D0F0E',
+              sidebar: '#121413',
+              card: '#161817',
+              pill: '#1B1E1C',
+              green: '#2FE586',
+              emerald: '#1EB86B',
+              danger: '#EB5757',
+              warning: '#F59E0B',
+              info: '#3B82F6',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background-color: #0A0C0B;
+      color: #E2E8F0;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #111312;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #242926;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #313834;
+    }
+
+    /* Inset glow */
+    .glow-green-sm {
+      box-shadow: inset 0px 0px 14px rgba(47, 229, 134, 0.40);
+    }
+    .glow-green-active {
+      box-shadow: inset 0px 0px 17px #2FE586, 0 0 15px rgba(47, 229, 134, 0.15);
+    }
+    .segmented-pill-bg {
+      background-color: #1B1E1C;
+    }
+
+    /* ================= iPhone 17 Pro Titanium Mockup ================= */
+    .iphone-17-frame {
+      width: 390px;
+      height: 844px;
+      border-radius: 54px;
+      background: #0D0F0E;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 
+        0 0 0 4px #262B28,
+        0 0 0 8px #151816,
+        0 0 0 10px #2D332F,
+        0 30px 80px -15px rgba(0, 0, 0, 0.95),
+        0 0 40px rgba(47, 229, 134, 0.08);
+      transform-origin: center center;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @media (max-height: 960px) {
+      .iphone-17-frame {
+        transform: scale(0.92);
+      }
+    }
+    @media (max-height: 870px) {
+      .iphone-17-frame {
+        transform: scale(0.83);
+      }
+    }
+    @media (max-height: 760px) {
+      .iphone-17-frame {
+        transform: scale(0.74);
+      }
+    }
+
+    /* Titanium Bezel Edge Highlight */
+    .iphone-17-frame::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 54px;
+      padding: 1.5px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.02) 40%, rgba(255,255,255,0.15) 100%);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+      z-index: 50;
+    }
+
+    /* Dynamic Island */
+    .dynamic-island {
+      position: absolute;
+      top: 11px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 118px;
+      height: 30px;
+      background: #000000;
+      border-radius: 20px;
+      z-index: 45;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+      pointer-events: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+    }
+    .island-lens {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #0b111a;
+      box-shadow: inset 0 0 3px rgba(40, 90, 160, 0.6);
+    }
+    .island-sensor {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #0a140d;
+    }
+
+    /* iOS Status Bar */
+    .ios-status-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 44px;
+      z-index: 44;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 26px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #ffffff;
+      pointer-events: none;
+      background: transparent;
+    }
+
+    /* Telegram Mini App Top Bar */
+    .tma-header-bar {
+      position: absolute;
+      top: 44px;
+      left: 0;
+      right: 0;
+      height: 44px;
+      background: rgba(22, 24, 23, 0.95);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+    }
+
+    /* Frame Viewport Wrapper */
+    .frame-viewport {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      top: 88px;
+      border-radius: 0 0 50px 50px;
+      overflow: hidden;
+      background: #0D0F0E;
+    }
+
+    /* Home Indicator */
+    .home-bar {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 134px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.4);
+      border-radius: 9999px;
+      z-index: 45;
+      pointer-events: none;
+    }
+
+    /* Desktop Frame */
+    .desktop-frame {
+      width: 1000px !important;
+      max-width: 96% !important;
+      height: 640px !important;
+      border-radius: 18px !important;
+      background: #0D0F0E !important;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 25px 70px -10px rgba(0, 0, 0, 0.85) !important;
+    }
+    .desktop-frame .dynamic-island,
+    .desktop-frame .ios-status-bar,
+    .desktop-frame .home-bar,
+    .desktop-frame::before {
+      display: none !important;
+    }
+    .desktop-frame .frame-viewport {
+      top: 40px !important;
+      border-radius: 0 0 18px 18px !important;
+    }
+
+    /* Floating Dock Icons */
+    .floating-tool-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      background: #161817;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255, 255, 255, 0.6);
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .floating-tool-btn:hover, .floating-tool-btn.active {
+      background: #1E2420;
+      color: #2FE586;
+      border-color: rgba(47, 229, 134, 0.4);
+      box-shadow: 0 0 12px rgba(47, 229, 134, 0.2);
+    }
+
+    /* Grid Overlay */
+    .grid-overlay-layer {
+      background-size: 8px 8px;
+      background-image: 
+        linear-gradient(to right, rgba(47, 229, 134, 0.07) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(47, 229, 134, 0.07) 1px, transparent 1px);
+    }
+    .grid-overlay-layer::before {
+      content: 'SAFE AREA TOP 44px';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 44px;
+      background: rgba(235, 87, 87, 0.15);
+      border-bottom: 1px dashed #EB5757;
+      color: #EB5757;
+      font-size: 9px;
+      font-family: monospace;
+      display: flex;
+      align-items: flex-end;
+      padding: 2px 8px;
+      z-index: 40;
+      pointer-events: none;
+    }
+    .grid-overlay-layer::after {
+      content: 'SAFE AREA BOTTOM 34px';
+      position: absolute;
+      bottom: 0; left: 0; right: 0; height: 34px;
+      background: rgba(235, 87, 87, 0.15);
+      border-top: 1px dashed #EB5757;
+      color: #EB5757;
+      font-size: 9px;
+      font-family: monospace;
+      display: flex;
+      align-items: flex-start;
+      padding: 2px 8px;
+      z-index: 40;
+      pointer-events: none;
+    }
+
+    /* Slide-out Drawer */
+    .slide-drawer {
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .slide-drawer.open {
+      transform: translateX(0);
+    }
+
+    /* Toast */
+    .toast-box {
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .toast-box.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body class="h-screen w-screen flex flex-col bg-[#0A0C0B] text-slate-200">
+
+  <!-- ================= TOP UNIVERSAL HEADER BAR ================= -->
+  <header class="h-14 bg-[#121413] border-b border-white/10 px-4 flex items-center justify-between shrink-0 z-30 select-none">
+    
+    <!-- Left: Project Identity & Version Badge -->
+    <div class="flex items-center gap-3">
+      <!-- Circle Project Icon -->
+      <div class="w-8 h-8 rounded-full border border-[#2FE586]/40 flex items-center justify-center text-[#2FE586] bg-[#161817] shadow-sm">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <circle cx="12" cy="12" r="4"/>
+          <line x1="4.93" y1="4.93" x2="9.17" y2="9.17"/>
+          <line x1="14.83" y1="14.83" x2="19.07" y2="19.07"/>
+          <line x1="14.83" y1="9.17" x2="19.07" y2="4.93"/>
+          <line x1="4.93" y1="19.07" x2="9.17" y2="14.83"/>
+        </svg>
+      </div>
+
+      <!-- Title & Version Info -->
+      <div class="flex flex-col justify-center">
+        <div class="flex items-center gap-2">
+          <h1 class="text-sm font-semibold text-white tracking-tight leading-none" id="headerProjectName">AI Money Flow Testbench</h1>
+          <span class="text-[10px] font-mono text-white/40 font-normal px-1.5 py-0.5 rounded bg-white/5 border border-white/5 leading-none" title="Версия программы дизайн-стенда">стенд v1.3.0</span>
+        </div>
+        <div class="text-[10px] font-mono text-white/50 flex items-center gap-1.5 mt-1 leading-none">
+          <span>Дизайн AI Money</span>
+          <span class="text-[#2FE586] font-medium">v0.1.0</span>
+        </div>
+      </div>
+
+      <!-- Project Switcher Dropdown (Universal Selector) -->
+      <div class="ml-2">
+        <select id="universalProjectSelect" onchange="switchUniversalProject(this.value)" class="bg-[#181B19] hover:bg-[#202422] text-[#2FE586] text-xs font-mono font-bold rounded-xl px-2.5 py-1.5 border border-white/5 outline-none cursor-pointer">
+          <option value="ai-money-dist" selected>💎 AI Money (Релиз dist)</option>
+        </select>
+      </div>
+
+      <!-- App Mode Segmented Toggle -->
+      <div class="ml-2 segmented-pill-bg flex items-center bg-[#1B1E1C] p-1 rounded-xl border border-white/5 shadow-inner text-xs font-mono">
+        <button id="modeBtnClient" onclick="setAppMode('client')" class="px-3 py-1 rounded-lg transition cursor-pointer bg-[#2FE586] text-slate-950 font-bold shadow-sm flex items-center gap-1.5" title="Пользовательский интерфейс">
+          <span>👤 Клиент</span>
+        </button>
+        <button id="modeBtnAdmin" disabled class="px-3 py-1 rounded-lg transition text-white/30 flex items-center gap-1.5" title="В AI Money нет отдельной панели администратора">
+          <span>🛡️ Админка</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Right: Top Controls (Viewport, Theme, Reload, External, NAS) -->
+    <div class="flex items-center gap-2 text-xs">
+      
+      <!-- Viewport Segmented Pill: [ 📱 Mobile | 💻 Desktop ] -->
+      <div class="segmented-pill-bg flex items-center bg-[#1B1E1C] p-1 rounded-xl border border-white/5 shadow-inner">
+        <button id="viewportBtnMobile" onclick="setViewportMode('mobile')" class="w-8 h-8 rounded-lg flex items-center justify-center transition cursor-pointer bg-white text-slate-950 shadow-sm" title="iPhone 17 Pro (390x844)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+        </button>
+        <button id="viewportBtnDesktop" onclick="setViewportMode('desktop')" class="w-8 h-8 rounded-lg flex items-center justify-center transition cursor-pointer text-white/50 hover:text-white" title="Десктопный вид">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="18" x2="12" y2="21"/></svg>
+        </button>
+      </div>
+
+      <!-- Theme Segmented Pill: [ ☀️ Light | 🌙 Dark ] -->
+      <div class="segmented-pill-bg flex items-center bg-[#1B1E1C] p-1 rounded-xl border border-white/5 shadow-inner">
+        <button id="themeBtnLight" onclick="setThemeMode('light')" class="w-8 h-8 rounded-lg flex items-center justify-center transition cursor-pointer text-white/50 hover:text-white" title="Светлая тема">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+        <button id="themeBtnDark" onclick="setThemeMode('dark')" class="w-8 h-8 rounded-lg flex items-center justify-center transition cursor-pointer bg-white text-slate-950 shadow-sm" title="Темная тема">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+      </div>
+
+      <!-- Reload Button -->
+      <button onclick="reloadAppFrame()" class="w-8 h-8 rounded-xl bg-[#1B1E1C] hover:bg-[#252a27] text-white/80 hover:text-white transition flex items-center justify-center cursor-pointer" title="Перезагрузить экран">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+      </button>
+
+      <!-- External Tab Button -->
+      <a id="btnOpenExternal" href="/frontend/dist/index.html" target="_blank" class="w-8 h-8 rounded-xl bg-[#1B1E1C] hover:bg-[#252a27] text-white/80 hover:text-white transition flex items-center justify-center cursor-pointer" title="Открыть в новой вкладке">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      </a>
+
+      <!-- NAS Export / CSS Action -->
+      <button onclick="copyCurrentTokens()" class="h-8 px-3 rounded-xl bg-[#1B1E1C] hover:bg-[#202522] border border-[#2FE586]/30 text-[#2FE586] hover:text-emerald-300 font-mono text-xs flex items-center gap-1.5 transition cursor-pointer shadow-sm glow-green-sm" title="Скопировать CSS токен или выгрузить">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m8 16 4-4 4 4"/></svg>
+        <span class="font-medium whitespace-nowrap">Выгрузить на NAS</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ================= MAIN WORKSPACE LAYOUT ================= -->
+  <div class="flex-1 flex overflow-hidden relative">
+
+    <!-- ================= LEFT SIDEBAR (FLOWS / SCREENS / SETTINGS) ================= -->
+    <aside id="primarySidebar" class="w-[320px] xl:w-[350px] bg-[#121413] border-r border-white/10 flex flex-col shrink-0 h-full overflow-hidden select-none">
+      
+      <!-- 3 TOP TABS -->
+      <div class="h-[52px] px-3 py-2 bg-[#161817] border-b border-white/10 shrink-0 flex items-center">
+        <div class="grid grid-cols-3 gap-1 bg-[#121413] p-1 rounded-xl text-xs w-full font-mono">
+          <button onclick="switchSidebarTab('flows')" id="tabBtnFlows" class="py-1 px-1 rounded-lg font-medium transition text-center cursor-pointer bg-[#2FE586] text-slate-950 font-bold shadow text-xs">
+            ⚡ Флоу
+          </button>
+          <button onclick="switchSidebarTab('screens')" id="tabBtnScreens" class="py-1 px-1 rounded-lg font-medium transition text-center cursor-pointer text-white/50 hover:text-white text-xs truncate">
+            📱 Экраны
+          </button>
+          <button onclick="switchSidebarTab('settings')" id="tabBtnSettings" class="py-1 px-1 rounded-lg font-medium transition text-center cursor-pointer text-white/50 hover:text-white text-xs">
+            ⚙️ Настройки
+          </button>
+        </div>
+      </div>
+
+      <!-- TAB 1: FLOWS ACCORDION -->
+      <div id="tabContentFlows" class="flex-1 overflow-y-auto p-3 space-y-3 font-mono">
+        <!-- Persona / Scenario Filter Dropdown -->
+        <div class="space-y-1 shrink-0">
+          <div class="relative">
+            <select id="userPersonaSelect" onchange="onPersonaFilterChange(this.value)" class="w-full bg-[#181B19] hover:bg-[#1E2220] text-[#2FE586] rounded-xl px-3 py-2 text-xs font-mono font-bold focus:outline-none transition cursor-pointer appearance-none shadow-sm">
+              <option value="client_active" selected>👤 Действующий клиент (6 сценариев)</option>
+              <option value="new_user">👶 Онбординг новичка (2 сценария)</option>
+              <option value="errors">⚠️ Проверка ошибок (7 экранов)</option>
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-white/40">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hierarchical Flows List -->
+        <div id="flowsListContainer" class="space-y-2 pb-6 text-xs">
+          
+          <!-- Category 1: Личный кабинет (Dashboard) -->
+          <div class="bg-[#161817] rounded-2xl border border-white/5 p-3 space-y-2">
+            <div class="flex items-center justify-between text-white/90 font-bold">
+              <span class="flex items-center gap-2"><span>🏠</span> Личный кабинет</span>
+              <span class="px-2 py-0.5 rounded-full bg-[#181B19] text-[#2FE586] text-[10px] font-mono">4 шага</span>
+            </div>
+            <div class="space-y-1 text-[11px] pt-1">
+              <button onclick="selectFlowStep('dashboard', this)" class="flow-step-btn w-full text-left px-2.5 py-1.5 rounded-xl bg-[#1E2420] text-[#2FE586] font-bold border border-[#2FE586]/30 flex items-center gap-2 cursor-pointer">
+                <span>●</span> 1. Главная (Дашборд)
+              </button>
+              <button onclick="selectFlowStep('transactions', this)" class="flow-step-btn w-full text-left px-2.5 py-1.5 rounded-xl text-white/60 hover:text-white hover:bg-white/5 flex items-center gap-2 cursor-pointer transition">
+                <span>●</span> 2. История транзакций
+              </button>
+              <button onclick="selectFlowStep('accounts', this)" class="flow-step-btn w-full text-left px-2.5 py-1.5 rounded-xl text-white/60 hover:text-white hover:bg-white/5 flex items-center gap-2 cursor-pointer transition">
+                <span>●</span> 3. Счета и балансы
+              </button>
+              <button onclick="selectFlowStep('analytics', this)" class="flow-step-btn w-full text-left px-2.5 py-1.5 rounded-xl text-white/60 hover:text-white hover:bg-white/5 flex items-center gap-2 cursor-pointer transition">
+                <span>●</span> 4. Аналитика расходов
+              </button>
+            </div>
+          </div>
+
+          <!-- Category 2: Добавление и категории -->
+          <div class="bg-[#161817] rounded-2xl border border-white/5 p-3 space-y-2">
+            <div class="flex items-center justify-between text-white/90 font-bold">
+              <span class="flex items-center gap-2"><span>💳</span> Операции и тарифы</span>
+              <span class="px-2 py-0.5 rounded-full bg-[#181B19] text-[#2FE586] text-[10px] font-mono">3 шага</span>
+            </div>
+            <div class="space-y-1 text-[11px] pt-1">
+              <button onclick="selectFlowStep('add-expense', this)" class="flow-step-btn w-full text-left px-2.5 py-1.5 rounded-xl text-white/60 hover:text-white hover:bg-white/5 flex items-center gap-2 cursor-pointer transition">
+                <span>●</span> 1. Добавить расход / доход
+              </button>
+              <button onclick="selectFlowStep('categories', this)" class="flow-step-btn w-full text-left px-2.5 py-1.5 rounded-xl text-white/60 hover:text-white hover:bg-white/5 flex items-center gap-2 cursor-pointer transition">
+                <span>●</span> 2. Менеджер категорий
+              </button>
+              <button onclick="selectFlowStep('currencies', this)" class="flow-step-btn w-full text-left px-2.5 py-1.5 rounded-xl text-white/60 hover:text-white hover:bg-white/5 flex items-center gap-2 cursor-pointer transition">
+                <span>●</span> 3. Мультивалютность (RUB/USD)
+              </button>
+            </div>
+          </div>
+
+          <!-- Category 3: Настройки и доступ -->
+          <div class="bg-[#161817] rounded-2xl border border-white/5 p-3 space-y-2">
+            <div class="flex items-center justify-between text-white/90 font-bold">
+              <span class="flex items-center gap-2"><span>⚙️</span> Настройки профиля</span>
+              <span class="px-2 py-0.5 rounded-full bg-[#181B19] text-[#2FE586] text-[10px] font-mono">3 шага</span>
+            </div>
+            <div class="space-y-1 text-[11px] pt-1">
+              <button onclick="selectFlowStep('settings', this)" class="flow-step-btn w-full text-left px-2.5 py-1.5 rounded-xl text-white/60 hover:text-white hover:bg-white/5 flex items-center gap-2 cursor-pointer transition">
+                <span>●</span> 1. Главные настройки
+              </button>
+              <button onclick="selectFlowStep('ai-review', this)" class="flow-step-btn w-full text-left px-2.5 py-1.5 rounded-xl text-white/60 hover:text-white hover:bg-white/5 flex items-center gap-2 cursor-pointer transition">
+                <span>●</span> 2. AI Проверка и драфты
+              </button>
+              <button onclick="selectFlowStep('backup', this)" class="flow-step-btn w-full text-left px-2.5 py-1.5 rounded-xl text-white/60 hover:text-white hover:bg-white/5 flex items-center gap-2 cursor-pointer transition">
+                <span>●</span> 3. Экспорт данных
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- TAB 2: SCREENS GALLERY -->
+      <div id="tabContentScreens" class="hidden flex-1 overflow-y-auto p-3 space-y-2 font-mono text-xs">
+        <div class="text-[10px] uppercase text-white/40 mb-1">Все экраны проекта (32)</div>
+        <button onclick="selectFlowStep('dashboard')" class="w-full text-left p-2.5 rounded-xl bg-[#161817] hover:bg-[#1E2220] border border-white/5 text-white/90 flex justify-between items-center cursor-pointer">
+          <span>01. Dashboard Main</span> <span class="text-[#2FE586]">#screen-1</span>
+        </button>
+        <button onclick="selectFlowStep('transactions')" class="w-full text-left p-2.5 rounded-xl bg-[#161817] hover:bg-[#1E2220] border border-white/5 text-white/90 flex justify-between items-center cursor-pointer">
+          <span>02. Transactions Ledger</span> <span class="text-[#2FE586]">#screen-2</span>
+        </button>
+        <button onclick="selectFlowStep('accounts')" class="w-full text-left p-2.5 rounded-xl bg-[#161817] hover:bg-[#1E2220] border border-white/5 text-white/90 flex justify-between items-center cursor-pointer">
+          <span>03. Accounts & Balances</span> <span class="text-[#2FE586]">#screen-3</span>
+        </button>
+        <button onclick="selectFlowStep('categories')" class="w-full text-left p-2.5 rounded-xl bg-[#161817] hover:bg-[#1E2220] border border-white/5 text-white/90 flex justify-between items-center cursor-pointer">
+          <span>04. Categories Manager</span> <span class="text-[#2FE586]">#screen-4</span>
+        </button>
+        <button onclick="selectFlowStep('settings')" class="w-full text-left p-2.5 rounded-xl bg-[#161817] hover:bg-[#1E2220] border border-white/5 text-white/90 flex justify-between items-center cursor-pointer">
+          <span>05. Settings & Config</span> <span class="text-[#2FE586]">#screen-5</span>
+        </button>
+      </div>
+
+      <!-- TAB 3: SETTINGS & TOOLS -->
+      <div id="tabContentSettings" class="hidden flex-1 overflow-y-auto p-3 space-y-3 font-mono text-xs">
+        <div class="bg-[#161817] p-3 rounded-2xl border border-white/5 space-y-2">
+          <div class="text-[10px] uppercase text-[#2FE586] font-bold">Очистка состояния</div>
+          <button onclick="clearFrameStorage()" class="w-full py-2 rounded-xl bg-[#1B1E1C] hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-bold cursor-pointer">
+            🧹 Сбросить LocalStorage
+          </button>
+        </div>
+        <div class="bg-[#161817] p-3 rounded-2xl border border-white/5 space-y-2">
+          <div class="text-[10px] uppercase text-white/60 font-bold">Сетевые эмуляции</div>
+          <button onclick="simulateOffline()" class="w-full py-2 rounded-xl bg-[#1B1E1C] hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs cursor-pointer">
+            📡 Ошибка сети (Offline)
+          </button>
+          <button onclick="simulate401()" class="w-full py-2 rounded-xl bg-[#1B1E1C] hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs cursor-pointer">
+            🔒 Ошибка 401 Re-login
+          </button>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ================= CENTER CANVAS: DOCK & IPHONE 17 PRO ================= -->
+    <main class="flex-1 bg-[#0A0C0B] flex flex-col items-center justify-center relative overflow-hidden p-4 select-none">
+      
+      <!-- Left Floating Tool Dock (Next to iPhone) -->
+      <div class="absolute left-6 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-20">
+        <button id="dockBtnInspector" onclick="toggleDrawer('inspector')" class="floating-tool-btn" title="Инспектор дизайна и токенов">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        </button>
+        <button id="dockBtnGrid" onclick="toggleGridOverlay()" class="floating-tool-btn" title="Сетка 8px и Safe Area (Клавиша G)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+        </button>
+        <button id="dockBtnBot" onclick="toggleDrawer('bot')" class="floating-tool-btn active" title="Симулятор Telegram-бота">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </button>
+      </div>
+
+      <!-- iPhone 17 Pro Titanium Mockup Frame -->
+      <div id="deviceContainer" class="iphone-17-frame">
+        
+        <!-- Grid & Safe Area Overlay Layer -->
+        <div id="gridOverlayLayer" class="hidden absolute inset-0 z-30 pointer-events-none grid-overlay-layer"></div>
+
+        <!-- Dynamic Island -->
+        <div class="dynamic-island">
+          <div class="island-lens"></div>
+          <div class="island-sensor"></div>
+        </div>
+
+        <!-- iOS Status Bar -->
+        <div class="ios-status-bar">
+          <span id="statusBarClock">9:41</span>
+          <div class="flex items-center gap-1 text-[11px]">
+            <span>5G</span>
+            <span>●●●</span>
+            <span>100%</span>
+          </div>
+        </div>
+
+        <!-- Telegram Mini App Top Bar -->
+        <div id="tmaHeaderBar" class="tma-header-bar">
+          <button onclick="showToast('Закрыть Mini App')" class="text-xs text-[#2FE586] font-medium">Закрыть</button>
+          <div class="text-center">
+            <div id="tmaTitleLabel" class="text-xs font-bold text-white leading-tight">AI Money</div>
+            <div class="text-[9px] text-white/50 font-mono">бот</div>
+          </div>
+          <button onclick="showToast('Меню Telegram')" class="text-xs text-white/60 font-bold tracking-widest">•••</button>
+        </div>
+
+        <!-- Viewport Iframe Container -->
+        <div class="frame-viewport">
+          <iframe id="appFrame" src="/frontend/dist/index.html" class="w-full h-full border-none bg-[#0D0F0E]" allow="clipboard-read; clipboard-write"></iframe>
+        </div>
+
+        <!-- iOS Home Indicator -->
+        <div class="home-bar"></div>
+      </div>
+
+      <!-- Bottom Live Status Line -->
+      <div class="mt-3 flex items-center gap-2 text-[11px] font-mono text-white/40">
+        <span>iPhone 17 Pro</span>
+        <span>•</span>
+        <span>390 × 844 px</span>
+        <span>•</span>
+        <span class="flex items-center gap-1 text-[#2FE586]">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#2FE586] animate-pulse"></span>
+          <span>Подключено (Live)</span>
+        </span>
+      </div>
+    </main>
+
+    <!-- ================= RIGHT SLIDE-OUT DRAWER (BOT & INSPECTOR) ================= -->
+    <aside id="sideDrawer" class="slide-drawer open w-84 xl:w-96 bg-[#121413] border-l border-white/10 flex flex-col shrink-0 z-30 shadow-2xl">
+      
+      <!-- Drawer Header with Tab Switcher -->
+      <div class="h-12 bg-[#161817] border-b border-white/10 px-3 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-1 bg-[#121413] p-1 rounded-xl text-xs font-mono">
+          <button id="drawerTabBotBtn" onclick="switchDrawerContent('bot')" class="px-3 py-1 rounded-lg bg-[#2FE586] text-slate-950 font-bold cursor-pointer">
+            🤖 Бот
+          </button>
+          <button id="drawerTabInspBtn" onclick="switchDrawerContent('inspector')" class="px-3 py-1 rounded-lg text-white/50 hover:text-white cursor-pointer transition">
+            🎨 Инспектор
+          </button>
+        </div>
+        <button onclick="toggleDrawer(null)" class="text-white/40 hover:text-white text-xs px-2 py-1 rounded bg-[#1B1E1C]">✕</button>
+      </div>
+
+      <!-- DRAWER CONTENT 1: TELEGRAM BOT SIMULATOR -->
+      <div id="drawerContentBot" class="flex-1 flex flex-col overflow-hidden">
+        <!-- Bot Info -->
+        <div class="p-3 bg-[#161817] border-b border-white/5 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-full bg-[#2FE586]/20 text-[#2FE586] font-bold flex items-center justify-center text-xs">💎</div>
+            <div>
+              <div class="text-xs font-bold text-white">AI Money Bot</div>
+              <div class="text-[9px] text-[#2FE586] font-mono">● онлайн (симулятор)</div>
+            </div>
+          </div>
+          <button onclick="clearBotChat()" class="text-[10px] text-white/40 hover:text-white px-2 py-0.5 rounded bg-[#1B1E1C]">Очистить</button>
+        </div>
+
+        <!-- Quick Bot Chips -->
+        <div class="p-2 bg-[#121413] border-b border-white/5 flex gap-1.5 overflow-x-auto text-[11px] font-mono">
+          <button onclick="sendBotCmd('/start')" class="px-2.5 py-1 rounded-lg bg-[#181B19] hover:bg-[#202422] text-[#2FE586] border border-white/5 shrink-0">👋 /start</button>
+          <button onclick="sendBotMsg('Кофе 350 с Т-Банка')" class="px-2.5 py-1 rounded-lg bg-[#181B19] hover:bg-[#202422] text-white/80 border border-white/5 shrink-0">☕ Кофе 350</button>
+          <button onclick="sendBotMsg('Зарплата 180000')" class="px-2.5 py-1 rounded-lg bg-[#181B19] hover:bg-[#202422] text-[#2FE586] border border-white/5 shrink-0">💰 Зарплата</button>
+          <button onclick="simulateVoice()" class="px-2.5 py-1 rounded-lg bg-[#181B19] hover:bg-[#202422] text-cyan-400 border border-white/5 shrink-0">🎤 Голос</button>
+          <button onclick="simulateReceipt()" class="px-2.5 py-1 rounded-lg bg-[#181B19] hover:bg-[#202422] text-cyan-400 border border-white/5 shrink-0">🧾 Чек</button>
+        </div>
+
+        <!-- Chat Feed -->
+        <div id="botChatFeed" class="flex-1 p-3 space-y-2.5 overflow-y-auto font-sans bg-[#0D0F0E] text-xs">
+          <div class="flex items-start gap-2 max-w-[90%]">
+            <div class="w-6 h-6 rounded-full bg-[#2FE586]/20 text-[#2FE586] font-bold flex items-center justify-center text-[10px] shrink-0">💎</div>
+            <div class="bg-[#182533] text-slate-100 rounded-2xl rounded-tl-sm p-2.5 leading-relaxed border border-white/5 shadow-sm">
+              👋 Привет! Отправьте команду или текст транзакции.
+            </div>
+          </div>
+        </div>
+
+        <!-- Input Bar -->
+        <div class="p-2.5 bg-[#161817] border-t border-white/10 flex items-center gap-2">
+          <input id="botInputField" type="text" placeholder="Сообщение боту..." onkeydown="if(event.key==='Enter') sendCustomMsg()" class="flex-1 bg-[#181B19] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white placeholder-white/40 outline-none focus:border-[#2FE586]">
+          <button onclick="sendCustomMsg()" class="px-3 py-1.5 rounded-xl bg-[#2FE586] text-slate-950 font-bold text-xs cursor-pointer">➔</button>
+        </div>
+      </div>
+
+      <!-- DRAWER CONTENT 2: DESIGN INSPECTOR -->
+      <div id="drawerContentInspector" class="hidden flex-1 flex flex-col overflow-y-auto p-3.5 space-y-3 font-mono text-xs">
+        <div class="bg-[#161817] p-3 rounded-2xl border border-white/5 space-y-2">
+          <div class="text-[10px] uppercase text-[#2FE586] font-bold">Инспектор радиусов</div>
+          <div class="grid grid-cols-3 gap-1.5 text-xs">
+            <button onclick="applyRadius('0px')" class="py-1.5 rounded-lg bg-[#181B19] hover:bg-[#202422] text-white/80 border border-white/5">0px</button>
+            <button onclick="applyRadius('16px')" class="py-1.5 rounded-lg bg-[#181B19] hover:bg-[#202422] text-white/80 border border-white/5">16px</button>
+            <button onclick="applyRadius('20px')" class="py-1.5 rounded-lg bg-[#181B19] hover:bg-[#202422] text-[#2FE586] border border-[#2FE586]/30 font-bold">20px</button>
+            <button onclick="applyRadius('24px')" class="py-1.5 rounded-lg bg-[#181B19] hover:bg-[#202422] text-white/80 border border-white/5">24px</button>
+            <button onclick="applyRadius('9999px')" class="col-span-2 py-1.5 rounded-lg bg-[#181B19] hover:bg-[#202422] text-[#2FE586] border border-[#2FE586]/30 font-bold">Pill</button>
+          </div>
+        </div>
+
+        <div class="bg-[#161817] p-3 rounded-2xl border border-white/5 space-y-2">
+          <div class="text-[10px] uppercase text-[#2FE586] font-bold">Цветовые токены студии</div>
+          <div class="flex items-center gap-2">
+            <button onclick="applyColor('#2FE586')" class="w-7 h-7 rounded-lg bg-[#2FE586] border border-white/20" title="Aegis Green"></button>
+            <button onclick="applyColor('#10B981')" class="w-7 h-7 rounded-lg bg-[#10B981] border border-white/20" title="AI Money Emerald"></button>
+            <button onclick="applyColor('#161817')" class="w-7 h-7 rounded-lg bg-[#161817] border border-white/20" title="Card Surface"></button>
+            <button onclick="applyColor('#EB5757')" class="w-7 h-7 rounded-lg bg-[#EB5757] border border-white/20" title="Danger Red"></button>
+            <button onclick="applyColor('#3B82F6')" class="w-7 h-7 rounded-lg bg-[#3B82F6] border border-white/20" title="Info Blue"></button>
+          </div>
+        </div>
+
+        <div class="pt-2">
+          <button onclick="copyCurrentTokens()" class="w-full py-2.5 rounded-xl bg-[#2FE586] text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-md">
+            <span>⚡</span> Скопировать CSS токен
+          </button>
+        </div>
+      </div>
+
+    </aside>
+  </div>
+
+  <!-- ================= TOAST ================= -->
+  <div id="toastBox" class="toast-box fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#2FE586] text-slate-950 px-4 py-2 rounded-xl text-xs font-mono font-bold shadow-2xl z-50">
+    <span id="toastText">Готово</span>
+  </div>
+
+  <!-- ================= SCRIPTS ================= -->
+  <script>
+    let isGridActive = false;
+
+    // Clock
+    function updateClock() {
+      const now = new Date();
+      const h = now.getHours();
+      const m = String(now.getMinutes()).padStart(2, '0');
+      document.getElementById('statusBarClock').innerText = `${h}:${m}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Universal Project Switcher
+    function switchUniversalProject(val) {
+      const frame = document.getElementById('appFrame');
+      const title = document.getElementById('tmaTitleLabel');
+      const headerTitle = document.getElementById('headerProjectName');
+      const extBtn = document.getElementById('btnOpenExternal');
+
+      if (val === 'ai-money-dist') {
+        frame.src = '/frontend/dist/index.html';
+        extBtn.href = '/frontend/dist/index.html';
+        title.innerText = 'AI Money';
+        headerTitle.innerText = 'AI Money Flow Testbench';
+      } else if (val === 'ai-money-vite') {
+        frame.src = 'http://localhost:5173';
+        extBtn.href = 'http://localhost:5173';
+        title.innerText = 'AI Money (Vite)';
+        headerTitle.innerText = 'AI Money (Live Vite)';
+      } else if (val === 'aegis-portal') {
+        frame.src = '/demo/web/portal.html';
+        extBtn.href = '/demo/web/portal.html';
+        title.innerText = 'Aegis VPN';
+        headerTitle.innerText = 'Aegis Flow Testbench';
+      } else if (val === 'aegis-admin') {
+        frame.src = '/demo/web/admin.html';
+        extBtn.href = '/demo/web/admin.html';
+        title.innerText = 'Aegis Admin';
+        headerTitle.innerText = 'Aegis Admin Testbench';
+      } else if (val === 'aegis-uikit') {
+        frame.src = '/demo/web/uikit.html';
+        extBtn.href = '/demo/web/uikit.html';
+        title.innerText = 'Aegis UI Kit';
+        headerTitle.innerText = 'Aegis UI Kit Testbench';
+      }
+      showToast(`Проект переключен: ${title.innerText}`);
+    }
+
+    // Viewport Switcher
+    function setViewportMode(mode) {
+      const container = document.getElementById('deviceContainer');
+      const btnMob = document.getElementById('viewportBtnMobile');
+      const btnDesk = document.getElementById('viewportBtnDesktop');
+
+      if (mode === 'mobile') {
+        btnMob.className = 'w-8 h-8 rounded-lg flex items-center justify-center transition cursor-pointer bg-white text-slate-950 shadow-sm';
+        btnDesk.className = 'w-8 h-8 rounded-lg flex items-center justify-center transition cursor-pointer text-white/50 hover:text-white';
+        container.className = 'iphone-17-frame';
+      } else {
+        btnDesk.className = 'w-8 h-8 rounded-lg flex items-center justify-center transition cursor-pointer bg-white text-slate-950 shadow-sm';
+        btnMob.className = 'w-8 h-8 rounded-lg flex items-center justify-center transition cursor-pointer text-white/50 hover:text-white';
+        container.className = 'iphone-17-frame desktop-frame';
+      }
+    }
+
+    // Theme Mode
+    function setThemeMode(theme) {
+      const btnL = document.getElementById('themeBtnLight');
+      const btnD = document.getElementById('themeBtnDark');
+      if (theme === 'light') {
+        btnL.className = 'w-8 h-8 rounded-lg flex items-center justify-center transition cursor-pointer bg-white text-slate-950 shadow-sm';
+        btnD.className = 'w-8 h-8 rounded-lg flex items-center justify-center transition cursor-pointer text-white/50 hover:text-white';
+      } else {
+        btnD.className = 'w-8 h-8 rounded-lg flex items-center justify-center transition cursor-pointer bg-white text-slate-950 shadow-sm';
+        btnL.className = 'w-8 h-8 rounded-lg flex items-center justify-center transition cursor-pointer text-white/50 hover:text-white';
+      }
+      const frame = document.getElementById('appFrame');
+      if (frame.contentDocument) frame.contentDocument.documentElement.classList.toggle('dark', theme === 'dark');
+      showToast(`Тема: ${theme}`);
+    }
+
+    // App Mode Toggle
+    function setAppMode(mode) {
+      const btnC = document.getElementById('modeBtnClient');
+      const btnA = document.getElementById('modeBtnAdmin');
+      if (mode === 'client') {
+        btnC.className = 'px-3 py-1 rounded-lg transition cursor-pointer bg-[#2FE586] text-slate-950 font-bold shadow-sm flex items-center gap-1.5';
+        btnA.className = 'px-3 py-1 rounded-lg transition cursor-pointer text-white/50 hover:text-white flex items-center gap-1.5';
+        switchUniversalProject('ai-money-dist');
+      } else {
+        btnA.className = 'px-3 py-1 rounded-lg transition cursor-pointer bg-[#2FE586] text-slate-950 font-bold shadow-sm flex items-center gap-1.5';
+        btnC.className = 'px-3 py-1 rounded-lg transition cursor-pointer text-white/50 hover:text-white flex items-center gap-1.5';
+        switchUniversalProject('aegis-admin');
+      }
+    }
+
+    // Left Tabs Switcher
+    function switchSidebarTab(tab) {
+      ['flows', 'screens', 'settings'].forEach(t => {
+        document.getElementById(`tabContent${t.charAt(0).toUpperCase() + t.slice(1)}`).classList.add('hidden');
+        const btn = document.getElementById(`tabBtn${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        btn.className = 'py-1 px-1 rounded-lg font-medium transition text-center cursor-pointer text-white/50 hover:text-white text-xs';
+      });
+
+      document.getElementById(`tabContent${tab.charAt(0).toUpperCase() + tab.slice(1)}`).classList.remove('hidden');
+      const activeBtn = document.getElementById(`tabBtn${tab.charAt(0).toUpperCase() + tab.slice(1)}`);
+      activeBtn.className = 'py-1 px-1 rounded-lg font-medium transition text-center cursor-pointer bg-[#2FE586] text-slate-950 font-bold shadow text-xs';
+    }
+
+    // The app acknowledges navigation; never claim that a protected draft was replaced.
+    const pendingNavigation = new Map();
+    function selectFlowStep(route, btnEl) {
+      const frame = document.getElementById('appFrame');
+      const requestId = crypto.randomUUID();
+      const timer = setTimeout(() => {
+        pendingNavigation.delete(requestId);
+        showToast('Приложение ещё не подтвердило переход. Дождитесь загрузки.');
+      }, 2000);
+      pendingNavigation.set(requestId, { route, btnEl, timer });
+      frame.contentWindow?.postMessage({ type: 'ai-money:preview:navigate', requestId, route }, location.origin);
+    }
+    window.addEventListener('message', event => {
+      const frame = document.getElementById('appFrame');
+      if (event.source !== frame.contentWindow || event.origin !== location.origin) return;
+      const result = event.data;
+      if (!result || result.type !== 'ai-money:preview:navigation-result') return;
+      const request = pendingNavigation.get(result.requestId);
+      if (!request || request.route !== result.route) return;
+      clearTimeout(request.timer); pendingNavigation.delete(result.requestId);
+      if (result.status === 'applied' && request.btnEl) {
+        document.querySelectorAll('.flow-step-btn').forEach(button => button.classList.remove('bg-[#1E2420]', 'text-[#2FE586]', 'font-bold'));
+        request.btnEl.classList.add('bg-[#1E2420]', 'text-[#2FE586]', 'font-bold');
+      }
+      showToast(typeof result.message === 'string' ? result.message : 'Переход не выполнен');
+    });
+
+    // Grid Overlay Toggle
+    function toggleGridOverlay() {
+      isGridActive = !isGridActive;
+      const layer = document.getElementById('gridOverlayLayer');
+      const btn = document.getElementById('dockBtnGrid');
+      if (isGridActive) {
+        layer.classList.remove('hidden');
+        btn.classList.add('active');
+        showToast('Сетка 8px и Safe Area включены');
+      } else {
+        layer.classList.add('hidden');
+        btn.classList.remove('active');
+        showToast('Сетка выключена');
+      }
+    }
+
+    // Slide-out Drawer Controls
+    function toggleDrawer(tab) {
+      const drawer = document.getElementById('sideDrawer');
+      if (!tab) {
+        drawer.classList.remove('open');
+        document.querySelectorAll('.floating-tool-btn').forEach(b => b.classList.remove('active'));
+        return;
+      }
+      drawer.classList.add('open');
+      switchDrawerContent(tab);
+    }
+
+    function switchDrawerContent(tab) {
+      const btnBot = document.getElementById('drawerTabBotBtn');
+      const btnInsp = document.getElementById('drawerTabInspBtn');
+      const cBot = document.getElementById('drawerContentBot');
+      const cInsp = document.getElementById('drawerContentInspector');
+      const dockBot = document.getElementById('dockBtnBot');
+      const dockInsp = document.getElementById('dockBtnInspector');
+
+      [dockBot, dockInsp].forEach(b => b.classList.remove('active'));
+
+      if (tab === 'bot') {
+        btnBot.className = 'px-3 py-1 rounded-lg bg-[#2FE586] text-slate-950 font-bold cursor-pointer';
+        btnInsp.className = 'px-3 py-1 rounded-lg text-white/50 hover:text-white cursor-pointer transition';
+        cBot.classList.remove('hidden');
+        cInsp.classList.add('hidden');
+        dockBot.classList.add('active');
+      } else {
+        btnInsp.className = 'px-3 py-1 rounded-lg bg-[#2FE586] text-slate-950 font-bold cursor-pointer';
+        btnBot.className = 'px-3 py-1 rounded-lg text-white/50 hover:text-white cursor-pointer transition';
+        cInsp.classList.remove('hidden');
+        cBot.classList.add('hidden');
+        dockInsp.classList.add('active');
+      }
+    }
+
+    // Bot Simulator
+    function escapeMarkup(text) {
+      return String(text).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+    }
+    function sendBotCmd(cmd) {
+      appendMsg('user', escapeMarkup(cmd));
+      setTimeout(() => {
+        appendMsg('bot', `👋 Симуляция команды <b>${escapeMarkup(cmd)}</b>. Настоящий Telegram не вызывается.`);
+      }, 300);
+    }
+    function sendBotMsg(text) {
+      appendMsg('user', escapeMarkup(text));
+      setTimeout(() => {
+        appendMsg('bot', `📝 Симуляция черновика: <b>${escapeMarkup(text)}</b>. Бюджет не изменён.`);
+      }, 400);
+    }
+    function sendCustomMsg() {
+      const f = document.getElementById('botInputField');
+      if (!f.value.trim()) return;
+      const v = f.value;
+      f.value = '';
+      sendBotMsg(v);
+    }
+    function simulateVoice() {
+      appendMsg('user', '🎤 <i>[Голос: "Такси 650 рублей"]</i>');
+      setTimeout(() => {
+        appendMsg('bot', '🎙️ Симуляция голосового черновика: "Такси 650 руб". Бюджет не изменён.');
+      }, 500);
+    }
+    function simulateReceipt() {
+      appendMsg('user', '🧾 <i>[Фото фискального чека]</i>');
+      setTimeout(() => {
+        appendMsg('bot', '🔍 Чек распознан: <b>1 850 ₽</b> (Супермаркет).');
+      }, 600);
+    }
+    function appendMsg(sender, html) {
+      const feed = document.getElementById('botChatFeed');
+      const div = document.createElement('div');
+      if (sender === 'user') {
+        div.className = 'flex justify-end';
+        div.innerHTML = `<div class="bg-[#1F3C5E] text-white rounded-2xl rounded-tr-sm p-2.5 leading-relaxed max-w-[85%] border border-white/10 shadow-sm">${html}</div>`;
+      } else {
+        div.className = 'flex items-start gap-2 max-w-[90%]';
+        div.innerHTML = `
+          <div class="w-6 h-6 rounded-full bg-[#2FE586]/20 text-[#2FE586] font-bold flex items-center justify-center text-[10px] shrink-0">💎</div>
+          <div class="bg-[#182533] text-slate-100 rounded-2xl rounded-tl-sm p-2.5 leading-relaxed border border-white/5 shadow-sm space-y-1">
+            <p>${html}</p>
+          </div>
+        `;
+      }
+      feed.appendChild(div);
+      feed.scrollTop = feed.scrollHeight;
+    }
+    function clearBotChat() {
+      document.getElementById('botChatFeed').innerHTML = '';
+      showToast('Чат очищен');
+    }
+
+    // Inspector Actions
+    function applyRadius(val) {
+      showToast(`Радиус: ${val}`);
+    }
+    function applyColor(hex) {
+      showToast(`Цвет: ${hex}`);
+    }
+    function copyCurrentTokens() {
+      const tokens = `/* Aegis & AI Money Design Tokens */\n--radius-card: 20px;\n--radius-pill: 9999px;\n--color-accent: #2FE586;\n--color-bg: #0D0F0E;\n--title-left: 16px;\n--sub-to-bento: 32px;`;
+      navigator.clipboard.writeText(tokens);
+      showToast('CSS токены скопированы ⚡');
+    }
+
+    // Storage and Frame
+    function reloadAppFrame() {
+      const frame = document.getElementById('appFrame');
+      frame.src = frame.src;
+      showToast('Экран перезагружен');
+    }
+    function clearFrameStorage() {
+      try {
+        const frame = document.getElementById('appFrame');
+        if (frame.contentWindow && frame.contentWindow.localStorage) {
+          frame.contentWindow.localStorage.clear();
+          frame.contentWindow.sessionStorage.clear();
+        }
+      } catch (e) {}
+      reloadAppFrame();
+      showToast('Хранилище очищено');
+    }
+
+    // Toast
+    function showToast(msg) {
+      const box = document.getElementById('toastBox');
+      document.getElementById('toastText').innerText = msg;
+      box.classList.add('show');
+      setTimeout(() => box.classList.remove('show'), 2000);
+    }
+
+    // Hotkeys
+    window.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT') return;
+      if (e.key === 'r' || e.key === 'к') reloadAppFrame();
+      if (e.key === 'g' || e.key === 'п') toggleGridOverlay();
+      if (e.key === 'i' || e.key === 'ш') toggleDrawer('inspector');
+      if (e.key === 'b' || e.key === 'и') toggleDrawer('bot');
+    });
+  </script>
+</body>
+</html>

@@ -92,7 +92,7 @@ class Transaction(Base):
     amount = Column(Money(), nullable=False)
     type = Column(String(20), nullable=False)  # expense / income / transfer
     note = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=utc_now, index=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, index=True)
 
     account = relationship("Account", foreign_keys=[account_id], back_populates="transactions")
     to_account = relationship("Account", foreign_keys=[to_account_id])

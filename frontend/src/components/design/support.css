@@ -1,0 +1,62 @@
+.design-support { color:var(--design-ink); background:var(--design-bg); font-family:"JetBrains Mono",monospace; font-size:12px; line-height:16px; letter-spacing:-.24px; }
+.design-support-page { position:fixed; inset:0; left:0; right:0; margin-inline:auto; width:min(100%,402px); z-index:80; overflow-y:auto; padding-bottom:env(safe-area-inset-bottom); }
+.design-support-header { height:36px; display:flex; align-items:start; justify-content:space-between; }
+.design-support-header h1 { font-size:20px; line-height:24px; letter-spacing:-1px; font-weight:400; padding:6px 12px; background:#111317; color:white; margin:0; }
+.design-support-body { padding:24px 12px; display:flex; flex-direction:column; gap:16px; }
+.design-support-body p { color:var(--design-muted); }
+.design-support label { display:block; color:var(--design-muted); }
+.design-support input:not([type="checkbox"]), .design-support textarea, .design-support select { background:var(--design-paper); color:var(--design-ink); padding:12px; min-height:42px; border:1px solid var(--design-soft); font:inherit; max-width:100%; }
+.design-support textarea { width:100%; min-height:96px; }
+.design-support fieldset { border:0; background:var(--design-paper); padding:12px; display:flex; flex-direction:column; gap:12px; }
+.design-support legend { padding:8px 12px; font-size:20px; line-height:24px; background:#111317; color:white; }
+.design-support .design-primary, .design-primary { background:var(--design-green); color:#111317; min-height:42px; padding:12px; }
+.design-support .design-success { background:var(--design-green); color:#111317; padding:12px; }
+.design-support .design-error { color:#b42318; background:var(--design-paper); padding:12px; }
+.design-overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgb(17 19 23 / .45); z-index:140; padding:12px; }
+.design-overlay > [role="dialog"] { width:100%; max-width:378px; }
+.design-confirm { background:var(--design-paper); color:var(--design-ink); padding:24px; display:flex; flex-direction:column; gap:16px; }
+.design-confirm h2 { font-size:20px; line-height:24px; letter-spacing:-1px; }
+.design-confirm p { color:var(--design-muted); }
+.design-confirm-actions { display:flex; gap:2px; }
+.design-confirm-actions button { width:50%; padding:12px; min-height:42px; background:var(--design-soft); }
+.design-confirm-actions .design-primary { background:var(--design-green); color:#111317; }
+.design-settings { min-height:100dvh; padding-bottom:32px; }
+.design-settings-group { margin-top:32px; }
+.design-settings-group h2 { text-align:center; font-size:12px; margin-bottom:8px; color:var(--design-muted); }
+.design-settings-row { display:flex; gap:12px; align-items:center; width:100%; text-align:left; background:var(--design-paper); min-height:64px; padding:12px; margin-bottom:2px; }
+.design-settings-row > span { flex:1; }
+.design-settings-row small { display:block; color:var(--design-muted); margin-top:4px; }
+.design-sheet { position:fixed; inset:0; z-index:100; background:rgb(17 19 23 / .45); display:flex; align-items:flex-end; justify-content:center; }
+.design-sheet > [role="dialog"] { width:min(100%,402px); max-height:85dvh; overflow-y:auto; background:var(--design-bg); }
+.design-sheet-search { display:flex; padding:12px; gap:2px; }
+.design-sheet-search input { flex:1; min-width:0; background:var(--design-paper); color:var(--design-ink); padding:12px; }
+.design-sheet .design-account-field { height:48px; margin-bottom:2px; padding-right:8px; }
+.design-sheet .design-account-field[aria-pressed="true"] { background:var(--design-green); color:#111317; }
+.dark .design-support-header .design-icon, .dark .design-sheet .design-icon { filter:invert(1); }
+.design-paper { background:var(--design-paper); }
+.design-bg { background:var(--design-bg); }
+.design-text { color:var(--design-ink); }
+.design-border { border-color:var(--design-soft); }
+.design-support h2, .design-support h3 { font-weight:400; }
+.design-support .basil-symbol { display:inline-flex; align-items:center; justify-content:center; vertical-align:middle; }
+.dark .design-support .basil-symbol .design-icon { filter:invert(1); }
+.design-support .design-primary .basil-symbol .design-icon { filter:none; }
+.design-support-body label > input, .design-support-body label > select { display:block; width:100%; margin-top:8px; }
+.design-account-emoji { display:flex; align-items:center; justify-content:center; gap:12px; min-height:80px; background:var(--design-paper); font-size:36px; }
+.design-emoji-picker { padding:12px; display:flex; flex-direction:column; gap:16px; }
+.design-option-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:2px; }
+.design-option-grid button { min-height:42px; padding:8px; background:var(--design-paper); overflow-wrap:anywhere; }
+.design-option-grid button[aria-pressed="true"] { color:#111317; background:var(--design-green); }
+.design-form-label { color:var(--design-muted); font-size:12px; margin-bottom:8px; }
+.design-form-save { display:flex; align-items:center; justify-content:center; gap:12px; }
+.design-support .bg-white { background:var(--design-paper); }
+.design-login { min-height:100dvh; padding:24px; display:flex; flex-direction:column; justify-content:center; gap:16px; }
+.design-login-title { align-self:flex-start; font-size:20px; line-height:24px; letter-spacing:-1px; padding:8px 12px; background:#111317; color:white; }
+.design-server-error { position:fixed; top:42px; left:50%; transform:translateX(-50%); width:min(100%,402px); z-index:200; padding:12px; background:var(--design-paper); color:#b42318; border:1px solid var(--design-soft); }
+.dark .design-settings .design-icon { filter:invert(1); }
+.dark .design-support .design-icon { filter:invert(1); }
+.dark .design-support .design-primary .design-icon, .dark .design-sheet [aria-pressed="true"] .design-icon { filter:none; }
+.design-sheet .design-account-field[aria-pressed="true"] .design-row-title { color:#111317; }
+.design-sheet .design-account-field[aria-pressed="true"] .design-currency { color:#535a66; }
+.design-shell .design-account-emoji { font-size:36px; line-height:48px; }
+.design-emoji-picker .design-option-grid button { font-size:24px; }

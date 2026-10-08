@@ -29,7 +29,7 @@ def name_findings(path: Path, relative: str) -> list[str]:
 def inspect(root: Path, exceptions: dict) -> tuple[list[str], list[str]]:
     """Return failures and warnings without changing source files."""
     failures, warnings = [], []
-    for folder in ("bot/app", "frontend/src", "scripts"):
+    for folder in ("bot/app", "frontend/src", "scripts", "preview"):
         for path in (root / folder).rglob("*"):
             if not path.is_file() or path.suffix not in LIMITS:
                 continue
