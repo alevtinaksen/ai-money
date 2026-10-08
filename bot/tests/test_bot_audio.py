@@ -47,6 +47,10 @@ async def test_gemini_completed_audio_required_before_draft(audio_context, monke
         if finish == "STOP":
             assert json.loads(draft.payload)[0]["amount"] == "250.50"
             assert any("250,50 RUB" in text for text in texts)
+            assert bot.session.await_count == 1
+            reply = bot.session.await_args.args[1]
+            assert reply.reply_markup.inline_keyboard[0][0].callback_data == f"confirm:{draft.id}"
+            assert "Сейчас они не записаны" in reply.text
         else:
             assert draft is None
             assert all("Черновик" not in text for text in texts)

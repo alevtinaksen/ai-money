@@ -5,6 +5,7 @@ import logging
 import httpx
 
 from app.services.ai_limits import cloud_slot
+from app.services.runtime_timing import timed_operation
 
 logger = logging.getLogger(__name__)
 ERROR_MESSAGE = "Распознавание недоступно или ответ некорректен. Ничего не записано; повторите позже."
@@ -56,6 +57,7 @@ def parse_response(body):
     return raw
 
 
+@timed_operation("gemini")
 async def generate_json(url: str, payload: dict, api_key: str) -> dict:
     try:
         async with cloud_slot(), httpx.AsyncClient(timeout=httpx.Timeout(45, connect=10)) as client:

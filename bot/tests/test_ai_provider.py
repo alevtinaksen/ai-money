@@ -10,6 +10,30 @@ from app.services import ai_limits
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("model,level,expected", [
+    ("gemini-3.8-flash", "low", {"thinkingLevel": "LOW"}),
+    ("gemini-3.8-flash", "default", None),
+    ("gemini-2.5-flash", "low", None),
+    ("gemini-3.1-flash-lite-image", "low", None),
+])
+async def test_low_thinking_is_limited_to_verified_model(monkeypatch, model, level, expected):
+    monkeypatch.setattr(settings, "AI_PROVIDER", "gemini")
+    monkeypatch.setattr(settings, "AI_UPLOAD_CONSENT", True)
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "synthetic")
+    monkeypatch.setattr(settings, "GEMINI_MODEL", model)
+    monkeypatch.setattr(settings, "GEMINI_THINKING_LEVEL", level)
+    async def provider(request):
+        config = json.loads(request.content)["generationConfig"]
+        assert config.get("thinkingConfig") == expected
+        raw = json.dumps({"transactions": [{"amount": "250.50"}]})
+        return httpx.Response(200, json={"candidates": [{"finishReason": "STOP", "content": {"parts": [{"text": raw}]}}]})
+    original = httpx.AsyncClient
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: original(**kw, transport=httpx.MockTransport(provider)))
+    result = await AIParserService.parse_financial_text("расход 250 рублей 50 копеек кофе", [], [])
+    assert str(result.transactions[0].amount) == "250.50"
+
+
+@pytest.mark.asyncio
 async def test_groq_audio_wire_and_no_fallback(monkeypatch):
     monkeypatch.setattr(settings, "AI_PROVIDER", "groq")
     monkeypatch.setattr(settings, "AI_UPLOAD_CONSENT", True)

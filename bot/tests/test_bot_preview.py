@@ -40,7 +40,8 @@ async def test_pending_usd_preview_and_edit_never_commit(tmp_path, monkeypatch):
             message_id=1, text='synthetic', answer=AsyncMock())
         await safe_flow.preview(message)
         card = message.answer.await_args_list[0].args[0]
-        assert 'Черновик' in card and 'записан' not in card
+        assert 'Черновик' in card and 'Сейчас они не записаны' in card
+        assert len(message.answer.await_args_list) == 1
         assert 'USD' in card and 'Food' in card and '₽' not in card
         keyboard = message.answer.await_args_list[-1].kwargs['reply_markup']
         assert keyboard.inline_keyboard[0][0].text == 'Подтвердить все (1)'

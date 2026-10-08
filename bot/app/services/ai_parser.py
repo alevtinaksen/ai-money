@@ -336,6 +336,8 @@ class AIParserService:
             "generationConfig": {"responseMimeType":"application/json", "temperature":0,
                                  "maxOutputTokens":4096},
         }
+        if settings.GEMINI_THINKING_LEVEL == "low" and settings.GEMINI_MODEL == "gemini-3.8-flash":
+            payload["generationConfig"]["thinkingConfig"] = {"thinkingLevel": "LOW"}
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:generateContent"
         from app.services.gemini_response import generate_json
         raw = await generate_json(url, payload, settings.GEMINI_API_KEY)

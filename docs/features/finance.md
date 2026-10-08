@@ -106,3 +106,7 @@ Implementation: [facade](../../bot/app/services/finance_svc.py),
 [analytics](../../bot/app/services/finance_analytics.py),
 [models](../../bot/app/models/models.py), [schemas](../../bot/app/schemas/finance.py),
 [regressions](../../bot/tests/test_finance.py).
+
+## Legacy category catalog restoration
+
+An owner-authorized one-off import can copy the old database catalog and recover parent links from the previous UI catalog. Private input and SQL stay in ignored work/, never source examples. Reuse IDs for matching current categories to preserve existing transaction links; archive only unused onboarding placeholders. Validate owner, unchanged source metadata, acyclic parents and target set inside one PostgreSQL transaction. Replaying an identical plan is a no-op; a customized target must fail for review. Rehearse with ROLLBACK, then reconcile the committed catalog and financial state. No account balance or transaction is migrated by this operation.

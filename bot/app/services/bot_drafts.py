@@ -7,6 +7,7 @@ from app.core.database import Base
 from app.domain.errors import ConflictError
 from app.schemas.finance import TransactionCreate
 from app.services.finance_svc import FinanceService
+from app.services.runtime_timing import timed_operation
 
 
 class BotDraft(Base):
@@ -20,13 +21,14 @@ class BotDraft(Base):
     __table_args__ = (UniqueConstraint("user_id", "source_id"),)
 
 
+@timed_operation("draft_create")
 async def make_draft(db, user_id: int, source_id: str, proposals: list) -> BotDraft:
     existing = await db.scalar(select(BotDraft).where(BotDraft.user_id == user_id, BotDraft.source_id == source_id))
     if existing:
         return existing
     accounts = await FinanceService.get_accounts(db, user_id)
     categories = await FinanceService.get_categories(db, user_id)
-    default = await FinanceService.get_default_account(db, user_id)
+    default = next((account for account in accounts if account.is_default), accounts[0] if accounts else None)
     if not default:
         raise ValueError("Сначала создайте счёт в приложении")
     payload = []
@@ -62,6 +64,7 @@ def resolve_name(objects, name):
     return matches[0]
 
 
+@timed_operation("draft_confirm")
 async def confirm_draft(db, user_id, draft_id):
     draft = await db.scalar(select(BotDraft).where(BotDraft.id == draft_id, BotDraft.user_id == user_id))
     if not draft:

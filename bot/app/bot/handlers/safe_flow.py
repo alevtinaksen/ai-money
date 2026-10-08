@@ -4,6 +4,7 @@ import asyncio
 from decimal import Decimal
 import json
 import logging
+from app.services.runtime_timing import timed_operation, timed_stage
 from fastapi import HTTPException
 from app.services.preview_budget import consume_preview
 from aiogram import F, Router
@@ -75,6 +76,7 @@ async def start(message: Message):
     await message.answer(text, reply_markup=app_keyboard())
 
 
+@timed_operation("bot_preview")
 async def preview(message: Message, data: bytes | None = None, mime: str | None = None, text_override: str | None = None, budget_consumed=False):
     uid = message.from_user.id
     try:
@@ -98,6 +100,11 @@ async def preview(message: Message, data: bytes | None = None, mime: str | None 
                 await message.answer("Это сообщение уже обработано.")
                 return
             rows = json.loads(draft.payload)
+            buttons = [[InlineKeyboardButton(text=f"Подтвердить все ({len(rows)})", callback_data=f"confirm:{draft.id}")],
+                       [InlineKeyboardButton(text="Исправить запись", callback_data=f"edit:{draft.id}"),
+                        InlineKeyboardButton(text="Отменить", callback_data=f"cancel:{draft.id}")]]
+            notice = f"Подтверждение сохранит весь пакет: {len(rows)} операций. Сейчас они не записаны."
+            keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
 
             for item in rows:
                 type_sym = "💸 Расход" if item["type"] == "expense" else ("💰 Доход" if item["type"] == "income" else "🔄 Перевод")
@@ -123,12 +130,12 @@ async def preview(message: Message, data: bytes | None = None, mime: str | None 
 
                 if item.get("to_account_name"):
                     lines.append(f"Счёт зачисления: {item['to_account_name']}")
-                await message.answer("\n".join(lines))
-            buttons = [[InlineKeyboardButton(text=f"Подтвердить все ({len(rows)})", callback_data=f"confirm:{draft.id}")],
-                       [InlineKeyboardButton(text="Исправить запись", callback_data=f"edit:{draft.id}"),
-                        InlineKeyboardButton(text="Отменить", callback_data=f"cancel:{draft.id}")]]
-            await message.answer(f"Подтверждение сохранит весь пакет: {len(rows)} операций. Сейчас они не записаны.",
-                reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+                if len(rows) == 1:
+                    await message.answer("\n".join(lines) + "\n\n" + notice, reply_markup=keyboard)
+                else:
+                    await message.answer("\n".join(lines))
+            if len(rows) > 1:
+                await message.answer(notice, reply_markup=keyboard)
     except HTTPException as exc:
         await message.answer(str(exc.detail))
     except ValueError as exc:
@@ -142,6 +149,7 @@ async def preview(message: Message, data: bytes | None = None, mime: str | None 
 @router.callback_query(F.data.startswith("confirm:"))
 @router.callback_query(F.data.startswith("cancel:"))
 @router.callback_query(F.data.startswith("edit:"))
+@timed_operation("bot_confirmation")
 async def decide(callback: CallbackQuery):
     action, draft_id = callback.data.split(":", 1)
     await callback.answer()
@@ -183,7 +191,8 @@ async def media(message: Message):
         with UploadBuffer() as buffer:
             # Include getFile in the deadline, not only Telegram's streaming IO.
             async with asyncio.timeout(35):
-                await message.bot.download(file, destination=buffer, timeout=30)
+                with timed_stage("bot_download"):
+                    await message.bot.download(file, destination=buffer, timeout=30)
             data = buffer.getvalue()
         if not data:
             raise ValueError("Файл пустой. Отправьте новую запись или введите расход текстом.")

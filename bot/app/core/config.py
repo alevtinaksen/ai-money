@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str | None = None
     GEMINI_API_KEY: str | None = None
     GEMINI_MODEL: str = "gemini-3.8-flash"
+    GEMINI_THINKING_LEVEL: Literal["default", "low"] = "low"
     AI_PROVIDER: Literal["auto", "disabled", "groq", "gemini"] = "auto"
     AI_UPLOAD_CONSENT: bool = False
     DATABASE_URL: str = f"sqlite+aiosqlite:///{BASE_DIR / 'finance.db'}"
