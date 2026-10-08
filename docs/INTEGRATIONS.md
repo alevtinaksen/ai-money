@@ -18,7 +18,7 @@ Telegram initData проверяется по HMAC, возрасту до час
 ## Gemini API
 
 Разработка в Antigravity и API, вызываемый самим ботом, — разные подключения и квоты.
-Поля bot/.env: AI_PROVIDER=gemini, GEMINI_MODEL=gemini-3.8-flash, GEMINI_API_KEY=ваш_ключ, AI_UPLOAD_CONSENT=true.
+Поля bot/.env: AI_PROVIDER=gemini, GEMINI_MODEL=gemini-3.5-flash-lite, GEMINI_API_KEY=ваш_ключ, AI_UPLOAD_CONSENT=true.
 До осознанного включения установлен AI_PROVIDER=disabled; никакого скрытого резервного поставщика нет.
 
 Gemini получает текст/выбранный файл и названия ваших счетов/категорий. Не загружайте чужие выписки или данные, которые нельзя передавать этому поставщику. Условия обработки и тариф нужно проверить в своём аккаунте.

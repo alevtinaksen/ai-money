@@ -15,6 +15,8 @@ import { SettingsScreen } from './components/settings/SettingsScreen';
 import { TransactionsScreen } from './components/transactions/TransactionsScreen';
 import { Dialog } from './components/shared/Dialog';
 import { AiPreview } from './components/ai/AiPreview';
+import { CategoryAnalyticsScreen } from './components/categories/CategoryAnalyticsScreen';
+import { useAudioRecorder } from './hooks/useAudioRecorder';
 
 export const App = () => {
   const { initData, hapticImpact } = useTelegram();
@@ -28,6 +30,11 @@ export const App = () => {
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [editingAccount, setEditingAccount] = useState<Account | null | undefined>(undefined);
   const [ai, setAi] = useState<'voice' | 'receipt' | null>(null);
+  const [categoryDetail, setCategoryDetail] = useState<{ category: Category; kind: 'expense' | 'income' } | null>(null);
+  const [aiFile, setAiFile] = useState<File | null>(null);
+  const cameraInput = useRef<HTMLInputElement>(null);
+  const recorder = useAudioRecorder(file => setAiFile(file));
+  const openVoice = () => { setAiFile(null); setAi('voice'); void recorder.start(); };
   const creationBlocked = useRef(false);
   const [hasUnconfirmedCreation, setHasUnconfirmedCreation] = useState(false);
   const updateCreationBlocked = (blocked: boolean) => {
@@ -35,9 +42,16 @@ export const App = () => {
   };
   const closeModal = () => {
     if (ledger.busy || creationBlocked.current) return;
+    recorder.cancel(); setAiFile(null); setCategoryDetail(null);
     setAdding(null); setEditingTx(null); setEditingAccount(undefined); setAi(null);
   };
   const ledger = useLedger(initData, Boolean(initData) || local, month, currency);
+  useEffect(() => {
+    if (ledger.expired || (!initData && !local)) {
+      recorder.cancel();
+      if (!hasUnconfirmedCreation) { setAi(null); setAiFile(null); }
+    }
+  }, [ledger.expired, initData, local, hasUnconfirmedCreation]);
   const [visibleNotice, setVisibleNotice] = useState('');
   useEffect(() => {
     setVisibleNotice(ledger.notice);
@@ -110,7 +124,7 @@ export const App = () => {
   usePreviewNavigation(route => {
     if ((!initData && !local) || ledger.expired) return { status: 'blocked', message: 'Сначала войдите в приложение.' };
     if (ledger.busy || creationBlocked.current) return { status: 'blocked', message: 'Сначала подтвердите сохранение текущей операции.' };
-    if (adding || editingTx || editingAccount !== undefined || ai) return { status: 'blocked', message: 'Закройте текущую форму перед сменой сценария.' };
+    if (adding || editingTx || editingAccount !== undefined || ai || categoryDetail) return { status: 'blocked', message: 'Закройте текущую форму перед сменой сценария.' };
     if (ledger.loading) return { status: 'blocked', message: 'Дождитесь загрузки данных.' };
     if (route === 'add-expense') {
       if (!selected) return { status: 'blocked', message: 'Для новой операции сначала создайте активный счёт.' };
@@ -134,8 +148,10 @@ export const App = () => {
       <button className="design-primary" onClick={() => { setLocal(false); void login(); }}>Войти локально</button>}
     {loginError && <p role="alert">{loginError}</p>}
   </main>;
-  const modal = adding || editingTx || editingAccount !== undefined || ai;
+  const modal = adding || editingTx || editingAccount !== undefined || ai || categoryDetail;
   return <main className="design-shell">
+    <input ref={cameraInput} type="file" hidden aria-label="Снять чек" accept="image/jpeg,image/png,image/webp" capture="environment"
+      onChange={event => { const file = event.target.files?.[0]; if (file) { setAiFile(file); setAi('receipt'); } event.target.value = ''; }} />
     <div>
         {currencies.length > 1 && <label className="design-currency-select">Валюта <select aria-label="Валюта отчёта" value={currency} onChange={e => setCurrency(e.target.value)} className="bg-transparent">
           {currencies.map(code => <option key={code}>{code}</option>)}</select></label>}
@@ -150,9 +166,9 @@ export const App = () => {
       {screen === 'dashboard' && ledger.summary && <DashboardScreen summary={ledger.summary} accounts={active} categories={ledger.categories}
         onOpenAccounts={() => setScreen('accounts')} onOpenTransactions={() => setScreen('transactions')}
         onOpenAddTransaction={() => selected ? setAdding('expense') : setEditingAccount(null)}
-        onOpenVoice={() => setAi('voice')} onScanReceipt={() => setAi('receipt')} onOpenSettings={() => setScreen('settings')}
-        onSelectTransaction={setEditingTx} onSelectCategory={() => setScreen('transactions')}
-        onRefresh={ledger.refresh} onHaptic={hapticImpact} monthOffset={month} onMonthChange={setMonth} />}
+        onOpenVoice={openVoice} onScanReceipt={() => cameraInput.current?.click()} onOpenSettings={() => setScreen('settings')}
+        onSelectTransaction={setEditingTx} onSelectCategory={(category, _period, _txs, kind = 'expense') => setCategoryDetail({ category, kind })}
+        onHaptic={hapticImpact} monthOffset={month} onMonthChange={setMonth} />}
       {screen === 'accounts' && <AccountsScreen accounts={active} onBack={() => setScreen('dashboard')}
         onSelectAccount={setEditingAccount} onOpenTransfer={() => selected && setAdding('transfer')}
         onAddNewAccount={() => setEditingAccount(null)} onOpenSettings={() => setScreen('settings')} onHaptic={hapticImpact} />}
@@ -165,7 +181,7 @@ export const App = () => {
         onSaveCategory={saveCategory} onDeleteCategory={id => void ledger.mutate(() => api.deleteCategoryAPI(initData, id))}
         onReorderCategories={reorder} onExportData={exportLegacyCache} onRecalculateBalances={ledger.refresh} onResetData={clearLegacyCache} onHaptic={hapticImpact} /></>}
     </div>
-    {modal && <Dialog title={adding ? 'Новая операция' : editingTx ? 'Редактирование операции' : ai ? 'Проверка распознавания' : 'Счёт'}
+    {modal && <Dialog title={adding ? 'Новая операция' : editingTx ? 'Редактирование операции' : ai ? 'Проверка распознавания' : categoryDetail ? `Статистика категории ${categoryDetail.category.name}` : 'Счёт'}
       onClose={closeModal}>
       {(ledger.error || ledger.authRequired) && <div role="alert" className="design-server-error">{ledger.error}
         {ledger.authRequired && !initData && ['localhost', '127.0.0.1', '::1', '[::1]'].includes(location.hostname) && <>
@@ -182,7 +198,9 @@ export const App = () => {
       {editingAccount !== undefined && <EditAccountModal isOpen account={editingAccount} onClose={closeModal}
         onSave={saveAccount} onDelete={async id => { const success = await ledger.mutate(() => api.deleteAccountAPI(initData, id));
           if (success) setEditingAccount(undefined); return success; }} onHaptic={hapticImpact} />}
-      {ai && <AiPreview auth={initData} kind={ai} accounts={active} categories={ledger.categories} onClose={closeModal}
+      {categoryDetail && <CategoryAnalyticsScreen auth={initData} category={categoryDetail.category} initialMonth={month} currency={currency} kind={categoryDetail.kind}
+        onClose={closeModal} onSelectTransaction={tx => { setCategoryDetail(null); setEditingTx(tx); }} />}
+      {ai && <AiPreview auth={initData} kind={ai} initialFile={aiFile} recorder={ai === 'voice' ? recorder : undefined} accounts={active} categories={ledger.categories} onClose={closeModal}
         onBlockedChange={updateCreationBlocked}
         onSave={async payload => ledger.mutateCreation(() => api.createTransactionAPI(initData, payload))} />}
     </Dialog>}

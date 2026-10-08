@@ -26,6 +26,9 @@ async def list_transactions(
     offset: int = 0,
     month_offset: int | None = None,
     currency: str | None = None,
+    category_ids: list[str | None] | None = None,
+    kind: str | None = None,
+    period: tuple[datetime, datetime] | None = None,
 ) -> list[TransactionResponse]:
     if not 1 <= limit <= 100 or not 0 <= offset <= 100000:
         raise ValueError("Некорректная страница")
@@ -39,11 +42,16 @@ async def list_transactions(
             Transaction.is_deleted.is_(False),
         )
     )
-    if month_offset is not None:
-        start, end = period_bounds(month_offset)
+    if month_offset is not None or period is not None:
+        start, end = period or period_bounds(month_offset if month_offset is not None else 0)
         query = query.where(Transaction.created_at >= start, Transaction.created_at < end)
     if currency:
         query = query.where(Account.currency == currency)
+    if category_ids is not None:
+        query = query.where(Transaction.category_id.is_(None) if category_ids == [None]
+                            else Transaction.category_id.in_(category_ids))
+    if kind:
+        query = query.where(Transaction.type == kind)
     rows = (
         await db.execute(
             query.order_by(Transaction.created_at.desc(), Transaction.id.desc())

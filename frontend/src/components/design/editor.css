@@ -25,11 +25,7 @@
 .design-editor-save-row .design-editor-save { width:100px; height:100px; background:var(--design-green); }
 .design-editor-error { position:relative; z-index:3; padding:8px; color:#b42318; background:var(--design-paper); }
 
-.design-numpad { background:var(--design-bg); display:grid; grid-template-columns:repeat(3,1fr); gap:2px; padding:2px 0; }
-.design-numpad button { background:var(--design-paper); min-height:48px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-.design-numpad button span:first-child { font-size:24px; line-height:28px; }
-.design-numpad button small { color:var(--design-muted); font-size:9px; }
 .dark .design-editor-header .design-icon, .dark .design-field-caret .design-icon { filter:invert(1); }
-@media(max-height:700px) { .design-editor-keypad .design-editor-content { margin-top:20px; } .design-editor-keypad .design-editor-amount { height:100px; } .design-editor-keypad .design-editor-save-row { height:56px; } .design-editor-keypad .design-editor-save { height:56px; } }
+@media(max-height:700px) { .design-editor-content { margin-top:20px; } .design-editor-amount { height:100px; } .design-editor-save-row { height:56px; } .design-editor-save-row .design-editor-save { height:56px; } }
 .design-shell .design-editor-types button { font-size:20px; }
 .design-shell .design-choice-list button { font-size:20px; line-height:24px; letter-spacing:-1px; }

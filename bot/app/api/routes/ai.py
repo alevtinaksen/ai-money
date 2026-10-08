@@ -37,7 +37,8 @@ async def parse_text(payload: TextParseRequest, user_id: int = Depends(get_curre
 async def parse_media(file: UploadFile = File(...), user_id: int = Depends(get_current_user_id),
                       db: AsyncSession = Depends(get_db)):
     allowed = {"audio/webm","audio/ogg","audio/mpeg","audio/wav","audio/mp4","image/jpeg","image/png","image/webp"}
-    if file.content_type not in allowed:
+    mime_type = (file.content_type or "").split(";", 1)[0].strip().lower()
+    if mime_type not in allowed:
         raise HTTPException(415, "Поддерживаются аудио OGG/MP3/WAV/M4A и изображения JPEG/PNG/WebP")
     try:
         data = await file.read(settings.MAX_UPLOAD_BYTES + 1)
@@ -47,4 +48,4 @@ async def parse_media(file: UploadFile = File(...), user_id: int = Depends(get_c
         raise HTTPException(413, "Максимальный размер файла — 5 МБ")
     consume_preview(user_id)
     accounts, categories = await context(db, user_id)
-    return await AIParserService.parse_media(data, file.content_type, accounts, categories)
+    return await AIParserService.parse_media(data, mime_type, accounts, categories)

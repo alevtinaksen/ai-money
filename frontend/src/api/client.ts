@@ -1,4 +1,4 @@
-import { Account, Category, DashboardSummary, Transaction } from '../types';
+import { Account, Category, CategoryAnalytics, DashboardSummary, Transaction } from '../types';
 import { authorization, clearSession } from './session';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -79,4 +79,9 @@ export const parseTextAPI = (auth: string, text: string) => request<ParsedResult
 export const parseMediaAPI = (auth: string, file: File, kind: 'voice' | 'receipt') => {
   const body = new FormData(); body.append('file', file);
   return request<ParsedResult>(`/ai/parse-${kind}`, auth, { method: 'POST', body });
+};
+
+export const fetchCategoryAnalytics = (auth: string, id: string, month: number, currency: string, kind: 'expense' | 'income', offset = 0) => {
+  const params = new URLSearchParams({ month_offset: String(month), currency, kind, offset: String(offset) });
+  return request<CategoryAnalytics>(`/analytics/categories/${encodeURIComponent(id)}?${params}`, auth);
 };

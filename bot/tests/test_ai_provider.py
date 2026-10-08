@@ -13,6 +13,7 @@ from app.services import ai_limits
 @pytest.mark.parametrize("model,level,expected", [
     ("gemini-3.8-flash", "low", {"thinkingLevel": "LOW"}),
     ("gemini-3.8-flash", "default", None),
+    ("gemini-3.5-flash-lite", "low", None),
     ("gemini-2.5-flash", "low", None),
     ("gemini-3.1-flash-lite-image", "low", None),
 ])

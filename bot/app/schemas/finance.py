@@ -213,3 +213,14 @@ class DashboardSummary(BaseModel):
     income_categories: List[CategoryStat] = Field(default_factory=list)
     categories: List[CategoryStat]
     recent_transactions: List[TransactionResponse]
+
+
+class CategoryAnalytics(BaseModel):
+    category_id: str
+    period_label: str
+    currency: str
+    kind: Literal["expense", "income"]
+    total_amount: float
+    transaction_count: int
+    breakdown: List[CategoryStat]
+    transactions: List[TransactionResponse]

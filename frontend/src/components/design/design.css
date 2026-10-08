@@ -23,6 +23,7 @@
 .design-wallet .design-amount { padding: 6px 12px; font-size: 20px; line-height:24px; }
 .design-wallet .design-currency { color: #111317; opacity:.2; }
 .design-wallet { color:#111317; }
+.dark .design-wallet .design-icon { filter:brightness(0) invert(1); }
 .design-amount { display: inline-flex; align-items: baseline; gap:4px; white-space:nowrap; letter-spacing:-1px; }
 .design-currency { color: var(--design-faint); }
 .design-muted { color:var(--design-muted); }

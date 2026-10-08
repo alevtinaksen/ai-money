@@ -1,4 +1,4 @@
-import { render, fireEvent, cleanup, waitFor } from '@testing-library/react';
+import { act, render, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import { it, expect, vi, afterEach } from 'vitest';
 import { AddTransactionScreen } from './AddTransactionScreen';
 import { EditAccountModal } from '../modals/EditAccountModal';
@@ -9,7 +9,7 @@ const account: Account = { id: 'a', user_id: 1, name: 'Test', currency: 'USD', b
   icon: '💳', color: '#fff', group_name: 'Own', is_default: true, sort_order: 0 };
 const categories = [{ id: 'e', name: 'Expense', type: 'expense' },
   { id: 'i', name: 'Income', type: 'income' }].map(c => ({ ...c, user_id: 1, icon: '📦', color: '#fff', sort_order: 0 })) as Category[];
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 function setup() {
   const onSubmit = vi.fn(async (_data: { created_at?: string; category_id: string; client_id: string }) => false);
   const view = render(<AddTransactionScreen accounts={[account]} selectedAccount={account}
@@ -17,6 +17,27 @@ function setup() {
   fireEvent.keyDown(window, { key: '1' });
   return { ...view, onSubmit };
 }
+it('uses a native decimal amount input and saves exact kopecks without a custom keypad', async () => {
+  const submit = vi.fn(async (_data: { amount: number }) => true);
+  const view = render(<AddTransactionScreen accounts={[account]} selectedAccount={account} categories={categories} onClose={() => {}} onSubmit={submit} />);
+  const input = view.getByLabelText('Сумма') as HTMLInputElement;
+  expect(input.tagName).toBe('INPUT'); expect(input.inputMode).toBe('decimal');
+  expect(view.container.querySelector('.design-numpad')).toBeNull();
+  fireEvent.change(input, { target: { value: '250,50' } });
+  fireEvent.click(view.getByRole('button', { name: 'Сохранить' }));
+  await waitFor(() => expect(submit).toHaveBeenCalledOnce());
+  expect(submit.mock.calls[0][0].amount).toBe(250.5);
+});
+it('keeps the editor inside the visible viewport when the native keyboard opens', () => {
+  const visible = Object.assign(new EventTarget(), { height: 874, offsetTop: 0 });
+  vi.stubGlobal('visualViewport', visible);
+  const view = setup();
+  const editor = view.getByRole('region', { name: 'Новая операция' });
+  expect(editor.style.height).toBe('874px');
+  act(() => { visible.height = 380; visible.offsetTop = 12; visible.dispatchEvent(new Event('resize')); });
+  expect(editor.style.height).toBe('380px'); expect(editor.style.top).toBe('12px');
+  expect(view.getByRole('button', { name: 'Сохранить' })).toBeTruthy();
+});
 it('selected date reaches submit', async () => {
   const view = setup();
   fireEvent.change(view.container.querySelector('input[type="date"]')!, { target: { value: '2024-01-02' } });
@@ -58,4 +79,14 @@ it('Escape cancels account archive confirmation while keeping the editor open', 
   fireEvent.keyDown(document,{key:'Escape'});
   expect(close).not.toHaveBeenCalled(); expect(view.queryByRole('dialog',{name:'Архивировать счёт?'})).toBeNull();
   expect(view.getByPlaceholderText('0.00')).toBeTruthy();
+});
+
+it('opening Other bank settings preserves an existing custom bank and currency/balance', async () => {
+  const save = vi.fn(async (_data: Partial<Account>) => false);
+  const view = render(<EditAccountModal isOpen account={{ ...account, bank_name: 'Custom bank' }} onClose={() => {}} onSave={save} />);
+  fireEvent.click(view.getByText('Другое'));
+  expect((view.getByLabelText('Название банка') as HTMLInputElement).value).toBe('Custom bank');
+  fireEvent.click(view.getByLabelText('Сохранить')); await waitFor(() => expect(save).toHaveBeenCalledOnce());
+  expect(save.mock.calls[0][0].bank_name).toBe('Custom bank');
+  expect(save.mock.calls[0][0].balance).toBe(100); expect(save.mock.calls[0][0].currency).toBe('USD');
 });

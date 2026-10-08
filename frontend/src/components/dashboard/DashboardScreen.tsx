@@ -15,7 +15,7 @@ interface DashboardScreenProps {
   onOpenSettings?: () => void;
   onScanReceipt: () => void;
   onSelectTransaction?: (tx: Transaction) => void;
-  onSelectCategory?: (cat: Category, periodLabel?: string, periodTxs?: Transaction[]) => void;
+  onSelectCategory?: (cat: Category, periodLabel?: string, periodTxs?: Transaction[], kind?: 'income' | 'expense') => void;
   onUpdateTransaction?: (data: {
     id: string;
     amount: number;
@@ -28,7 +28,6 @@ interface DashboardScreenProps {
   }) => void;
   monthOffset: number;
   onMonthChange: (offset: number) => void;
-  onRefresh?: () => Promise<void>;
   onHaptic?: (style?: 'light' | 'medium' | 'heavy') => void;
 }
 
@@ -45,14 +44,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onSelectTransaction,
   onSelectCategory,
   onUpdateTransaction: _onUpdateTransaction,
-  onRefresh,
   monthOffset,
   onMonthChange,
   onHaptic,
 }) => {
   const selectedDate = new Date(`${summary.period_label}-01T00:00:00Z`);
   const [categoryMode, setCategoryMode] = useState<'expense' | 'income'>('expense');
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const totalAccountsBalance = summary.total_balance;
   const symbol = summary.currency;
   const monthLabel = selectedDate.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric', timeZone: 'UTC' });
@@ -60,7 +57,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const nextMonth = () => onMonthChange(Math.min(120, monthOffset + 1));
   const monthTransactions = summary.recent_transactions;
 
-  // Group transactions for the recent section: strictly output two days (Сегодня и Вчера)
+  // Today keeps its empty-state action; yesterday appears only with operations.
   const recentTwoDaysGroups = React.useMemo(() => {
     const now = new Date();
     const yesterday = new Date(now);
@@ -114,13 +111,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         transactions: todayTxs,
         emptyMessage: 'Нет операций за сегодня',
       },
-      {
-        key: yesterdayKey,
-        label: formatLabel(yesterday, 'Вчера'),
-        transactions: yesterdayTxs,
-        emptyMessage: 'Нет операций за вчера',
-      },
     ];
+    if (yesterdayTxs.length) {
+      groups.push({ key: yesterdayKey, label: formatLabel(yesterday, 'Вчера'), transactions: yesterdayTxs });
+    }
 
     if (todayTxs.length === 0 && olderDaysMap.size > 0) {
       const sortedOlderKeys = Array.from(olderDaysMap.keys()).sort((a, b) => b.localeCompare(a));
@@ -169,8 +163,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     <div className="design-categories">
       {topCategories.map(stat => <button className="design-category" key={stat.id} onClick={() => {
         onHaptic?.('light');
-        const category = categories.find(c => c.id === stat.id);
-        if (category) onSelectCategory?.(category, summary.period_label, monthTransactions);
+        const category = categories.find(c => c.id === stat.id) ||
+          { id: stat.id, name: stat.name, icon: stat.icon, color: stat.color, type: categoryMode };
+        if (category) onSelectCategory?.(category, summary.period_label, monthTransactions, categoryMode);
       }}>
         <span className="design-category-icon">{stat.icon}</span>
         <span className="design-category-description"><Amount value={stat.amount} currency={symbol} /><br />{stat.name}</span>
@@ -188,11 +183,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </div>
       </section>)}
     </div>
-    <button className="design-empty" disabled={isRefreshing} onClick={async () => {
-      setIsRefreshing(true);
-      try { await onRefresh?.(); } catch { /* useLedger renders the server error */ }
-      finally { setIsRefreshing(false); }
-    }}>{isRefreshing ? 'Синхронизация…' : 'Синхронизировать данные'}</button>
     <ActionBar>
       <IconButton icon="camera" label="Распознать фото чека" onClick={onScanReceipt} />
       <IconButton icon="microphone" label="Голос и текст" onClick={onOpenVoice} className="design-action-primary" />

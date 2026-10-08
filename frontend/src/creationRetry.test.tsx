@@ -42,7 +42,7 @@ function server(firstAck?: unknown) {
 it('manual close/Escape during pending and after lost response cannot discard the request or debit twice', async () => {
   const backend = server(); render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: 'Добавить операцию' }));
-  fireEvent.click(screen.getByRole('button', { name: '1' })); fireEvent.click(screen.getByRole('button', { name: '0' }));
+  fireEvent.change(screen.getByLabelText('Сумма'), { target: { value: '10' } });
   fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
   await waitFor(() => expect(backend.balance()).toBe(990));
   fireEvent.click(screen.getByRole('button', { name: 'Закрыть' })); fireEvent.keyDown(document, { key: 'Escape' });
@@ -61,7 +61,7 @@ it('manual close/Escape during pending and after lost response cannot discard th
 it.each([null, {}])('HTTP200 with incomplete acknowledgement %j retains the exact draft and does not debit twice', async body => {
   const backend = server(body); render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: 'Добавить операцию' }));
-  fireEvent.click(screen.getByRole('button', { name: '1' })); fireEvent.click(screen.getByRole('button', { name: '0' }));
+  fireEvent.change(screen.getByLabelText('Сумма'), { target: { value: '10' } });
   fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
   await screen.findByText(/Статус записи неизвестен/);
   fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }));
@@ -97,7 +97,7 @@ it('inline local reauthentication preserves unknown payload/key and requires exp
   }));
   render(<App />); fireEvent.click(screen.getByRole('button', { name: 'Войти локально' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Добавить операцию' }));
-  fireEvent.click(screen.getByRole('button', { name: '1' })); fireEvent.click(screen.getByRole('button', { name: '0' }));
+  fireEvent.change(screen.getByLabelText('Сумма'), { target: { value: '10' } });
   fireEvent.click(screen.getByRole('button', { name: 'Сохранить' })); await screen.findByText(/Статус записи неизвестен/);
   fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Войти снова локально' }));
@@ -149,7 +149,7 @@ it('preview parent gets a refusal while pending or uncertain and cannot replace 
   })); });
   navigate('add-expense');
   expect(parent.postMessage.mock.lastCall?.[0]).toMatchObject({ status: 'applied' });
-  fireEvent.click(screen.getByRole('button', { name: '1' })); fireEvent.click(screen.getByRole('button', { name: '0' }));
+  fireEvent.change(screen.getByLabelText('Сумма'), { target: { value: '10' } });
   fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
   await waitFor(() => expect(backend.balance()).toBe(990));
   navigate('settings'); expect(parent.postMessage.mock.lastCall?.[0]).toMatchObject({ status: 'blocked' });
@@ -163,4 +163,49 @@ it('preview parent gets a refusal while pending or uncertain and cannot replace 
   expect(parent.postMessage.mock.lastCall?.[0]).toMatchObject({ status: 'applied', message: 'Открыты настройки. Откройте управление категориями.' });
   expect(screen.getByRole('button', { name: /Управление категориями/ })).toBeTruthy();
   expect(backend.committed.size).toBe(1);
+});
+
+it('camera action immediately invokes native capture and sends the chosen photo only for review', async () => {
+  const backend = server(); const fetch = globalThis.fetch;
+  vi.stubGlobal('fetch', vi.fn(async (path: string, options?: RequestInit) => path === '/api/ai/parse-receipt'
+    ? new Response(JSON.stringify({ transactions: [{ amount: '250.50', type: 'expense' }] })) : fetch(path, options)));
+  render(<App />);
+  const capture = screen.getByLabelText('Снять чек') as HTMLInputElement;
+  const click = vi.spyOn(capture, 'click').mockImplementation(() => {});
+  fireEvent.click(await screen.findByLabelText('Распознать фото чека'));
+  expect(click).toHaveBeenCalledOnce(); expect(capture.getAttribute('capture')).toBe('environment');
+  expect(screen.queryByRole('dialog')).toBeNull();
+  fireEvent.change(capture, { target: { files: [new File(['synthetic image'], 'receipt.jpg', { type: 'image/jpeg' })] } });
+  await screen.findByText('Подтвердить и сохранить'); expect(backend.payloads).toHaveLength(0);
+});
+
+it('microphone action requests recording immediately; closing releases a late permission grant', async () => {
+  server(); let grant!: (stream: unknown) => void; const stop = vi.fn();
+  const getUserMedia = vi.fn(() => new Promise(resolve => { grant = resolve; }));
+  vi.stubGlobal('navigator', { mediaDevices: { getUserMedia } }); vi.stubGlobal('MediaRecorder', class {});
+  render(<App />); fireEvent.click(await screen.findByLabelText('Голос и текст'));
+  expect(getUserMedia).toHaveBeenCalledOnce(); expect(screen.getByText(/Разрешите доступ/)).toBeTruthy();
+  fireEvent.click(screen.getByLabelText('Закрыть'));
+  await act(async () => { grant({ getTracks: () => [{ stop }] }); });
+  expect(stop).toHaveBeenCalledOnce(); expect(screen.queryByRole('dialog')).toBeNull();
+});
+
+it('session expiry stops a recording even when the login page replaces its controls', async () => {
+  server(); const original = globalThis.fetch;
+  let expire!: (response: Response) => void;
+  vi.stubGlobal('fetch', vi.fn((path: string, options?: RequestInit) => path.includes('/accounts')
+    ? new Promise<Response>(resolve => { expire = resolve; }) : original(path, options)));
+  let recording = false; const stop = vi.fn();
+  vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: async () => ({ getTracks: () => [{ stop }] }) } });
+  vi.stubGlobal('MediaRecorder', class {
+    static isTypeSupported = () => true; state = 'inactive';
+    start() { recording = true; this.state = 'recording'; }
+    stop() { recording = false; this.state = 'inactive'; }
+  });
+  // First release the initial account read, then hold the month-change refresh.
+  render(<App />); await act(async () => { expire(new Response(JSON.stringify([account]))); });
+  fireEvent.click(await screen.findByLabelText('Предыдущий месяц'));
+  fireEvent.click(screen.getByLabelText('Голос и текст')); await screen.findByText(/Запись ·/); expect(recording).toBe(true);
+  await act(async () => { expire(new Response('{"detail":"Expired"}', { status: 401 })); });
+  await screen.findByText(/Сессия истекла/); expect(recording).toBe(false); expect(stop).toHaveBeenCalledOnce();
 });

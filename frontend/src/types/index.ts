@@ -66,3 +66,8 @@ export interface DashboardSummary {
   categories: CategoryStat[];
   recent_transactions: Transaction[];
 }
+
+export interface CategoryAnalytics {
+  category_id: string; period_label: string; currency: string; kind: 'expense' | 'income';
+  total_amount: number; transaction_count: number; breakdown: CategoryStat[]; transactions: Transaction[];
+}

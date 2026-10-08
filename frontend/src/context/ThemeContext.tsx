@@ -16,26 +16,34 @@ const ThemeContext = createContext<ThemeContextType>({
   toggleTheme: () => {},
 });
 
-export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [mode, setModeState] = useState<ThemeMode>(() => {
-    return (localStorage.getItem('app_theme_mode') as ThemeMode) || 'auto';
-  });
+function savedMode(): ThemeMode {
+  try {
+    const value = localStorage.getItem('app_theme_mode');
+    return value === 'dark' || value === 'light' ? value : 'auto';
+  } catch { return 'auto'; }
+}
 
-  const [systemDark, setSystemDark] = useState<boolean>(() => {
-    const tgDark = (window as any).Telegram?.WebApp?.colorScheme === 'dark';
-    const mediaDark = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    return Boolean(tgDark || mediaDark);
-  });
+function automaticDark(): boolean {
+  const tg = (window as any).Telegram?.WebApp;
+  const scheme = tg?.colorScheme;
+  // The SDK also exists in ordinary browsers with empty initData and default light.
+  if (tg?.initData && (scheme === 'dark' || scheme === 'light')) return scheme === 'dark';
+  return Boolean(window.matchMedia?.('(prefers-color-scheme: dark)').matches);
+}
+
+export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [mode, setModeState] = useState<ThemeMode>(savedMode);
+  const [systemDark, setSystemDark] = useState<boolean>(automaticDark);
 
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
+    const media = window.matchMedia?.('(prefers-color-scheme: dark)');
+    const handleThemeChanged = () => setSystemDark(automaticDark());
+    media?.addEventListener?.('change', handleThemeChanged);
     if (tg?.onEvent) {
-      const handleThemeChanged = () => {
-        setSystemDark(tg.colorScheme === 'dark');
-      };
       tg.onEvent('themeChanged', handleThemeChanged);
-      return () => tg.offEvent?.('themeChanged', handleThemeChanged);
     }
+    return () => { tg?.offEvent?.('themeChanged', handleThemeChanged); media?.removeEventListener?.('change', handleThemeChanged); };
   }, []);
 
   const isDark = mode === 'dark' || (mode === 'auto' && systemDark);
@@ -52,7 +60,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const setMode = (newMode: ThemeMode) => {
     setModeState(newMode);
-    localStorage.setItem('app_theme_mode', newMode);
+    try { localStorage.setItem('app_theme_mode', newMode); } catch { /* Keep theme usable when storage is blocked. */ }
   };
 
   const toggleTheme = () => {

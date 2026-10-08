@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     WEBAPP_URL: str = "http://localhost:5173"
     GROQ_API_KEY: str | None = None
     GEMINI_API_KEY: str | None = None
-    GEMINI_MODEL: str = "gemini-3.8-flash"
+    GEMINI_MODEL: str = "gemini-3.5-flash-lite"
     GEMINI_THINKING_LEVEL: Literal["default", "low"] = "low"
     AI_PROVIDER: Literal["auto", "disabled", "groq", "gemini"] = "auto"
     AI_UPLOAD_CONSENT: bool = False

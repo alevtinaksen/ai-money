@@ -96,3 +96,33 @@ async def test_invalid_account_name_update_never_persists(client, name):
     listing = await client.get('/api/accounts')
     assert listing.status_code == 200
     assert listing.json() == [account]
+
+
+@pytest.mark.asyncio
+async def test_category_analytics_http_auth_parameters_and_empty_month(client):
+    path = '/api/analytics/categories/uncategorized'
+    assert (await client.get(path)).status_code == 401
+    login = await client.post('/api/auth/local')
+    client.headers['Authorization'] = f"Bearer {login.json()['access_token']}"
+    result = await client.get(path + '?kind=income&currency=USD')
+    assert result.status_code == 200
+    assert result.json()['total_amount'] == 0 and result.json()['transactions'] == []
+    assert (await client.get(path + '?kind=transfer')).status_code == 422
+    assert (await client.get(path + '?offset=-1')).status_code == 422
+    assert (await client.get('/api/analytics/categories/nonexistent')).status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_browser_audio_mime_parameters_are_normalized(client, monkeypatch):
+    from app.schemas.finance import AIParsedResult
+    from app.services.ai_parser import AIParserService
+    seen = []
+    async def parser(data, mime, accounts, categories):
+        seen.append(mime)
+        return AIParsedResult()
+    monkeypatch.setattr(AIParserService, 'parse_media', parser)
+    login = await client.post('/api/auth/local')
+    client.headers['Authorization'] = f"Bearer {login.json()['access_token']}"
+    response = await client.post('/api/ai/parse-voice', files={
+        'file': ('voice.webm', b'synthetic', 'audio/webm;codecs=opus')})
+    assert response.status_code == 200 and seen == ['audio/webm']

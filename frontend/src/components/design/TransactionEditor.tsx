@@ -1,4 +1,5 @@
 import { CSSProperties, ReactNode } from 'react';
+import { useVisibleViewport } from '../../hooks/useVisibleViewport';
 import { Account, Category, TransactionType } from '../../types';
 import { currencyLabel } from '../../utils/money';
 import { resolveAccountBankAndName } from '../../utils/bankUtils';
@@ -25,11 +26,12 @@ export interface TransactionEditorProps {
   amount: string; onAmount?: (value: string) => void; onAmountBlur?: () => void; onAmountKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
   amountHint?: ReactNode; category?: Category; onCategory: () => void; choices?: ReactNode;
   note: string; onNote: (note: string) => void; onSave: () => void; saving: boolean; locked?: boolean; error?: string;
-  keypad?: ReactNode; children?: ReactNode;
+  children?: ReactNode;
 }
 export function TransactionEditor(p: TransactionEditorProps) {
   const editable = Boolean(p.onAmount);
-  return <section className={`design-editor ${p.keypad ? 'design-editor-keypad' : ''}`} aria-label={p.onDelete ? 'Редактирование операции' : 'Новая операция'}>
+  const viewport = useVisibleViewport();
+  return <section className="design-editor" style={viewport ? { height: viewport.height, top: viewport.top, bottom: 'auto' } : undefined} aria-label={p.onDelete ? 'Редактирование операции' : 'Новая операция'}>
     <header className="design-editor-header">
       <IconButton icon="close" label="Закрыть" onClick={p.onClose} />
       <label className="design-editor-date"><span>{p.dateLabel}</span><input disabled={p.locked} aria-label="Дата операции" type="date" value={p.dateValue} onChange={e => e.target.value && p.onDate(e.target.value)} /></label>
@@ -43,7 +45,7 @@ export function TransactionEditor(p: TransactionEditorProps) {
       {p.type === 'transfer' && <><button type="button" className="design-editor-swap" aria-label="Поменять счета местами" onClick={p.onSwap}><Icon name="exchange" /></button>
         <AccountField account={p.destination} label="Счёт зачисления" onClick={p.onDestination} /></>}
       <div className="design-editor-amount">
-        <div className="design-editor-amount-line" style={{ "--amount-characters": p.amount.length + 2 } as CSSProperties}>{editable ? <input aria-label="Сумма" inputMode="decimal" value={p.amount} onChange={e => p.onAmount?.(e.target.value)}
+        <div className="design-editor-amount-line" style={{ "--amount-characters": p.amount.length + 2 } as CSSProperties}>{editable ? <input aria-label="Сумма" type="text" inputMode="decimal" enterKeyHint="done" autoComplete="off" placeholder="0" value={p.amount} onChange={e => p.onAmount?.(e.target.value)}
           onBlur={p.onAmountBlur} onKeyDown={p.onAmountKeyDown} style={{ width: `${Math.max(1, p.amount.length) * .61}em` }} /> : <span aria-label="Сумма">{p.amount || '0'}</span>}
           <span className="design-currency">{currencyLabel(p.source?.currency || 'RUB')}</span></div>{p.amountHint}
       </div>
@@ -56,7 +58,7 @@ export function TransactionEditor(p: TransactionEditorProps) {
     </fieldset>
     <div className="design-editor-bottom"><div className="design-editor-save-row"><input disabled={p.locked} aria-label="Комментарий" placeholder="Комментарий" value={p.note} onChange={e => p.onNote(e.target.value)} />
       <IconButton icon="check" label="Сохранить" onClick={p.onSave} disabled={p.saving} className="design-editor-save" />
-    </div>{p.saving && <p role="status" className="design-empty">Сохраняем…</p>}{p.keypad}</div>
+    </div>{p.saving && <p role="status" className="design-empty">Сохраняем…</p>}</div>
     {p.children}
   </section>;
 }

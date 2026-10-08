@@ -26,3 +26,20 @@ test('unknown transfer destination cannot silently become another account', () =
   expect(screen.getByRole('alert').textContent).toContain('два разных счёта одной валюты');
   expect(save).not.toHaveBeenCalled();
 });
+
+test('starting a new recording hides old proposals and an arriving file is not lost while another parse finishes', async () => {
+  let finish!: (response: Response) => void;
+  const fetch = vi.fn().mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ transactions: [{ amount: '250.50', type: 'expense' }] })));
+  vi.stubGlobal('fetch', fetch);
+  const recorder = { state: 'idle' as const, error: '', seconds: 0, start: vi.fn(async () => {}), stop: vi.fn(), cancel: vi.fn() };
+  const props = { auth: 'signed', kind: 'voice' as const, accounts: [account], categories: [], onClose: vi.fn(), onSave: vi.fn(), recorder };
+  const view = render(<AiPreview {...props} />);
+  fireEvent.change(screen.getByLabelText('Текст операции'), { target: { value: 'кофе 10' } }); fireEvent.click(screen.getByText('Подготовить черновик'));
+  const file = new File(['synthetic'], 'voice.m4a', { type: 'audio/mp4' }); view.rerender(<AiPreview {...props} initialFile={file} />);
+  finish(new Response(JSON.stringify({ transactions: [{ amount: '10', type: 'expense' }] })));
+  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+  await screen.findByText('Подтвердить и сохранить');
+  fireEvent.click(screen.getByText('Записать голос')); expect(recorder.start).toHaveBeenCalledOnce();
+  expect(screen.queryByText('Подтвердить и сохранить')).toBeNull();
+});

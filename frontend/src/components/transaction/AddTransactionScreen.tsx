@@ -3,7 +3,6 @@ import { moneyInput } from '../../utils/money';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { TransactionEditor, CategoryChoices } from '../design/TransactionEditor';
 import { Account, Category, Transaction, TransactionType } from '../../types';
-import { CustomNumpad } from '../keypad/CustomNumpad';
 import { AccountSelectSheet } from '../modals/AccountSelectSheet';
 import { resolveAccountBankAndName } from '../../utils/bankUtils';
 
@@ -368,12 +367,12 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
     dateValue={toInputValue(selectedDate)} dateLabel={formatDateLabel(selectedDate)} onDate={value => {
       const [y,m,d] = value.split('-').map(Number); const next = new Date(selectedDate); next.setFullYear(y,m-1,d); setSelectedDate(next);
     }} source={fromAccount} destination={toAccount} onSource={() => setAccountPickerTarget('from')}
-    onDestination={() => setAccountPickerTarget('to')} onSwap={handleSwapAccounts} amount={amountStr || '0'}
+    onDestination={() => setAccountPickerTarget('to')} onSwap={handleSwapAccounts} amount={amountStr}
+    onAmount={value => { if (!attempt.locked) { setAmountStr(value); setIsAmountError(false); } }}
     category={parentCategory} onCategory={() => setCategoryPickerOpen(open => !open)}
     choices={categoryPickerOpen ? <CategoryChoices categories={orderedCategories} selected={selectedCategory.id} onSelect={cat => { handleCategorySelect(cat); setCategoryPickerOpen(false); }} /> : childCategories.length ? <CategoryChoices categories={childCategories} selected={selectedCategory.id} onSelect={handleCategorySelect} /> : null}
     note={note} onNote={setNote} onSave={() => void handleSubmit()} saving={isSubmitting} locked={attempt.locked}
-    error={attempt.error || (isAmountError ? 'Проверьте положительную сумму до копеек. Для перевода нужны разные счета одной валюты.' : undefined)}
-    keypad={<CustomNumpad onDigit={handleDigit} onDelete={handleDelete} onComma={handleComma} onHaptic={() => onHaptic?.('light')} />}>
+    error={attempt.error || (isAmountError ? 'Проверьте положительную сумму до копеек. Для перевода нужны разные счета одной валюты.' : undefined)}>
     <AccountSelectSheet isOpen={accountPickerTarget !== null} onClose={() => setAccountPickerTarget(null)} accounts={accounts}
       selectedAccountId={accountPickerTarget === 'to' ? toAccount.id : fromAccount.id} onSelectAccount={acc => {
         if (accountPickerTarget === 'from') { setFromAccount(acc); if (acc.id === toAccount.id) { const alt=accounts.find(a=>a.id!==acc.id); if(alt) setToAccount(alt); } }
