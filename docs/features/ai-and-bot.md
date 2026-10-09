@@ -36,25 +36,35 @@ REST нормализует MIME codec parameters (audio/webm;codecs=opus→audi
 
 Регрессии test_gemini_transcription.py: пятьконтейнеров, Router→STT→JSON→pendingdraft,5000/250.50,ошибки50/0/55, unfinished/quota/timeout/empty/oversize,consent/повреждённыйфайл,общие4слота/безвложенногоlock,общийdeadline,фотобезSTT. Доступность Google и ускорение нового режима пока не подтверждены живым замером.
 
-### Ответ транскрипции: text и REST word annotations
+### Ответ транскрипции: REST segment text и word annotations
 
-Локальная правка9октября поддерживает документированный REST-ответ
-`content.parts[].audioTranscription.words[].word` наряду с прежним `text`.
-Слова соединяются в исходном порядке без исправления сумм/единиц; metadata speaker/time
-не превращается в пользовательский текст. STOP обязателен, thought-поля исключаются,
-итог до10000символов. Пустые/повреждённые сегменты и смесь непустого text с annotations
-отклоняются, чтобы не терять или дублировать речь. Финансовый JSON по-прежнему читается
-только из text и проходит исходный amount guard; нет смены модели/поставщика.
+Транскрипция принимает plain `content.parts[].text`, основной REST
+`content.parts[].audioTranscription.text` и word-only пример из руководства
+`audioTranscription.words[].word`. Официальная REST схема AudioTranscription
+определяет `text` как обязательный текст сегмента, `words` — необязательные данные
+при word_timestamp. При наличии segment text читается только он, включая пунктуацию;
+words не добавляются повторно. Пустой/повреждённый text не заменяется words.
+Сегменты соединяются в исходном порядке с пробелом, без исправления сумм/единиц.
+Speaker/time metadata не превращается в пользовательский текст. STOP обязателен,
+thought-поля исключаются, итог до10000символов. Смесь отдельного непустого plain text
+с audioTranscription отклоняется, чтобы не терять или дублировать речь.
+Финансовый JSON по-прежнему читается только из plain text и проходит amount guard;
+поставщик/модель/ключи и ручное подтверждение сохраняются.
 
-Основание: в живом запросе15:13MSK скачивание420ms, STT1710ms completedFalse,
-preview3090ms; `gemini_failure stage=content reason=missing_text finish=STOP`.
-Реальный payload не логируется, поэтому его точная форма пока неизвестна.
-Прежний код воспроизводимо отклоняет официальный word-only REST пример; новый принимает.
-См. [Parsing transcription output](https://ai.google.dev/gemini-api/docs/generate-content/transcribe).
-Регрессии test_transcript_contract.py проверяют Router→STT→JSON→pendingdraft5000/250.50,
-отказ ошибочной50, порядок/мысли/пустые/повреждённые/незавершённые/oversize/mixed ответы
-и отсутствие пользовательского текста в диагностике. Это исправление контракта,
-а не доказательство устранения конкретного живого отказа: нужна публикация и повторная приёмка.
+Основание: живой запрос15:13MSK дал missing_text/STOP. Выпуск8161659 добавил
+word-only поддержку, но повторный запрос15:37MSK дал invalid_transcript/STOP:
+download370ms, STT1741ms completedFalse, preview3208ms. Первая правка была неполной.
+Реальный payload не логируется/не читался; основной текст подтверждён официальной
+схемой, а воспроизводимый regression без optional words выдавал тот же код отказа.
+См. [Parsing transcription output](https://ai.google.dev/gemini-api/docs/generate-content/transcribe)
+и [REST discovery schema v1beta](https://generativelanguage.googleapis.com/$discovery/rest?version=v1beta)
+(`AudioTranscription.properties.text/words`).
+
+Регрессии test_transcript_contract.py проверяют оба REST формата на пути
+Router→STT→JSON→pendingdraft5000/250.50, отказ ошибочной50, основной текст с optional
+words без дублирования, порядок, повреждённый text без fallback, общий лимит,
+мысли/пустые/повреждённые/незавершённые/mixed ответы и приватность диагностики.
+Живое устранение отказа и ускорение требуют повторной приёмки после публикации.
 
 ## Границы из аудита — 9 октября 2026
 

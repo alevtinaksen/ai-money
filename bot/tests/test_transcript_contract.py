@@ -23,6 +23,55 @@ def annotations(text):
         for word in text.split()]}}
 
 
+def segment_text(text):
+    return {"audioTranscription": {"text": text}}
+
+
+@pytest.mark.parametrize("text", [
+    "расход пять тысяч рублей кофе",
+    "расход двести пятьдесят рублей пятьдесят копеек кофе",
+    "нет не пятьсот а пять тысяч рублей",
+])
+def test_required_audio_transcription_text_without_optional_words(text):
+    assert parse_transcript_response(speech([segment_text(text)])) == text
+
+
+def test_segment_text_is_authoritative_with_optional_word_timestamps():
+    part = annotations("Расход пять тысяч рублей кофе")
+    part["audioTranscription"]["text"] = "Расход пять тысяч рублей, кофе."
+    assert parse_transcript_response(speech([part])) == "Расход пять тысяч рублей, кофе."
+
+
+def test_segment_text_preserves_order_across_parts():
+    assert parse_transcript_response(speech([
+        segment_text("расход пять"), segment_text("тысяч рублей кофе")
+    ])) == "расход пять тысяч рублей кофе"
+
+
+@pytest.mark.parametrize("text", [None, [], 5000, "", " ", "x" * 10001],
+                         ids=["null", "list", "number", "empty", "blank", "oversize"])
+def test_invalid_required_segment_text_never_falls_back_to_words(text, caplog):
+    part = annotations("private-spoken-source")
+    part["audioTranscription"]["text"] = text
+    with pytest.raises(ValueError):
+        parse_transcript_response(speech([part]))
+    assert "private-spoken-source" not in caplog.text
+
+
+def test_segment_text_limit_applies_to_complete_transcript():
+    with pytest.raises(ValueError):
+        parse_transcript_response(speech([
+            segment_text("x" * 5000), segment_text("y" * 5000)
+        ]))
+
+
+def test_segment_text_never_merges_separate_plain_text_source():
+    with pytest.raises(ValueError):
+        parse_transcript_response(speech([
+            segment_text("расход 5000 рублей"), {"text": "расход 50 рублей"}
+        ]))
+
+
 @pytest.mark.parametrize("text", [
     "расход пять тысяч рублей кофе",
     "расход двести пятьдесят рублей пятьдесят копеек кофе",
@@ -63,24 +112,27 @@ def test_invalid_or_mixed_speech_fails_without_logging_response(parts, caplog):
 
 
 @pytest.mark.parametrize("finish", ["MAX_TOKENS", "SAFETY", "UNKNOWN"])
-def test_word_annotations_require_completed_candidate(finish):
+@pytest.mark.parametrize("make_part", [annotations, segment_text])
+def test_word_annotations_require_completed_candidate(finish, make_part):
     with pytest.raises(ValueError):
-        parse_transcript_response(speech([annotations("расход 5000 рублей")], finish))
+        parse_transcript_response(speech([make_part("расход 5000 рублей")], finish))
 
 
-def test_financial_json_boundary_never_accepts_word_annotations():
+@pytest.mark.parametrize("make_part", [annotations, segment_text])
+def test_financial_json_boundary_never_accepts_word_annotations(make_part):
     with pytest.raises(ValueError):
-        parse_response(speech([annotations('{"transactions":[]}')]))
+        parse_response(speech([make_part('{"transactions":[]}')]))
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("make_part", [annotations, segment_text])
 @pytest.mark.parametrize("transcript,amount,accepted", [
     ("расход пять тысяч рублей кофе", "5000", True),
     ("расход двести пятьдесят рублей пятьдесят копеек кофе", "250.50", True),
     ("расход пять тысяч рублей кофе", "50", False),
 ])
 async def test_router_word_annotations_to_guarded_pending_draft(
-        audio_context, monkeypatch, transcript, amount, accepted):
+        audio_context, monkeypatch, transcript, amount, accepted, make_part):
     bot, factory = audio_context
     monkeypatch.setattr(settings, "AI_PROVIDER", "gemini")
     monkeypatch.setattr(settings, "GEMINI_API_KEY", "synthetic")
@@ -93,7 +145,7 @@ async def test_router_word_annotations_to_guarded_pending_draft(
     async def provider(request):
         calls.append(request)
         if "gemini-3.5-transcribe" in request.url.path:
-            return httpx.Response(200, json=speech([annotations(transcript)]))
+            return httpx.Response(200, json=speech([make_part(transcript)]))
         assert json.loads(request.content)["contents"][0]["parts"] == [{"text": transcript}]
         result = {"transactions": [{"amount": amount, "type": "expense"}]}
         return httpx.Response(200, json=speech([{"text": json.dumps(result)}]))

@@ -64,32 +64,51 @@ def parse_text_response(body):
     return _plain_text(_completed_parts(body))
 
 
+def _segment_transcript(annotation):
+    if not isinstance(annotation, dict):
+        _fail("content", "invalid_transcript", finish="STOP")
+    # REST AudioTranscription.text is the segment transcript. Optional words
+    # carry timing metadata; concatenating both would duplicate spoken money.
+    if "text" in annotation:
+        text = annotation["text"]
+        if not isinstance(text, str) or not text.strip():
+            _fail("content", "invalid_transcript", finish="STOP")
+        return text.strip()
+    # Keep the word-only format shown in Google's transcription guide.
+    entries = annotation.get("words")
+    if not isinstance(entries, list) or not entries:
+        _fail("content", "invalid_transcript", finish="STOP")
+    words, size = [], 0
+    for entry in entries:
+        word = entry.get("word") if isinstance(entry, dict) else None
+        if not isinstance(word, str) or not word.strip():
+            _fail("content", "invalid_transcript", finish="STOP")
+        word = word.strip()
+        size += len(word) + bool(words)
+        if size > 10000:
+            _fail("content", "too_long", finish="STOP")
+        words.append(word)
+    return " ".join(words)
+
+
 def parse_transcript_response(body):
-    """Read verbatim text or documented REST word annotations, never both."""
+    """Read complete plain text or ordered audio transcript segments."""
     parts = [part for part in _completed_parts(body) if not part.get("thought")]
     if not any("audioTranscription" in part for part in parts):
         text = _plain_text(parts).strip()
     else:
         # Mixing a separate text transcript with word annotations may duplicate
         # speech or discard a partial segment. Fail rather than infer alignment.
-        words, size = [], 0
+        segments, size = [], 0
         for part in parts:
             if "text" in part and (not isinstance(part["text"], str) or part["text"].strip()):
                 _fail("content", "mixed_transcript", finish="STOP")
-            annotation = part.get("audioTranscription")
-            entries = annotation.get("words") if isinstance(annotation, dict) else None
-            if not isinstance(entries, list) or not entries:
-                _fail("content", "invalid_transcript", finish="STOP")
-            for entry in entries:
-                word = entry.get("word") if isinstance(entry, dict) else None
-                if not isinstance(word, str) or not word.strip():
-                    _fail("content", "invalid_transcript", finish="STOP")
-                word = word.strip()
-                size += len(word) + bool(words)
-                if size > 10000:
-                    _fail("content", "too_long", finish="STOP")
-                words.append(word)
-        text = " ".join(words)
+            segment = _segment_transcript(part.get("audioTranscription"))
+            size += len(segment) + bool(segments)
+            if size > 10000:
+                _fail("content", "too_long", finish="STOP")
+            segments.append(segment)
+        text = " ".join(segments)
     if len(text) > 10000:
         _fail("content", "too_long", finish="STOP")
     return text
