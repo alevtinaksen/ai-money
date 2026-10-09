@@ -31,6 +31,10 @@ Gemini получает текст/выбранный файл и названи
 
 Gemini 3.5 Flash-Lite выбран для уменьшения задержки: поддерживает аудио, изображения и JSON-ответы, по умолчанию использует minimal thinking. [Контракт модели](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite). Это выбор варианта для проверки; фактические скорость и точность проверяются живым голосовым сообщением. Ошибки и timeout не создают операции.
 
+GEMINI_AUDIO_MODE=transcribe включает отдельную Gemini 3.5 Transcribe: аудио → дословный текст → финансовые предложения через GEMINI_MODEL. По умолчанию multimodal сохраняет прежний один вызов; фото и обычный текст режим не меняет. Для нового режима используются тот же ключ Google и согласие, язык ru-RU, VERBATIM вместо редактирующего SMART. JSON/суммы/STOP проверяются как прежде. HTTP timeout транскрипции20s, общий бюджет двух стадий45s. При отказе нет скрытого переключения модели или поставщика. Возврат к multimodal требует сохранения env и перезапуска сервера.
+
+Контракт9октября2026: [Transcribe generateContent](https://ai.google.dev/gemini-api/docs/generate-content/transcribe), [inline audio](https://ai.google.dev/gemini-api/docs/generate-content/audio#pass-audio-data-inline), [цены и free tier](https://ai.google.dev/gemini-api/docs/pricing#gemini-3.5-transcribe). Inline payload укладывается в лимит20МБ при нашем limit5МБ. Доступность конкретной модели для ключа и итоговая задержка требуют живой приёмки; локальные wire tests этого не доказывают.
+
 Официальные источники: [Telegram Mini Apps](https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app), [Gemini generateContent](https://ai.google.dev/api/generate-content), [Structured output](https://ai.google.dev/gemini-api/docs/structured-output). Проверены26.09.2026.
 
 ## Режим доставки и production

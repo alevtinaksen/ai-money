@@ -26,7 +26,8 @@ def _fail(stage, reason, *, status=0, finish="UNKNOWN", block="UNKNOWN"):
     raise ValueError(ERROR_MESSAGE) from None
 
 
-def parse_response(body):
+def parse_text_response(body):
+    """Accept only complete, non-thought text; JSON validation is a separate step."""
     if not isinstance(body, dict):
         _fail("envelope", "invalid_shape")
     feedback = body.get("promptFeedback")
@@ -48,19 +49,26 @@ def parse_response(body):
     texts = [part.get("text") for part in parts if not part.get("thought") and "text" in part]
     if not texts or any(not isinstance(text, str) for text in texts):
         _fail("content", "missing_text", finish=finish)
+    text = "".join(texts)
+    if not text.strip():
+        _fail("content", "missing_text", finish=finish)
+    return text
+
+
+def parse_response(body):
+    text = parse_text_response(body)
     try:
-        raw = json.loads("".join(texts))
+        raw = json.loads(text)
     except (json.JSONDecodeError, ValueError):
-        _fail("proposal", "invalid_json", finish=finish)
+        _fail("proposal", "invalid_json", finish="STOP")
     if not isinstance(raw, dict):
-        _fail("proposal", "invalid_shape", finish=finish)
+        _fail("proposal", "invalid_shape", finish="STOP")
     return raw
 
 
-@timed_operation("gemini")
-async def generate_json(url: str, payload: dict, api_key: str) -> dict:
+async def _request_body(url: str, payload: dict, api_key: str, *, timeout_seconds: int = 45):
     try:
-        async with cloud_slot(), httpx.AsyncClient(timeout=httpx.Timeout(45, connect=10)) as client:
+        async with cloud_slot(), httpx.AsyncClient(timeout=httpx.Timeout(timeout_seconds, connect=10)) as client:
             response = await client.post(url, json=payload, headers={"x-goog-api-key": api_key})
             response.raise_for_status()
     except httpx.HTTPStatusError as exc:
@@ -73,4 +81,17 @@ async def generate_json(url: str, payload: dict, api_key: str) -> dict:
         body = response.json()
     except (json.JSONDecodeError, ValueError):
         _fail("envelope", "invalid_json")
-    return parse_response(body)
+    return body
+
+
+@timed_operation("gemini")
+async def generate_json(url: str, payload: dict, api_key: str) -> dict:
+    return parse_response(await _request_body(url, payload, api_key))
+
+
+@timed_operation("gemini_transcribe")
+async def generate_transcript(url: str, payload: dict, api_key: str) -> str:
+    text = parse_text_response(await _request_body(url, payload, api_key, timeout_seconds=20)).strip()
+    if len(text) > 10000:
+        _fail("content", "too_long", finish="STOP")
+    return text

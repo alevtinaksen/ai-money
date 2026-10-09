@@ -1,4 +1,5 @@
 """AI creates proposals only; the ledger accepts explicit confirmed commands."""
+import asyncio
 import base64
 import json
 import re
@@ -286,6 +287,16 @@ class AIParserService:
         if provider == "groq":
             text = await transcribe_groq(data, mime)
             return await AIParserService._generate_groq(text, accounts, categories)
+        if mime.startswith("audio/") and settings.GEMINI_AUDIO_MODE == "transcribe":
+            from app.services.gemini_transcription import transcribe_gemini
+            # Two sequential requests share the original bounded latency budget;
+            # each owns one cloud slot, never an outer/nested slot.
+            try:
+                async with asyncio.timeout(45):
+                    text = await transcribe_gemini(data, mime)
+                    return await AIParserService._generate([{"text": text}], accounts, categories)
+            except TimeoutError:
+                raise ValueError("Распознавание недоступно. Ничего не записано; повторите позже.") from None
         return await AIParserService._generate([
             {"text": "Подготовьте финансовые предложения для проверки пользователем."},
             {"inline_data": {"mime_type": "audio/m4a" if mime == "audio/mp4" else mime,
