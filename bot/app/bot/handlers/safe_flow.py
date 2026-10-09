@@ -1,8 +1,6 @@
 """One explicit draft -> confirm flow for text, voice, and receipts."""
 import io
 import asyncio
-from decimal import Decimal
-import json
 import logging
 from app.services.runtime_timing import timed_operation, timed_stage
 from fastapi import HTTPException
@@ -15,6 +13,9 @@ from app.core.database import AsyncSessionLocal
 from app.services.ai_parser import AIParserService
 from app.services.bot_drafts import make_draft, confirm_draft, cancel_draft
 from app.services.finance_svc import FinanceService
+from app.services.bot_draft_edits import make_clarification
+from app.bot.handlers.draft_views import show_draft, manual_keyboard, format_money as format_money
+from app.bot.handlers.draft_interactions import handle_edit, handle_amount_reply, recover_draft, DraftDeliveryError
 
 router = Router()
 router.message.filter(F.chat.type == "private")
@@ -28,12 +29,6 @@ class UploadBuffer(io.BytesIO):
         if self.tell() + len(data) > settings.MAX_UPLOAD_BYTES:
             raise ValueError("Максимальный размер — 5 МБ.")
         return super().write(data)
-
-
-def format_money(value, currency: str) -> str:
-    """Keep decimal amounts exact and use familiar Russian separators."""
-    amount = Decimal(str(value))
-    return f"{amount:,.2f}".replace(",", " ").replace(".", ",") + f" {currency}"
 
 
 def app_keyboard():
@@ -86,60 +81,24 @@ async def preview(message: Message, data: bytes | None = None, mime: str | None 
             accounts = await FinanceService.get_accounts(db, uid)
             categories = await FinanceService.get_categories(db, uid)
             names, cats = [a.name for a in accounts], [c.name for c in categories]
-            acc_map = {a.name: a for a in accounts}
-            cat_map = {c.id: c for c in categories}
 
             raw_text = text_override if text_override is not None else (message.text or "")
             result = (await AIParserService.parse_media(data, mime, names, cats) if data is not None
                       else await AIParserService.parse_financial_text(raw_text, names, cats))
+            if result.pending:
+                draft = await make_clarification(db, uid, f"{message.chat.id}:{message.message_id}", result.pending)
+                await show_draft(message, db, draft)
+                return
             if not result.transactions:
-                await message.answer(result.clarification or "Не удалось определить операцию. Уточните сумму.")
+                await message.answer(result.clarification or "Не удалось определить операцию. Уточните сумму.",
+                                     reply_markup=manual_keyboard())
                 return
             draft = await make_draft(db, uid, f"{message.chat.id}:{message.message_id}", result.transactions)
-            if draft.status != "pending":
-                await message.answer("Это сообщение уже обработано.")
-                return
-            rows = json.loads(draft.payload)
-            buttons = [[InlineKeyboardButton(text=f"Подтвердить все ({len(rows)})", callback_data=f"confirm:{draft.id}")],
-                       [InlineKeyboardButton(text="Исправить запись", callback_data=f"edit:{draft.id}"),
-                        InlineKeyboardButton(text="Отменить", callback_data=f"cancel:{draft.id}")]]
-            notice = f"Подтверждение сохранит весь пакет: {len(rows)} операций. Сейчас они не записаны."
-            keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-
-            for item in rows:
-                type_sym = "💸 Расход" if item["type"] == "expense" else ("💰 Доход" if item["type"] == "income" else "🔄 Перевод")
-                amt_formatted = format_money(item["amount"], item["currency"])
-                acc_obj = acc_map.get(item.get("account_name")) or (accounts[0] if accounts else None)
-                cat_obj = cat_map.get(item.get("category_id"))
-
-                acc_icon = acc_obj.icon if acc_obj and getattr(acc_obj, "icon", None) else "💳"
-                acc_title = acc_obj.name if acc_obj else (item.get("account_name") or "Основной")
-                cat_icon = cat_obj.icon if cat_obj and getattr(cat_obj, "icon", None) else "📁"
-                cat_title = cat_obj.name if cat_obj else (item.get("category_name") or "Без категории")
-
-                lines = [
-                    f"📝 Черновик: {type_sym}. Проверьте перед сохранением.\n",
-                    f"💵 Сумма: {amt_formatted}",
-                    f"📁 Категория: {cat_icon} {cat_title}",
-                    f"💳 Счёт: {acc_icon} {acc_title}",
-                ]
-                if item.get("note"):
-                    lines.append(f"📝 Заметка: {item['note'][:300]}")
-                if acc_obj:
-                    lines.append(f"\nТекущий остаток: {format_money(acc_obj.balance, item['currency'])}")
-
-                if item.get("to_account_name"):
-                    lines.append(f"Счёт зачисления: {item['to_account_name']}")
-                if len(rows) == 1:
-                    await message.answer("\n".join(lines) + "\n\n" + notice, reply_markup=keyboard)
-                else:
-                    await message.answer("\n".join(lines))
-            if len(rows) > 1:
-                await message.answer(notice, reply_markup=keyboard)
+            await show_draft(message, db, draft)
     except HTTPException as exc:
         await message.answer(str(exc.detail))
     except ValueError as exc:
-        await message.answer(str(exc)[:500])
+        await message.answer(str(exc)[:500], reply_markup=manual_keyboard())
     except Exception as exc:
         # SQL/provider exception representations can include notes, amounts or keys.
         logger.error("Draft preparation failed (%s)", type(exc).__name__)
@@ -151,25 +110,57 @@ async def preview(message: Message, data: bytes | None = None, mime: str | None 
 @router.callback_query(F.data.startswith("edit:"))
 @timed_operation("bot_confirmation")
 async def decide(callback: CallbackQuery):
-    action, draft_id = callback.data.split(":", 1)
     await callback.answer()
+    draft_id = None
     try:
+        parts = callback.data.split(":")
+        if len(parts) not in (2, 3):
+            raise ValueError("Кнопка недоступна")
+        action, draft_id = parts[:2]
+        token = parts[2] if len(parts) == 3 else None
         async with AsyncSessionLocal() as db:
             if action == "confirm":
-                changed = await confirm_draft(db, callback.from_user.id, draft_id)
+                changed = await confirm_draft(db, callback.from_user.id, draft_id, token)
                 text = "✅ Запись сохранена в бюджете." if changed else "Уже было сохранено."
                 await callback.message.edit_text(text)
             else:
-                changed = await cancel_draft(db, callback.from_user.id, draft_id)
+                changed = await cancel_draft(db, callback.from_user.id, draft_id, token)
                 text = ("Отправьте исправленную запись новым сообщением. Прежний черновик отменён."
                         if changed and action == "edit" else
                         "❌ Запись отменена." if changed else "Черновик уже обработан или недоступен.")
                 await callback.message.edit_text(text)
     except ValueError as exc:
         await callback.message.answer(str(exc)[:500])
+        if draft_id:
+            await recover_current(callback, draft_id)
     except Exception as exc:
         logger.error("Draft confirmation failed (%s)", type(exc).__name__)
         await callback.message.answer("Не удалось завершить действие. Попробуйте позже.")
+        if draft_id:
+            await recover_current(callback, draft_id)
+
+
+async def recover_current(callback, draft_id=None):
+    try:
+        async with AsyncSessionLocal() as db:
+            await recover_draft(callback, db, draft_id)
+    except Exception as exc:
+        logger.error("Draft recovery failed (%s)", type(exc).__name__)
+
+
+@router.callback_query(F.data.startswith("draft:"))
+async def edit_draft(callback: CallbackQuery):
+    await callback.answer()
+    try:
+        async with AsyncSessionLocal() as db:
+            await handle_edit(callback, db)
+    except ValueError as exc:
+        await callback.message.answer(str(exc)[:500])
+        await recover_current(callback)
+    except Exception as exc:
+        logger.error("Draft editing failed (%s)", type(exc).__name__)
+        await callback.message.answer("Не удалось изменить черновик. Ничего не записано; попробуйте позже.")
+        await recover_current(callback)
 
 
 @router.message(F.voice | F.audio | F.document | F.photo)
@@ -210,5 +201,24 @@ async def media(message: Message):
 async def text(message: Message):
     if len(message.text) > 10000:
         await message.answer("Слишком длинная запись.")
+        return
+    try:
+        async with AsyncSessionLocal() as db:
+            if await handle_amount_reply(message, db):
+                return
+    except ValueError as exc:
+        await message.answer(str(exc)[:500])
+        return
+    except Exception as exc:
+        logger.error("Draft amount reply failed (%s)", type(exc).__name__)
+        await message.answer("Не удалось уточнить сумму. Ничего не записано; попробуйте ещё раз.")
+        if isinstance(exc, DraftDeliveryError):
+            try:
+                async with AsyncSessionLocal() as db:
+                    from app.services.bot_draft_edits import active_draft
+                    draft = await active_draft(db, message.from_user.id, exc.draft_id)
+                    await show_draft(message, db, draft)
+            except Exception as recovery:
+                logger.error("Draft amount recovery failed (%s)", type(recovery).__name__)
         return
     await preview(message)

@@ -96,7 +96,10 @@ async def test_transcribed_money_router_draft_guards(audio_context, gemini_mode,
             assert json.loads(draft.payload)[0]["amount"] == amount
             assert draft.status == "pending"
         else:
-            assert draft is None
+            assert draft is not None and draft.status == "clarifying"
+            from app.services.bot_drafts import confirm_draft
+            with pytest.raises(ValueError):
+                await confirm_draft(db, 1, draft.id)
         assert await db.scalar(select(Transaction.id)) is None
         assert (await db.scalar(select(Account))).balance == 1000
     assert "stage=gemini_transcribe" in caplog.text

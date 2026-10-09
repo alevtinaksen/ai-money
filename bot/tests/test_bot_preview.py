@@ -44,7 +44,7 @@ async def test_pending_usd_preview_and_edit_never_commit(tmp_path, monkeypatch):
         assert len(message.answer.await_args_list) == 1
         assert 'USD' in card and 'Food' in card and '₽' not in card
         keyboard = message.answer.await_args_list[-1].kwargs['reply_markup']
-        assert keyboard.inline_keyboard[0][0].text == 'Подтвердить все (1)'
+        assert keyboard.inline_keyboard[0][0].text == 'Сохранить'
         async with factory() as db:
             assert await db.scalar(select(Transaction.id)) is None
             draft_id = (await db.scalar(select(BotDraft))).id

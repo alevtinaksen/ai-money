@@ -49,7 +49,7 @@ async def test_gemini_completed_audio_required_before_draft(audio_context, monke
             assert any("250,50 RUB" in text for text in texts)
             assert bot.session.await_count == 1
             reply = bot.session.await_args.args[1]
-            assert reply.reply_markup.inline_keyboard[0][0].callback_data == f"confirm:{draft.id}"
+            assert reply.reply_markup.inline_keyboard[0][0].callback_data.startswith(f"confirm:{draft.id}:")
             assert "Сейчас они не записаны" in reply.text
         else:
             assert draft is None
@@ -176,7 +176,12 @@ async def test_correct_transcript_wrong_model_amount_never_becomes_draft(audio_c
     assert all("Черновик" not in text for text in texts)
     assert any(transcript in text for text in texts)
     async with factory() as db:
-        assert await db.scalar(select(BotDraft.id)) is None
+        draft = await db.scalar(select(BotDraft))
+        assert draft is None or draft.status == "clarifying"
+        if draft:
+            with pytest.raises(ValueError):
+                from app.services.bot_drafts import confirm_draft
+                await confirm_draft(db, 1, draft.id)
         assert await db.scalar(select(Transaction.id)) is None
         assert (await db.scalar(select(Account))).balance == 1000
 

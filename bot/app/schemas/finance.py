@@ -178,12 +178,14 @@ class AIParsedTransaction(BaseModel):
 
 
 class PendingClarification(BaseModel):
-    question: str
-    suggested_amount: Optional[float] = None
-    suggested_options: List[float] = Field(default_factory=list)
-    type: str = "expense"
+    question: str = Field(max_length=1000)
+    suggested_amount: Optional[PositiveMoney] = None
+    suggested_options: List[PositiveMoney] = Field(default_factory=list, max_length=2)
+    type: Literal["expense", "income", "transfer"] = "expense"
     category_name: Optional[str] = None
     account_name: Optional[str] = None
+    to_account_name: Optional[str] = None
+    currency: Optional[str] = Field(default=None, pattern="^[A-Z]{3}$")
     note: Optional[str] = Field(default=None, max_length=2000)
 
 

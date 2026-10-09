@@ -162,5 +162,8 @@ async def test_router_word_annotations_to_guarded_pending_draft(
             assert draft.status == "pending"
             assert json.loads(draft.payload)[0]["amount"] == amount
         else:
-            assert draft is None
+            assert draft is not None and draft.status == "clarifying"
+            from app.services.bot_drafts import confirm_draft
+            with pytest.raises(ValueError):
+                await confirm_draft(db, 1, draft.id)
         assert await db.scalar(select(Transaction.id)) is None
