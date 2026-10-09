@@ -54,7 +54,7 @@ def test_postgresql_url_cannot_weaken_tls(mode):
         database.create_engine_and_session(f"postgresql://synthetic:password@db.invalid/test?sslmode={mode}")
 
 
-def test_orm_and_foreign_keys_use_the_prepared_namespace():
+def test_orm_and_foreign_keys_use_the_prepared_namespace(tmp_path):
     script = """
 import json
 from sqlalchemy.dialects import postgresql
@@ -70,7 +70,7 @@ print(json.dumps({'schemas': sorted(set(t.schema for t in Base.metadata.tables.v
     root = Path(__file__).resolve().parents[2]
     env = {**os.environ, "PYTHONPATH": str(root / "bot"), "DATABASE_SCHEMA": "ai_money_v2",
            "DATABASE_URL": "postgresql://synthetic:password@db.invalid/test", "DATABASE_SSL_CA_FILE": ""}
-    result = subprocess.run([sys.executable, "-c", script], cwd=root / "work", env=env,
+    result = subprocess.run([sys.executable, "-c", script], cwd=tmp_path, env=env,
                             capture_output=True, text=True, check=True)
     assert json.loads(result.stdout) == {"schemas": ["ai_money_v2"], "target_table": True, "target_fk": True}
 
