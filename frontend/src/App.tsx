@@ -16,6 +16,7 @@ import { TransactionsScreen } from './components/transactions/TransactionsScreen
 import { Dialog } from './components/shared/Dialog';
 import { AiPreview } from './components/ai/AiPreview';
 import { CategoryAnalyticsScreen } from './components/categories/CategoryAnalyticsScreen';
+import { SessionRecovery } from './components/shared/SessionRecovery';
 import { useAudioRecorder } from './hooks/useAudioRecorder';
 
 export const App = () => {
@@ -75,15 +76,16 @@ export const App = () => {
     name: data.name?.trim() || 'Новый счёт', group_name: data.group_name || 'Личное',
     icon: data.icon || '💳', bank_name: data.bank_name || null, color: data.color,
   });
-  const saveAccount = async (data: Partial<Account> & { id?: string }) => {
-    const success = await ledger.mutate(() => data.id
-      ? api.updateAccountAPI(initData, data.id, accountFields(data))
-      : api.createAccountAPI(initData, { ...accountFields(data), currency: data.currency || 'RUB', balance: moneyInput(data.balance ?? 0, true) }));
-    if (success) setEditingAccount(undefined);
+  const saveAccount = async (data: Partial<Account> & { id?: string; client_id?: string }) => {
+    const success = data.id
+      ? await ledger.mutate(() => api.updateAccountAPI(initData, data.id!, accountFields(data)))
+      : await ledger.mutateCreation(() => api.createAccountAPI(initData, { ...accountFields(data), client_id: data.client_id,
+          currency: data.currency || 'RUB', balance: moneyInput(data.balance ?? 0, true) }));
+    if (success === true || success === 'saved') setEditingAccount(undefined);
     return success;
   };
-  const saveCategory = (data: Partial<Category> & { id?: string }) => ledger.mutate(() => api.saveCategoryAPI(initData, {
-    name: data.name || 'Категория', type: data.type || 'expense', icon: data.icon || '📦', color: data.color || '#F3F4F6',
+  const saveCategory = (data: Partial<Category> & { id?: string; client_id?: string }) => (data.id ? ledger.mutate : ledger.mutateCreation)(() => api.saveCategoryAPI(initData, {
+    client_id: data.client_id, name: data.name || 'Категория', type: data.type || 'expense', icon: data.icon || '📦', color: data.color || '#F3F4F6',
     sort_order: data.sort_order, parent_id: data.parent_id,
     budget_limit: data.budget_limit == null ? null : moneyInput(data.budget_limit, true),
   }, data.id));
@@ -153,10 +155,8 @@ export const App = () => {
     <input ref={cameraInput} type="file" hidden aria-label="Снять чек" accept="image/jpeg,image/png,image/webp" capture="environment"
       onChange={event => { const file = event.target.files?.[0]; if (file) { setAiFile(file); setAi('receipt'); } event.target.value = ''; }} />
     <div>
-        {currencies.length > 1 && <label className="design-currency-select">Валюта <select aria-label="Валюта отчёта" value={currency} onChange={e => setCurrency(e.target.value)} className="bg-transparent">
-          {currencies.map(code => <option key={code}>{code}</option>)}</select></label>}
       <div className="design-status">
-        {ledger.error && <p role="alert" className="text-red-600">{ledger.error} <button onClick={() => void ledger.refresh().catch(() => {})}>Обновить данные</button></p>}
+        {ledger.error && <p role="alert" className="design-alert">{ledger.error} <button onClick={() => void ledger.refresh().catch(() => {})}>Обновить данные</button></p>}
         {visibleNotice && <p role="status">{visibleNotice}</p>}
         {(ledger.loading || ledger.busy) && <p role="status">{ledger.busy ? 'Сохраняем…' : 'Загружаем…'}</p>}
 
@@ -178,25 +178,23 @@ export const App = () => {
         <p className="design-pagination">Поиск и фильтры применяются к загруженным операциям.</p>
         {ledger.more && <button className="block mx-auto p-4" disabled={ledger.loading} onClick={() => void ledger.loadMore()}>Загрузить ещё</button>}</>}
       {screen === 'settings' && <><SettingsScreen onBack={() => setScreen('dashboard')} categories={ledger.categories}
-        onSaveCategory={saveCategory} onDeleteCategory={id => void ledger.mutate(() => api.deleteCategoryAPI(initData, id))}
+        currencies={currencies} reportCurrency={currency} onReportCurrency={setCurrency}
+        onSaveCategory={saveCategory} onDeleteCategory={id => ledger.mutate(() => api.deleteCategoryAPI(initData, id))}
+        onBlockedChange={updateCreationBlocked} serverError={ledger.error}
+        sessionRecovery={<SessionRecovery required={ledger.authRequired} telegram={Boolean(initData)} pending={loginPending} error={loginError} onLogin={() => void login()} />}
         onReorderCategories={reorder} onExportData={exportLegacyCache} onRecalculateBalances={ledger.refresh} onResetData={clearLegacyCache} onHaptic={hapticImpact} /></>}
     </div>
     {modal && <Dialog title={adding ? 'Новая операция' : editingTx ? 'Редактирование операции' : ai ? 'Проверка распознавания' : categoryDetail ? `Статистика категории ${categoryDetail.category.name}` : 'Счёт'}
       onClose={closeModal}>
       {(ledger.error || ledger.authRequired) && <div role="alert" className="design-server-error">{ledger.error}
-        {ledger.authRequired && !initData && ['localhost', '127.0.0.1', '::1', '[::1]'].includes(location.hostname) && <>
-          <p>Сессия истекла. Войдите снова, затем повторите сохранение текущего черновика.</p>
-          <button className="design-primary" disabled={loginPending} onClick={() => void login()}>Войти снова локально</button>
-          {loginError && <p>{loginError}</p>}
-        </>}
-        {ledger.authRequired && initData && <p>Сессия Telegram истекла. Здесь удерживается текущий черновик. Новый запуск из Telegram даст свежую сессию, но потеряет черновик: сначала проверьте историю, прежде чем вводить эту операцию заново.</p>}
+        <SessionRecovery required={ledger.authRequired} telegram={Boolean(initData)} pending={loginPending} error={loginError} onLogin={() => void login()} />
       </div>}
       {adding && draftAccount.current && <AddTransactionScreen accounts={active} categories={ledger.categories} selectedAccount={draftAccount.current}
         initialType={adding} onClose={closeModal} onBlockedChange={updateCreationBlocked} onSubmit={addTx} onHaptic={hapticImpact} />}
       {editingTx && <EditTransactionModal isOpen transaction={editingTx} accounts={ledger.accounts} categories={ledger.categories}
         onClose={closeModal} onSave={saveTx} onDelete={removeTx} onHaptic={hapticImpact} />}
       {editingAccount !== undefined && <EditAccountModal isOpen account={editingAccount} onClose={closeModal}
-        onSave={saveAccount} onDelete={async id => { const success = await ledger.mutate(() => api.deleteAccountAPI(initData, id));
+        onSave={saveAccount} onBlockedChange={updateCreationBlocked} onDelete={async id => { const success = await ledger.mutate(() => api.deleteAccountAPI(initData, id));
           if (success) setEditingAccount(undefined); return success; }} onHaptic={hapticImpact} />}
       {categoryDetail && <CategoryAnalyticsScreen auth={initData} category={categoryDetail.category} initialMonth={month} currency={currency} kind={categoryDetail.kind}
         onClose={closeModal} onSelectTransaction={tx => { setCategoryDetail(null); setEditingTx(tx); }} />}

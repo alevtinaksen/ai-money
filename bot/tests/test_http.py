@@ -126,3 +126,59 @@ async def test_browser_audio_mime_parameters_are_normalized(client, monkeypatch)
     response = await client.post('/api/ai/parse-voice', files={
         'file': ('voice.webm', b'synthetic', 'audio/webm;codecs=opus')})
     assert response.status_code == 200 and seen == ['audio/webm']
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(('mime', 'filename', 'expected'), [
+    ('audio/mp3', 'voice.mp3', 'audio/mpeg'),
+    ('audio/x-m4a', 'voice.m4a', 'audio/mp4'),
+    ('application/ogg', 'voice.ogg', 'audio/ogg'),
+    ('application/octet-stream', 'voice.wav', 'audio/wav'),
+])
+async def test_supported_audio_alias_reaches_parser(client, monkeypatch, mime, filename, expected):
+    from app.schemas.finance import AIParsedResult
+    from app.services.ai_parser import AIParserService
+    seen = []
+    async def parser(data, normalized, accounts, categories):
+        seen.append(normalized)
+        return AIParsedResult()
+    monkeypatch.setattr(AIParserService, 'parse_media', parser)
+    login = await client.post('/api/auth/local')
+    client.headers['Authorization'] = f"Bearer {login.json()['access_token']}"
+    response = await client.post('/api/ai/parse-voice', files={'file': (filename, b'synthetic', mime)})
+    assert response.status_code == 200 and seen == [expected]
+    rejected = await client.post('/api/ai/parse-voice', files={'file': ('voice.exe', b'wrong', 'application/octet-stream')})
+    assert rejected.status_code == 415 and seen == [expected]
+
+
+@pytest.mark.asyncio
+async def test_creation_http_replay_and_input_bounds_keep_legacy_reads(client):
+    from app.models.models import Account, Category
+    login = await client.post('/api/auth/local')
+    client.headers['Authorization'] = f"Bearer {login.json()['access_token']}"
+    payload = {'name': 'Synthetic', 'balance': '1000', 'client_id': 'stable-account'}
+    original = (await client.post('/api/accounts', json=payload)).json()
+    assert (await client.post('/api/accounts', json=payload)).json()['id'] == original['id']
+    assert (await client.post('/api/accounts', json={**payload, 'balance': '2000'})).status_code == 409
+    assert len((await client.get('/api/accounts')).json()) == 1
+    for field, limit in [('bank_name', 50), ('group_name', 50), ('icon', 20), ('color', 30)]:
+        assert (await client.post('/api/accounts', json={'name':'Too long',field:'x'*(limit+1)})).status_code == 422
+    cat_payload = {'name': 'Synthetic category', 'client_id': 'stable-category'}
+    cat = (await client.post('/api/categories', json=cat_payload)).json()
+    assert (await client.post('/api/categories', json=cat_payload)).json()['id'] == cat['id']
+    # Reproduce valid pre-fix SQLite values directly; do not mutate real budgets.
+    async for db in app.dependency_overrides[get_db]():
+        acc_model = await db.get(Account, original['id'])
+        acc_model.bank_name = 'b' * 51
+        acc_model.group_name = 'g' * 51
+        acc_model.icon = 'i' * 21
+        acc_model.color = 'c' * 31
+        cat_model = await db.get(Category, cat['id'])
+        cat_model.icon = 'i' * 21
+        cat_model.color = 'c' * 31
+        await db.commit()
+    accounts = await client.get('/api/accounts')
+    cats = await client.get('/api/categories')
+    assert accounts.status_code == 200 and cats.status_code == 200
+    assert accounts.json()[0]['bank_name'] == 'b' * 51
+    assert cats.json()[0]['icon'] == 'i' * 21

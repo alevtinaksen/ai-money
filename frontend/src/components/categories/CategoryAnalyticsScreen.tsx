@@ -35,7 +35,8 @@ export function CategoryAnalyticsScreen({ auth, category, initialMonth, currency
     } catch (cause) { if (version === generation.current) setError((cause as Error).message); }
     finally { if (version === generation.current) { pending.current = false; setLoading(false); } }
   };
-  const period = new Date(); period.setUTCDate(1); period.setUTCMonth(period.getUTCMonth() + month);
+  const period = data ? new Date(`${data.period_label}-01T00:00:00Z`) : new Date();
+  if (!data) { period.setUTCDate(1); period.setUTCMonth(period.getUTCMonth() + month); }
   return <SupportPage title={category.name} onClose={onClose}>
     <div className="design-calendar">
       <button aria-label="Предыдущий месяц" disabled={month <= -120} onClick={() => setMonth(value => value - 1)}>←</button>

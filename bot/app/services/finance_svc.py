@@ -2,6 +2,7 @@
 
 from decimal import Decimal
 from typing import Any
+from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -15,6 +16,7 @@ from app.services.finance_transactions import (
 )
 from app.services.finance_analytics import get_dashboard_summary, list_transactions
 from app.services.category_graph import graph_mutation
+from app.services.entity_creation import replay_creation, remember_creation
 
 
 def to_dec(value: Any) -> Decimal:
@@ -81,9 +83,22 @@ class FinanceService:
     @staticmethod
     async def create_account(db: AsyncSession, user_id: int, data: AccountCreate) -> Account:
         data = AccountCreate.model_validate(data.model_dump())
-        account = Account(user_id=user_id, **data.model_dump())
+        existing = await replay_creation(db, Account, user_id, data)
+        if existing is not None:
+            return existing
+        account = Account(id=str(uuid4()), user_id=user_id, **data.model_dump(exclude={"client_id"}))
         db.add(account)
-        await db.commit()
+        remember_creation(db, Account, user_id, data, account)
+        try:
+            await db.commit()
+        except IntegrityError:
+            # A simultaneous request may have committed the same command first.
+            # Roll back both its opening balance and identity before looking up the winner.
+            await db.rollback()
+            existing = await replay_creation(db, Account, user_id, data)
+            if existing is None:
+                raise
+            return existing
         await db.refresh(account)
         return account
 
@@ -128,10 +143,14 @@ class FinanceService:
     async def create_category(db: AsyncSession, user_id: int, data: CategoryCreate) -> Category:
         data = CategoryCreate.model_validate(data.model_dump())
         async with graph_mutation(db, user_id):
+            existing = await replay_creation(db, Category, user_id, data)
+            if existing is not None:
+                return existing
             if data.parent_id and not await owned(db, Category, user_id, data.parent_id):
                 raise ValueError("Родительская категория не найдена")
-            category = Category(user_id=user_id, **data.model_dump())
+            category = Category(id=str(uuid4()), user_id=user_id, **data.model_dump(exclude={"client_id"}))
             db.add(category)
+            remember_creation(db, Category, user_id, data, category)
         await db.refresh(category)
         return category
 

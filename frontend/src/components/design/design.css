@@ -3,12 +3,12 @@
 @font-face { font-family: "JetBrains Mono"; src: url("/fonts/JetBrainsMono-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
 .design-shell {
   --design-bg: #f6f7f9; --design-paper: #fff; --design-ink: #111317; --design-muted: #535a66;
-  --design-faint: #d0d4db; --design-soft: #e1e4e8; --design-green: #97ff64;
+  --design-faint: #616b78; --design-icon-surface:#d0d4db; --design-error:#b42318; --design-soft: #e1e4e8; --design-green: #97ff64;
   width: 100%; max-width: 402px; min-height: 100dvh; margin-inline: auto;
   color: var(--design-ink); background: var(--design-bg);
   font-family: "JetBrains Mono", monospace; font-size: 12px; font-weight: 400; line-height: 16px; letter-spacing: -.24px;
 }
-.dark .design-shell { --design-bg:#1b1e24; --design-paper:#111317; --design-ink:#f6f7f9; --design-muted:#b4bbc6; --design-soft:#303640; --design-faint:#70798a; }
+.dark .design-shell { --design-bg:#1b1e24; --design-paper:#111317; --design-ink:#f6f7f9; --design-muted:#b4bbc6; --design-soft:#303640; --design-faint:#9aa3b1; --design-icon-surface:#606979; --design-error:#ff8a80; }
 .design-screen { min-height: 100dvh; position: relative; padding-bottom: calc(112px + env(safe-area-inset-bottom)); }
 .design-shell button, .design-shell input, .design-shell select { font: inherit; }
 .design-shell button { cursor: pointer; }
@@ -19,9 +19,11 @@
 .design-header { height: 36px; display: flex; justify-content: space-between; align-items: start; }
 .design-header-leading { display: flex; min-width: 0; }
 .design-header h1 { color: #fff; background: #111317; padding: 6px 12px; font-size: 20px; line-height: 24px; letter-spacing: -1px; white-space: nowrap; font-weight: 400; margin: 0; }
+.design-bank-purpose { text-align:center; font-weight:400; padding:12px; color:var(--design-muted); margin:0; }
+.dark .design-header h1, .dark .design-support-header h1 { background:var(--design-soft); }
 .design-wallet { display: flex; align-items: center; min-width:0; background: var(--design-green); }
 .design-wallet .design-amount { padding: 6px 12px; font-size: 20px; line-height:24px; }
-.design-wallet .design-currency { color: #111317; opacity:.2; }
+.design-wallet .design-currency { color: #3c5632; opacity:1; }
 .design-wallet { color:#111317; }
 .dark .design-wallet .design-icon { filter:brightness(0) invert(1); }
 .design-amount { display: inline-flex; align-items: baseline; gap:4px; white-space:nowrap; letter-spacing:-1px; }
@@ -80,3 +82,5 @@
 .design-transaction-wrapper .design-row { flex:1; min-width:0; }
 .design-drag-slot { width:36px; height:36px; display:flex; align-items:center; justify-content:center; flex:none; }
 .design-drag-preview { position:fixed; z-index:60; padding:8px; background:var(--design-paper); pointer-events:none; }
+
+.design-alert { color:var(--design-error); }

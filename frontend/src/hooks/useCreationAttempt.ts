@@ -11,6 +11,7 @@ export const uncertainCreationMessage = 'Не удалось подтверди�
 export function useCreationAttempt<T extends object>(
   submit: (payload: T & { client_id: string }) => Promise<CreationOutcome | boolean>,
   onBlockedChange?: (blocked: boolean) => void,
+  uncertainMessage = uncertainCreationMessage,
 ) {
   const request = useRef<(T & { client_id: string }) | null>(null);
   const pending = useRef(false);
@@ -31,7 +32,7 @@ export function useCreationAttempt<T extends object>(
     if (outcome === 'saved') {
       unknownCommit.current = false; request.current = null; setPhase('saved'); onBlockedChange?.(false);
     } else if (outcome === 'uncertain' || unknownCommit.current) {
-      unknownCommit.current = true; setPhase('uncertain'); setError(uncertainCreationMessage);
+      unknownCommit.current = true; setPhase('uncertain'); setError(uncertainMessage);
     } else {
       request.current = null; setPhase('editable'); onBlockedChange?.(false);
     }

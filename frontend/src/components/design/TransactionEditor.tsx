@@ -33,11 +33,11 @@ export function TransactionEditor(p: TransactionEditorProps) {
   const viewport = useVisibleViewport();
   return <section className="design-editor" style={viewport ? { height: viewport.height, top: viewport.top, bottom: 'auto' } : undefined} aria-label={p.onDelete ? 'Редактирование операции' : 'Новая операция'}>
     <header className="design-editor-header">
-      <IconButton icon="close" label="Закрыть" onClick={p.onClose} />
+      <IconButton icon="close" label="Закрыть" onClick={p.onClose} disabled={p.locked} />
       <label className="design-editor-date"><span>{p.dateLabel}</span><input disabled={p.locked} aria-label="Дата операции" type="date" value={p.dateValue} onChange={e => e.target.value && p.onDate(e.target.value)} /></label>
       <div className="design-editor-actions"><IconButton icon={p.type === 'transfer' ? 'operation' : 'exchange'} label={p.type === 'transfer' ? 'Перейти к расходу' : 'Перевод'}
         onClick={() => p.onType(p.type === 'transfer' ? 'expense' : 'transfer')} disabled={p.locked} className="design-editor-mode" />
-        {p.onDelete && <IconButton icon="trash" label="Удалить операцию" onClick={p.onDelete} />}</div>
+        {p.onDelete && <IconButton icon="trash" label="Удалить операцию" onClick={p.onDelete} disabled={p.locked} />}</div>
     </header>
     {p.error && <p role="alert" className="design-editor-error">{p.error}</p>}
     <fieldset disabled={p.locked} className="design-editor-content" style={{ border: 0, marginLeft: 0, marginRight: 0, marginBottom: 0, padding: 0, minWidth: 0 }}>

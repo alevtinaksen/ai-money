@@ -1,0 +1,22 @@
+import { afterEach, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, within } from '@testing-library/react';
+import { AccountsScreen } from './AccountsScreen';
+import { Account } from '../../types';
+afterEach(cleanup);
+it('groups banks before purposes; custom banks, cash and currencies remain distinct',()=>{
+  const make=(id:string,name:string,bank_name:string,currency='RUB'):Account=>({id,name,bank_name,currency,user_id:1,balance:100,icon:'❤️',color:'#fff',group_name:'Карты',is_default:false,sort_order:0});
+  const accounts=[make('a','Основной','Альфа-Банк'),make('b','Test T','Т-Банк','USD'),make('c','Наличные',''),make('d','Карта Альфа','Мой банк'),make('e','Test','__proto__')];
+  const select=vi.fn();
+  const view=render(<AccountsScreen accounts={accounts} onBack={vi.fn()} onSelectAccount={select}/>);
+  const alfa=within(view.getByRole('region',{name:'Альфа-Банк'}));
+  expect(alfa.getByText('Карты')).toBeTruthy(); expect(alfa.queryByText('Test T')).toBeNull();
+  expect(view.getByRole('region',{name:'Мой банк'})).toBeTruthy();
+  expect(view.getByRole('region',{name:'Наличные'})).toBeTruthy();
+  expect(within(view.getByRole('region',{name:'__proto__'})).getByText('Test')).toBeTruthy();
+  fireEvent.click(alfa.getByRole('button',{name:'Альфа-Банк'}));
+  expect(alfa.queryByText('Основной')).toBeNull();
+  expect(view.getByText('Test T')).toBeTruthy();
+  fireEvent.click(view.getByRole('button',{name:/Test T/}));
+  expect(select).toHaveBeenCalledWith(accounts[1]);
+  expect(view.getByRole('generic',{name:'Остатки по валютам'})).toBeTruthy();
+});

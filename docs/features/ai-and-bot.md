@@ -35,3 +35,16 @@ REST нормализует MIME codec parameters (audio/webm;codecs=opus→audi
 Реализован переключаемый GEMINI_AUDIO_MODE=transcribe (default multimodal). Один общий путь для API/бота: validate_audio+consent → Gemini3.5Transcribe с inlineData/VERBATIM/ru-RU → проверенный текст → существующий GEMINI_MODEL JSON → validate_source_amounts → предложения. Транскрипция не получает список счетов/категорий и финансовые инструкции; контекст передаётся только текстовой стадии. Plain-text boundary требует завершённый STOP, непустой текст до10000символов; JSON boundary продолжает требовать объект. За45секунд должны завершиться обе стадии, HTTP timeoutSTT20секунд; каждая стадия отдельно берёт один общий cloud_slot. Новый timing stage gemini_transcribe не содержит текста/ключей. Ошибка не создаёт финансовую запись, не переключается скрыто на старый audio path и не вызывает вторую стадию при отказе STT.
 
 Регрессии test_gemini_transcription.py: пятьконтейнеров, Router→STT→JSON→pendingdraft,5000/250.50,ошибки50/0/55, unfinished/quota/timeout/empty/oversize,consent/повреждённыйфайл,общие4слота/безвложенногоlock,общийdeadline,фотобезSTT. Доступность Google и ускорение нового режима пока не подтверждены живым замером.
+
+## Границы из аудита — 9 октября 2026
+
+Офлайн-текст теперь проходит тот же `validate_source_amounts` по оригиналу,
+что облачные предложения: неподдержанные масштабы, дроби и номера карт не становятся
+частичной суммой. Узкое уточнение не создаёт финансовой записи. HTTP медиа использует
+общий audio_mime: MP3/M4A/WAV/OGG aliases и известное расширение при generic MIME;
+неизвестный формат остаётся 415, контейнер/consent/provider/size проверки сохраняются.
+Groq transcription и generation разделяют общий deadline CLOUD_REQUEST_SECONDS (45 с),
+включая ожидание слотов; каждый внешний запрос занимает один слот, внешнего слота
+на всю цепочку нет. Отмена освобождает слот. Это ограничивает максимальное ожидание,
+но не доказывает ускорение Gemini или отсутствие cold start Free Render.
+Проверки: test_audit_input_boundaries, test_http, существующие provider/preview suites.

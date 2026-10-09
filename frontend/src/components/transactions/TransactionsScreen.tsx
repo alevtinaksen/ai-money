@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { ActionBar, Amount, DateLabel, Icon, IconButton, ScreenHeader, transactionTitle } from '../design/Primitives';
 import { Transaction, Account, Category, TransactionType } from '../../types';
+import { currencyLabel } from '../../utils/money';
 import { resolveCategoryAndSubcategory } from '../modals/EditTransactionModal';
 
 interface TransactionsScreenProps {
@@ -69,7 +70,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
     return transactions.filter((tx) => {
       // 1. Search filter
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
+        const q = searchQuery.trim().toLowerCase();
         const resolved = resolveCategoryAndSubcategory(tx);
         const matchNote = tx.note?.toLowerCase().includes(q);
         const matchCat =
@@ -77,7 +78,10 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
           resolved.displayTitle.toLowerCase().includes(q) ||
           (resolved.subcategory && resolved.subcategory.toLowerCase().includes(q));
         const matchAcc = tx.account_name?.toLowerCase().includes(q);
-        const matchAmt = tx.amount.toString().includes(q);
+        const numericQuery = q.replace(/\s/g, '').replace(/,/g, '.');
+        const displayed = `${tx.type === 'expense' ? '-' : tx.type === 'income' ? '+' : ''}${tx.amount.toFixed(2)}`;
+        const matchAmt = [tx.amount.toString(), tx.amount.toFixed(2), displayed, `${displayed}${currencyLabel(tx.currency)}`]
+          .some(value => value.toLowerCase().includes(numericQuery));
         if (!matchNote && !matchCat && !matchAcc && !matchAmt) return false;
       }
 
@@ -113,7 +117,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
           }
         } else if (selectedPeriod === '7days') {
           const diffDays = (now.getTime() - txDate.getTime()) / (1000 * 3600 * 24);
-          if (diffDays > 7) return false;
+          if (diffDays < 0 || diffDays > 7) return false;
         }
       }
 

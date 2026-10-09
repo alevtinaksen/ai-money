@@ -69,3 +69,21 @@ test.each([
   expect(result.current.summary?.period_label).toBe(selected.label);
   expect(result.current.summary?.currency).toBe(selected.expectedCurrency);
 });
+
+test.each(['mutation','pagination'])('old HTTP401 from %s cannot expire a restored local session',async kind=>{
+ const {localLogin,authorization,clearSession}=await import('../api/session');
+ const {request}=await import('../api/client');
+ let finish!:(r:Response)=>void;const pending=new Promise<Response>(r=>finish=r);let logins=0;
+ vi.stubGlobal('fetch',vi.fn(async(path:string,opts?:RequestInit)=>{
+  if(path==='/api/auth/local')return new Response(JSON.stringify({access_token:++logins===1?'old':'new'}));
+  if(opts?.method==='PUT'||path.includes('offset=50'))return pending;
+  if(path.includes('/transactions'))return new Response(JSON.stringify(Array.from({length:50},(_,i)=>({id:String(i)}))));
+  if(path.includes('/analytics'))return new Response('{}');return new Response('[]');
+ }));
+ await localLogin();const {result}=renderHook(()=>useLedger('',true,0,'RUB'));
+ await waitFor(()=>expect(result.current.more).toBe(true));let operation!:Promise<unknown>;
+ act(()=>{operation=kind==='mutation'?result.current.mutate(()=>request('/accounts/a','',{method:'PUT',body:'{}'})):result.current.loadMore();});
+ await localLogin();act(()=>result.current.restoreSession());
+ await act(async()=>{finish(new Response('{"detail":"old expired"}',{status:401}));await operation;});
+ expect(authorization('')).toBe('Bearer new');expect(result.current.expired).toBe(false);expect(result.current.authRequired).toBe(false);expect(result.current.error).toBe('');clearSession();
+});

@@ -1,6 +1,8 @@
 import { moneyInput, currencyLabel } from '../../utils/money';
 import React, { useState } from 'react';
-import { TransactionEditor, CategoryChoices } from '../design/TransactionEditor';
+import { TransactionEditor } from '../design/TransactionEditor';
+import { CategorySelection } from '../design/CategorySelection';
+import { categorySelection } from '../../utils/categorySelection';
 import { AccountSelectSheet } from './AccountSelectSheet';
 import { ConfirmPanel } from '../design/Support';
 import { Transaction, Account, Category } from '../../types';
@@ -520,7 +522,7 @@ interface EditTransactionContentProps {
     type: 'expense' | 'income' | 'transfer';
     note?: string | null;
     created_at?: string;
-  }) => void;
+  }) => Promise<boolean>;
   onDelete: (id: string) => Promise<boolean>;
   onHaptic?: (type: 'light' | 'medium' | 'heavy') => void;
 }
@@ -605,8 +607,12 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
     accounts[0];
   const selectedToAcc = toAccountId
     ? accounts.find((a) => a.id === toAccountId)
-    : accounts.find((a) => a.id !== accountId && a.group_name !== 'Кредиты') || null;
-  const selectedCat = categories.find((c) => c.id === categoryId);
+    : accounts.find(a => !a.is_archived && a.id !== accountId && a.currency === selectedAcc?.currency) || null;
+  const selectedCat = categories.find(c => c.id === categoryId) ||
+    (categoryId && categoryId === transaction.category_id && transaction.category_name ? {
+      id: categoryId, name: `${transaction.category_name} (архивная)`, icon: transaction.category_icon || '📦',
+      color: '#F3F4F6', type: transaction.type === 'income' ? 'income' as const : 'expense' as const,
+    } : undefined);
 
   const liveSum = amountStr.includes('+') ? evaluateMathSum(amountStr) : null;
 
@@ -650,7 +656,8 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
       finalNote = undefined as any;
     }
 
-    await onSave({
+    try {
+    const saved = await onSave({
       id: transaction.id,
       amount: parsedAmount,
       account_id: accountId,
@@ -660,12 +667,19 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
       note: finalNote || null,
       created_at: selectedDate.toISOString(),
     });
-    setSaving(false);
+    if (!saved) setFormError('Не удалось сохранить. Проверьте сообщение сервера и повторите.');
+    } catch { setFormError('Не удалось сохранить. Проверьте соединение и повторите.'); }
+    finally { setSaving(false); }
   };
 
   const handleDelete = async () => {
-    onHaptic?.('heavy');
-    if (await onDelete(transaction.id)) onClose();
+    if (saving) return;
+    onHaptic?.('heavy'); setSaving(true); setFormError('');
+    try {
+      if (await onDelete(transaction.id)) onClose();
+      else setFormError('Не удалось удалить операцию. Проверьте сообщение сервера и повторите.');
+    } catch { setFormError('Не удалось удалить операцию. Проверьте соединение и повторите.'); }
+    finally { setSaving(false); }
   };
 
   // Format date for pill: "21 сент."
@@ -681,9 +695,9 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
   };
   const today = new Date(); const yesterday = new Date(today); yesterday.setDate(today.getDate()-1);
   const calendarLabel = selectedDate.toDateString() === today.toDateString() ? 'Сегодня' : selectedDate.toDateString() === yesterday.toDateString() ? 'Вчера' : dateLabel;
-  const parentCategory = categories.find(c => c.id === selectedCat?.parent_id) || selectedCat;
-  const childCategories = categories.filter(c => c.parent_id === parentCategory?.id);
-  return <TransactionEditor onClose={onClose} onDelete={() => setShowDeleteConfirm(true)} type={type} onType={changeType}
+  const matchingCategories = categories.filter(c => c.type === type || c.type === 'both');
+  const parentCategory = categorySelection(matchingCategories, selectedCat?.id).branch || selectedCat;
+  return <TransactionEditor locked={saving} onClose={() => { if (!saving) onClose(); }} onDelete={() => setShowDeleteConfirm(true)} type={type} onType={changeType}
     dateValue={toInputValue(selectedDate)} dateLabel={calendarLabel} onDate={value => {
       const [y,m,d] = value.split('-').map(Number); const next = new Date(selectedDate); next.setFullYear(y,m-1,d); setSelectedDate(next);
     }} source={selectedAcc} destination={selectedToAcc}
@@ -692,15 +706,15 @@ const EditTransactionModalContent: React.FC<EditTransactionContentProps> = ({
     amount={amountStr} onAmount={setAmountStr} onAmountBlur={handleAmountBlur} onAmountKeyDown={handleAmountKeyDown}
     amountHint={liveSum !== null && liveSum > 0 ? <button onClick={() => setAmountStr(liveSum.toString())}>= {liveSum} {currencyLabel(selectedAcc?.currency || 'RUB')}</button> : null}
     category={parentCategory} onCategory={() => setIsPickerOpen(open => !open)}
-    choices={isPickerOpen ? <CategoryChoices categories={categories.filter(c => c.type === type || c.type === 'both')} selected={categoryId}
-      onSelect={cat => { setCategoryId(cat.id); setSelectedSubcat(''); setIsPickerOpen(false); }} /> : childCategories.length ? <CategoryChoices categories={childCategories} selected={categoryId} onSelect={cat => setCategoryId(cat.id)} /> : null}
+    choices={<CategorySelection categories={matchingCategories} selected={categoryId} expanded={isPickerOpen}
+      onSelect={cat => { setCategoryId(cat.id); setSelectedSubcat(''); }} onCollapse={() => setIsPickerOpen(false)} />}
     note={note} onNote={setNote} onSave={() => void handleSave()} saving={saving} error={formError}>
     <AccountSelectSheet isOpen={isAccPickerOpen} onClose={() => setIsAccPickerOpen(false)}
-      accounts={accounts.filter(a => a.group_name !== 'Кредиты' && (accPickerTarget === 'to' ? a.id !== accountId : true))}
+      accounts={accounts.filter(a => !a.is_archived && (accPickerTarget === 'to' ? a.id !== accountId && a.currency === selectedAcc?.currency : true))}
       selectedAccountId={accPickerTarget === 'to' ? toAccountId || '' : accountId}
-      onSelectAccount={a => { if(accPickerTarget === 'to') setToAccountId(a.id); else setAccountId(a.id); setIsAccPickerOpen(false); }} />
+      onSelectAccount={a => { if(accPickerTarget === 'to') setToAccountId(a.id); else { setAccountId(a.id); if (selectedToAcc?.id === a.id || selectedToAcc?.currency !== a.currency) setToAccountId(null); } setIsAccPickerOpen(false); }} />
     {showDeleteConfirm && <ConfirmPanel title="Удалить операцию?" description="Баланс счёта будет автоматически восстановлен."
-      action="Удалить" onCancel={() => setShowDeleteConfirm(false)} onConfirm={() => void handleDelete()} />}
+      action="Удалить" busy={saving} error={formError} onCancel={() => { if (!saving) setShowDeleteConfirm(false); }} onConfirm={() => void handleDelete()} />}
   </TransactionEditor>;
 };
 

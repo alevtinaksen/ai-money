@@ -110,3 +110,32 @@ Implementation: [facade](../../bot/app/services/finance_svc.py),
 ## Legacy category catalog restoration
 
 An owner-authorized one-off import can copy the old database catalog and recover parent links from the previous UI catalog. Private input and SQL stay in ignored work/, never source examples. Reuse IDs for matching current categories to preserve existing transaction links; archive only unused onboarding placeholders. Validate owner, unchanged source metadata, acyclic parents and target set inside one PostgreSQL transaction. Replaying an identical plan is a no-op; a customized target must fail for review. Rehearse with ROLLBACK, then reconcile the committed catalog and financial state. No account balance or transaction is migrated by this operation.
+
+## Повтор создания счёта и категории — 9 октября 2026
+
+POST account/category принимает необязательный `client_id` (1–64 символа). Новый UI
+всегда создаёт ключ для одного намерения пользователя. Таблица `entity_creations`
+имеет составной primary key `(user_id, kind, client_id)` и хранит fingerprint
+канонического исходного payload и ID результата. Остаток/лимит нормализуются до
+двух десятичных знаков перед сравнением. Объект и ключ коммитятся вместе; отказ
+ключа откатывает объект и начальный остаток. Конкурентный проигравший возвращает
+результат победившего запроса после rollback. Категории используют существующую
+блокировку графа владельца. Другой payload с тем же ключом даёт 409; новый ключ
+позволяет намеренно создать одинаковые счета. Запрос без ключа сохраняет прежний
+контракт для старых клиентов; он не защищён от повторного создания.
+
+Ключ сохраняется после архивирования. Повтор возвращает исходный архивный объект,
+не восстанавливает его и не добавляет деньги. Реестр не требует чтения чужих данных;
+lookup включает владельца и вид объекта. Он не deduplicate старые записи и не
+исправляет возможные дубли в действующем бюджете.
+
+`init_db` добавляет отсутствующую таблицу в поддерживаемую схему версии 2 через
+metadata.create_all; не меняет колонки существующих таблиц и не трогает legacy public.
+Перед публикацией нужны резервная копия, проверка прав DDL и закрытых прав новой
+таблицы (anon/authenticated Supabase не должны читать реестр), затем PostgreSQL
+конкурентные пробы. Локально additive initialization, rollback и replay проверяются
+на SQLite; production-миграция в этом этапе не выполнялась.
+
+Входные bank/group ограничены 50, icon 20, color 30 символами, по колонкам PostgreSQL.
+Ответы читают более длинные прежние SQLite-значения без обрезки и ошибки GET.
+Тесты: `test_entity_creation_retry.py`, `test_http.py` (replay/conflict/input bounds/legacy reads).

@@ -105,3 +105,24 @@ async def test_legacy_or_ambiguous_version_is_never_mutated(tmp_path, monkeypatc
         assert (await conn.execute(text("SELECT value FROM sentinel"))).scalar() == "synthetic-preserved"
         assert "accounts" not in await conn.run_sync(lambda c: inspect(c).get_table_names())
     await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_supported_schema_adds_creation_registry_without_changing_balance(tmp_path, monkeypatch):
+    from app.models.creations import EntityCreation
+    from app.schemas.finance import AccountCreate
+    from app.services.finance_svc import FinanceService
+    engine, factory = database.create_engine_and_session(f"sqlite+aiosqlite:///{tmp_path / 'additive.db'}")
+    monkeypatch.setattr(database, 'engine', engine)
+    await database.init_db()
+    async with factory() as db:
+        account = await FinanceService.create_account(db, 1, AccountCreate(name='Synthetic', balance='1000'))
+        account_id = account.id
+    async with engine.begin() as conn:
+        await conn.run_sync(lambda c: EntityCreation.__table__.drop(c))
+    await database.init_db()
+    async with factory() as db:
+        rows = await FinanceService.get_accounts(db, 1)
+        assert len(rows) == 1 and rows[0].id == account_id and rows[0].balance == 1000
+        assert (await db.execute(text('SELECT count(*) FROM entity_creations'))).scalar() == 0
+    await engine.dispose()

@@ -8,10 +8,12 @@ export function ProposalRow({ proposal, accounts, categories, onSave, onBlockedC
   proposal: Proposal; accounts: Account[]; categories: Category[]; onSave: (data: TransactionInput) => Promise<CreationOutcome | boolean>;
   onBlockedChange?: (blocked: boolean) => void;
 }) {
-  const named = (name?: string) => accounts.find(account => account.name === name)?.id || '';
+  const named = (name?: string) => { const matches = accounts.filter(account => account.name === name); return matches.length === 1 ? matches[0].id : ''; };
+  const compatible = categories.filter(c => c.type === proposal.type || c.type === 'both');
+  const categoryMatches = compatible.filter(c => c.name === proposal.category_name);
   const [account, setAccount] = useState(proposal.account_name ? named(proposal.account_name) : (accounts.find(a => a.is_default) || accounts[0])?.id || '');
   const [target, setTarget] = useState(named(proposal.to_account_name));
-  const [category, setCategory] = useState(categories.find(c => c.name === proposal.category_name)?.id || '');
+  const [category, setCategory] = useState(categoryMatches.length === 1 ? categoryMatches[0].id : '');
   const [amount, setAmount] = useState(String(proposal.amount));
   const [note, setNote] = useState(proposal.note || '');
   const attempt = useCreationAttempt<TransactionInput>(onSave, onBlockedChange);
@@ -25,6 +27,7 @@ export function ProposalRow({ proposal, accounts, categories, onSave, onBlockedC
       if (proposal.type === 'transfer' && (!destination || source.id === destination.id || source.currency !== destination.currency)) {
         throw new Error('Для перевода выберите два разных счёта одной валюты');
       }
+      if (category && proposal.type !== 'transfer' && !compatible.some(c => c.id === category)) throw new Error('Выберите подходящую категорию');
       const payload: TransactionInput = { account_id: account, to_account_id: proposal.type === 'transfer' ? target : null,
         category_id: proposal.type === 'transfer' ? null : category || null,
         amount: moneyInput(amount), note, type: proposal.type };
@@ -41,7 +44,7 @@ export function ProposalRow({ proposal, accounts, categories, onSave, onBlockedC
     {proposal.type === 'transfer' ? <label className="block">Счёт зачисления <select value={target} onChange={e => setTarget(e.target.value)} className="bg-transparent">
       <option value="">Уточните получателя</option>{accounts.map(a => <option value={a.id} key={a.id}>{a.name} ({a.currency})</option>)}</select></label>
       : <label className="block">Категория <select value={category} onChange={e => setCategory(e.target.value)} className="bg-transparent">
-        <option value="">Без категории</option>{categories.filter(c => c.type === proposal.type || c.type === 'both').map(c => <option value={c.id} key={c.id}>{c.name}</option>)}</select></label>}
+        <option value="">Без категории</option>{compatible.map(c => <option value={c.id} key={c.id}>{c.name}</option>)}</select></label>}
     <label className="block">Комментарий <input value={note} onChange={e => setNote(e.target.value)} className="w-full" /></label>
     </fieldset>{(attempt.error || error) && <p role="alert" className="design-error">{attempt.error || error}</p>}
     <button disabled={attempt.phase === 'pending'} className="design-primary" onClick={() => void save()}>{attempt.phase === 'pending' ? 'Сохраняем…' : 'Подтвердить и сохранить'}</button>

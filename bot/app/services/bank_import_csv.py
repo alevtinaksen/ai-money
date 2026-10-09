@@ -27,26 +27,29 @@ def parse_csv(content: bytes, account_id: str, currency: str) -> list[dict]:
         text = content.decode("utf-8-sig")
     except UnicodeError:
         raise ValueError("CSV должен быть в UTF-8") from None
-    reader = csv.DictReader(io.StringIO(text))
-    required = {"date", "amount", "currency", "description"}
-    if (
-        not reader.fieldnames
-        or not required.issubset(reader.fieldnames)
-        or len(reader.fieldnames) != len(set(reader.fieldnames))
-    ):
-        raise ValueError("Нужны уникальные колонки date,amount,currency,description")
-    rows = []
-    for raw in reader:
-        if len(rows) >= MAX_ROWS:
-            raise ValueError("Допустимо не более 1000 строк")
-        if None in raw:
-            raise ValueError("Число значений не совпадает с заголовком CSV")
-        row = normalize_row(raw, account_id, currency)
-        row["source_key"] = source_key(row)
-        rows.append(row)
-    if not rows:
-        raise ValueError("CSV не содержит операций")
-    return rows
+    try:
+        reader = csv.DictReader(io.StringIO(text))
+        required = {"date", "amount", "currency", "description"}
+        if (
+            not reader.fieldnames
+            or not required.issubset(reader.fieldnames)
+            or len(reader.fieldnames) != len(set(reader.fieldnames))
+        ):
+            raise ValueError("Нужны уникальные колонки date,amount,currency,description")
+        rows = []
+        for raw in reader:
+            if len(rows) >= MAX_ROWS:
+                raise ValueError("Допустимо не более 1000 строк")
+            if None in raw:
+                raise ValueError("Число значений не совпадает с заголовком CSV")
+            row = normalize_row(raw, account_id, currency)
+            row["source_key"] = source_key(row)
+            rows.append(row)
+        if not rows:
+            raise ValueError("CSV не содержит операций")
+        return rows
+    except csv.Error:
+        raise ValueError("Некорректный CSV: проверьте структуру и размер полей") from None
 
 
 def normalize_row(raw: dict, account_id: str, currency: str) -> dict:
@@ -93,7 +96,7 @@ def normalize_row(raw: dict, account_id: str, currency: str) -> dict:
             type=kind,
             date=date.isoformat(),
         )
-    except (ValueError, InvalidOperation):
+    except (ValueError, InvalidOperation, OverflowError):
         row.update(
             include=False,
             error="Проверьте дату, ненулевую сумму с копейками, валюту и статус posted; переводы импортировать нельзя",

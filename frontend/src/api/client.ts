@@ -57,19 +57,29 @@ export const updateTransactionAPI = (auth: string, id: string, data: Omit<Transa
 export const deleteTransactionAPI = (auth: string, id: string, revision: number) =>
   request(`/transactions/${id}?revision=${revision}`, auth, { method: 'DELETE' });
 export type AccountInput = Pick<Account, 'name' | 'group_name' | 'icon'> & {
-  bank_name?: string | null; color?: string; currency?: string; balance?: string;
+  bank_name?: string | null; color?: string; currency?: string; balance?: string; client_id?: string;
 };
-export const createAccountAPI = (auth: string, data: AccountInput) =>
-  request<Account>('/accounts', auth, { method: 'POST', body: JSON.stringify(data) });
+export const createAccountAPI = async (auth: string, data: AccountInput): Promise<Account> => {
+  const result = await request<Account | null>('/accounts', auth, { method: 'POST', body: JSON.stringify(data) });
+  if (!result || typeof result.id !== 'string' || !result.id.trim() || result.currency !== (data.currency || 'RUB') ||
+      typeof result.balance !== 'number' || !Number.isFinite(result.balance)) {
+    throw new ApiError(0, 'Сервер не подтвердил создание счёта. Повторите тот же черновик.');
+  }
+  return result;
+};
 export const updateAccountAPI = (auth: string, id: string, data: Omit<AccountInput, 'balance' | 'currency'>) =>
   request<Account>(`/accounts/${id}`, auth, { method: 'PUT', body: JSON.stringify(data) });
 export const deleteAccountAPI = (auth: string, id: string) => request(`/accounts/${id}`, auth, { method: 'DELETE' });
 export type CategoryInput = Pick<Category, 'name' | 'type' | 'icon' | 'color'> & {
-  parent_id?: string | null; budget_limit?: string | null; sort_order?: number;
+  parent_id?: string | null; budget_limit?: string | null; sort_order?: number; client_id?: string;
 };
-export const saveCategoryAPI = (auth: string, data: CategoryInput, id?: string) =>
-  request<Category>(id ? `/categories/${id}` : '/categories', auth,
-    { method: id ? 'PUT' : 'POST', body: JSON.stringify(data) });
+export const saveCategoryAPI = async (auth: string, data: CategoryInput, id?: string) => {
+  const { client_id, ...metadata } = data;
+  const result = await request<Category | null>(id ? `/categories/${id}` : '/categories', auth,
+    { method: id ? 'PUT' : 'POST', body: JSON.stringify(id ? metadata : { ...metadata, client_id }) });
+  if (!result || typeof result.id !== 'string' || !result.id.trim()) throw new ApiError(0, 'Сервер не подтвердил сохранение категории.');
+  return result;
+};
 export const deleteCategoryAPI = (auth: string, id: string) => request(`/categories/${id}`, auth, { method: 'DELETE' });
 export interface Proposal { amount: string | number; type: Transaction['type']; note?: string;
   account_name?: string; to_account_name?: string; category_name?: string; }

@@ -56,3 +56,18 @@ it.each(['Продукты', '  Продукты  ', 'Обед • Продук�
   await waitFor(()=>expect(save).toHaveBeenCalledOnce());
   expect(save.mock.calls[0][0]).toMatchObject({amount:11,note});
 });
+
+it('new transfer chooses and lists only distinct active same-currency destinations',()=>{
+  render(<AddTransactionScreen initialType="transfer" accounts={[a,{...b,id:'usd',name:'USD first',currency:'USD'}, {...b,group_name:'Кредиты'},{...b,id:'arch',name:'Archived',is_archived:true}]} selectedAccount={a} categories={[]} onClose={()=>{}} onSubmit={vi.fn(async()=>false)}/>);
+  expect(screen.getByRole('button',{name:'Счёт зачисления'}).textContent).toContain(b.name);
+  fireEvent.click(screen.getByRole('button',{name:'Счёт зачисления'}));
+  expect(screen.queryByText('USD first')).toBeNull();expect(screen.queryByText('Archived')).toBeNull();
+});
+it('source currency change clears a destination when no compatible account exists',async()=>{
+  const usd={...b,id:'usd',name:'Dollar',currency:'USD'};const save=vi.fn(async(_data:Partial<Transaction>)=>false);
+  render(<AddTransactionScreen initialType="transfer" accounts={[a,b,usd]} selectedAccount={a} categories={[]} onClose={()=>{}} onSubmit={save}/>);
+  fireEvent.click(screen.getByRole('button',{name:'Счёт списания'}));fireEvent.click(screen.getByRole('button',{name:/Dollar/}));
+  expect(screen.getByRole('button',{name:'Счёт зачисления'}).textContent).toContain('Выберите счёт');
+  fireEvent.change(screen.getByLabelText('Сумма'),{target:{value:'10'}});fireEvent.click(screen.getByRole('button',{name:'Сохранить'}));
+  await waitFor(()=>expect(screen.getByRole('alert')).toBeTruthy());expect(save).not.toHaveBeenCalled();
+});

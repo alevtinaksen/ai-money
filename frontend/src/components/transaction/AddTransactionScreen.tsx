@@ -1,7 +1,9 @@
 import { CreationOutcome, useCreationAttempt } from '../../hooks/useCreationAttempt';
 import { moneyInput } from '../../utils/money';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { TransactionEditor, CategoryChoices } from '../design/TransactionEditor';
+import { TransactionEditor } from '../design/TransactionEditor';
+import { CategorySelection } from '../design/CategorySelection';
+import { categorySelection } from '../../utils/categorySelection';
 import { Account, Category, Transaction, TransactionType } from '../../types';
 import { AccountSelectSheet } from '../modals/AccountSelectSheet';
 import { resolveAccountBankAndName } from '../../utils/bankUtils';
@@ -53,25 +55,20 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
   // Source and Destination accounts
 
   const [fromAccount, setFromAccount] = useState<Account>(selectedAccount);
-  const [toAccount, setToAccount] = useState<Account>(() => {
-    const other = accounts.find((a) => a.id !== selectedAccount.id);
-    return other || selectedAccount;
+  const [toAccount, setToAccount] = useState<Account | null>(() => {
+    return accounts.find(a => !a.is_archived && a.id !== selectedAccount.id && a.currency === selectedAccount.currency) || null;
   });
 
-  const toResolved = useMemo(() => resolveAccountBankAndName(toAccount), [toAccount]);
+  const toResolved = useMemo(() => toAccount ? resolveAccountBankAndName(toAccount) : null, [toAccount]);
 
   // Account selector modal state ('from' | 'to' | null)
   const [accountPickerTarget, setAccountPickerTarget] = useState<'from' | 'to' | null>(null);
 
   // Selected Category
   const [selectedCategory, setSelectedCategory] = useState<Category>(() => {
-    if (initialType === 'transfer' || initialCategoryId) {
-      const match = categories.find(
-        (c) =>
-          c.id === initialCategoryId ||
-          c.name.toLowerCase().includes('перевод') ||
-          c.icon === '💸'
-      );
+    if (initialCategoryId) {
+      const match = categories.find(c => c.id === initialCategoryId &&
+        (initialType === 'transfer' || c.type === (initialType || 'expense') || c.type === 'both'));
       if (match) return match;
     }
     return categories.find(c => c.type === (initialType || 'expense') || c.type === 'both') || {
@@ -106,13 +103,6 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
     return `${y}-${m}-${d}`;
   };
 
-
-  // Find transfer category helper
-  const transferCategory = useMemo(() => {
-    return categories.find(
-      (c) => c.name.toLowerCase().includes('перевод') || c.icon === '💸'
-    );
-  }, [categories]);
 
   // Category popularity & user priority scoring:
   // 1. Food / Groceries (top priority: 3000)
@@ -180,7 +170,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
       return c.type === txType || c.type === 'both';
     });
 
-    const targetList = matchingCats.length > 0 ? matchingCats : categories;
+    const targetList = matchingCats;
 
     const sorted = [...targetList].sort((a, b) => {
       if (txType === 'transfer') {
@@ -197,9 +187,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
     });
 
     const selected = sorted.find((c) => c.id === selectedCategory.id);
-    if (!selected) {
-      return [selectedCategory, ...sorted.filter((c) => c.id !== selectedCategory.id)];
-    }
+    if (!selected) return sorted;
     const others = sorted.filter((c) => c.id !== selectedCategory.id);
     return [selected, ...others];
   }, [categories, categoryScores, selectedCategory, txType]);
@@ -235,6 +223,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
 
   // Swap accounts for transfers
   const handleSwapAccounts = useCallback(() => {
+    if (!toAccount) return;
     onHaptic?.('medium');
     setFromAccount((prevFrom) => {
       const nextFrom = toAccount;
@@ -252,7 +241,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
     let parsedAmount: number;
     try { parsedAmount = Number(moneyInput(amountStr)); }
     catch { setIsAmountError(true); return; }
-    if (txType === 'transfer' && (fromAccount.id === toAccount.id || fromAccount.currency !== toAccount.currency)) {
+    if (txType === 'transfer' && (!toAccount || fromAccount.id === toAccount.id || fromAccount.currency !== toAccount.currency)) {
       setIsAmountError(true); return;
     }
 
@@ -260,7 +249,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
 
     const finalNote = note.trim() || (
       txType === 'transfer'
-        ? `Перевод на ${toResolved.cleanName}`
+        ? `Перевод на ${toResolved?.cleanName}`
         : selectedCategory.name
     );
 
@@ -268,7 +257,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
 
     const payload = {
       account_id: fromAccount.id,
-      to_account_id: txType === 'transfer' ? toAccount.id : undefined,
+      to_account_id: txType === 'transfer' ? toAccount?.id : undefined,
       category_id: finalCatId,
       amount: parsedAmount,
       type: txType,
@@ -283,14 +272,13 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
     amountStr,
     fromAccount.id,
     fromAccount.currency,
-    toAccount.id,
-    toAccount.currency,
-    toResolved.cleanName,
+    toAccount?.id,
+    toAccount?.currency,
+    toResolved?.cleanName,
     txType,
     note,
     selectedCategory.name,
     selectedCategory.id,
-    transferCategory,
     accounts,
     onSubmit,
     attempt,
@@ -341,28 +329,19 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
   const setMode = useCallback((type: TransactionType) => {
     onHaptic?.('light');
     setTxType(type);
-    if (type === 'transfer') {
-      if (transferCategory) setSelectedCategory(transferCategory);
-    } else if (selectedCategory.type !== type && selectedCategory.type !== 'both') {
-      const regularCat = categories.find((c) => c.type === type && !c.name.toLowerCase().includes('перевод'));
+    if (type !== 'transfer' && selectedCategory.type !== type && selectedCategory.type !== 'both') {
+      const regularCat = categories.find(c => c.type === type || c.type === 'both');
       setSelectedCategory(regularCat || { ...selectedCategory, id: '', name: 'Без категории', icon: '📦', type });
     }
-  }, [categories, onHaptic, selectedCategory, transferCategory]);
+  }, [categories, onHaptic, selectedCategory]);
 
   // Category click handler
   const handleCategorySelect = (cat: Category) => {
     onHaptic?.('light');
     setSelectedCategory(cat);
-    const isTransferCat = cat.name.toLowerCase().includes('перевод') || cat.icon === '💸';
-    if (isTransferCat) {
-      setTxType('transfer');
-    } else if (txType === 'transfer') {
-      setTxType(cat.type === 'income' ? 'income' : 'expense');
-    }
   };
 
-  const parentCategory = categories.find(c => c.id === selectedCategory.parent_id) || selectedCategory;
-  const childCategories = categories.filter(c => c.parent_id === parentCategory.id);
+  const parentCategory = categorySelection(orderedCategories, selectedCategory.id).branch || selectedCategory;
   return <TransactionEditor onClose={close} type={txType} onType={setMode}
     dateValue={toInputValue(selectedDate)} dateLabel={formatDateLabel(selectedDate)} onDate={value => {
       const [y,m,d] = value.split('-').map(Number); const next = new Date(selectedDate); next.setFullYear(y,m-1,d); setSelectedDate(next);
@@ -370,13 +349,14 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
     onDestination={() => setAccountPickerTarget('to')} onSwap={handleSwapAccounts} amount={amountStr}
     onAmount={value => { if (!attempt.locked) { setAmountStr(value); setIsAmountError(false); } }}
     category={parentCategory} onCategory={() => setCategoryPickerOpen(open => !open)}
-    choices={categoryPickerOpen ? <CategoryChoices categories={orderedCategories} selected={selectedCategory.id} onSelect={cat => { handleCategorySelect(cat); setCategoryPickerOpen(false); }} /> : childCategories.length ? <CategoryChoices categories={childCategories} selected={selectedCategory.id} onSelect={handleCategorySelect} /> : null}
+    choices={<CategorySelection categories={orderedCategories} selected={selectedCategory.id} expanded={categoryPickerOpen}
+      onSelect={handleCategorySelect} onCollapse={() => setCategoryPickerOpen(false)} />}
     note={note} onNote={setNote} onSave={() => void handleSubmit()} saving={isSubmitting} locked={attempt.locked}
     error={attempt.error || (isAmountError ? 'Проверьте положительную сумму до копеек. Для перевода нужны разные счета одной валюты.' : undefined)}>
-    <AccountSelectSheet isOpen={accountPickerTarget !== null} onClose={() => setAccountPickerTarget(null)} accounts={accounts}
-      selectedAccountId={accountPickerTarget === 'to' ? toAccount.id : fromAccount.id} onSelectAccount={acc => {
-        if (accountPickerTarget === 'from') { setFromAccount(acc); if (acc.id === toAccount.id) { const alt=accounts.find(a=>a.id!==acc.id); if(alt) setToAccount(alt); } }
-        else { setToAccount(acc); if (acc.id === fromAccount.id) { const alt=accounts.find(a=>a.id!==acc.id); if(alt) setFromAccount(alt); } }
+    <AccountSelectSheet isOpen={accountPickerTarget !== null} onClose={() => setAccountPickerTarget(null)} accounts={accounts.filter(a => !a.is_archived && (accountPickerTarget === 'to' ? a.id !== fromAccount.id && a.currency === fromAccount.currency : true))}
+      selectedAccountId={accountPickerTarget === 'to' ? toAccount?.id || '' : fromAccount.id} onSelectAccount={acc => {
+        if (accountPickerTarget === 'from') { setFromAccount(acc); if (!toAccount || acc.id === toAccount.id || acc.currency !== toAccount.currency) setToAccount(accounts.find(a => !a.is_archived && a.id !== acc.id && a.currency === acc.currency) || null); }
+        else setToAccount(acc);
         setAccountPickerTarget(null);
       }} onHaptic={() => onHaptic?.('light')} />
   </TransactionEditor>;

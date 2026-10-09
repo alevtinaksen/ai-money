@@ -50,7 +50,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 async def init_db():
     """Initialize a fresh schema; never mutate unversioned legacy financial data."""
-    from app.models import models, imports  # noqa: F401
+    from app.models import models, imports, creations  # noqa: F401
     from app.services import bot_drafts  # noqa: F401
     async with engine.begin() as connection:
         schema = Base.metadata.schema

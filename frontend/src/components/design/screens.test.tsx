@@ -22,7 +22,7 @@ it('keeps currencies separate and account group collapse and selection working',
   expect(screen.getByLabelText('Остатки по валютам').textContent).toContain('150');
   expect(screen.getByLabelText('Остатки по валютам').textContent).toContain('20');
   fireEvent.click(screen.getByRole('button', { name: /Основной/ })); expect(select).toHaveBeenCalledWith(account);
-  fireEvent.click(screen.getByRole('button', { name: 'Личное' })); expect(screen.queryByRole('button', { name: /Основной/ })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Другие счета' })); expect(screen.queryByRole('button', { name: /Основной/ })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Создать счёт' })); expect(create).toHaveBeenCalledOnce();
   fireEvent.click(screen.getByRole('button', { name: 'Перевести между счетами' })); expect(transfer).toHaveBeenCalledOnce();
 });

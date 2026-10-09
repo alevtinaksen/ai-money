@@ -20,9 +20,9 @@ export function Amount({ value, currency, fixed = false, sign = '' }: {
   return <span className="design-amount"><span>{sign}{fixed ? value.toFixed(2) : String(Number(value.toFixed(2)))}</span>
     <span className="design-currency">{currencyLabel(currency)}</span></span>;
 }
-export function ScreenHeader({ title, onBack, action }: { title: string; onBack: () => void; action: ReactNode }) {
+export function ScreenHeader({ title, onBack, action, backDisabled = false }: { title: string; onBack: () => void; action: ReactNode; backDisabled?: boolean }) {
   return <header className="design-header"><div className="design-header-leading">
-    <IconButton icon="back" label="Назад" onClick={onBack} /><h1>{title}</h1>
+    <IconButton icon="back" label="Назад" onClick={onBack} disabled={backDisabled} /><h1>{title}</h1>
   </div>{action}</header>;
 }
 export function ActionBar({ children, single = false }: { children: ReactNode; single?: boolean }) {
