@@ -95,7 +95,7 @@ export function useTelegram() {
     username: 'demo_user',
   };
 
-  const initData = tg?.initData || 'demo:999999';
+  const initData = tg?.initData || '';
 
   return {
     tg,

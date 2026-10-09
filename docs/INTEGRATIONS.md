@@ -8,6 +8,8 @@
 4. Отправить /start в личном чате. Это явная инициализация нулевого счёта и стандартных категорий; обычные GET-запросы ничего не создают.
 5. Написать «расход 250,50 кофе», убедиться, что до подтверждения баланс прежний; подтвердить и проверить Mini App. Повторное нажатие не должно создать вторую запись.
 6. Проверить реальное закрытие/повторное открытие Mini App, изменение операции, недоступность сети и восстановление.
+7. Отправить тестовую фразу «расход 250 рублей кофе» голосом OGG/Opus, затем аудиофайлами MP3/M4A/WAV; можно приложить их как document. Проверить сумму250 и счёт в черновике, прежний баланс до подтверждения и ровно одно списание после повторного подтверждения. Пустой/повреждённый файл и ошибка загрузки должны дать ответ, сохранив баланс. Лимит5МБ применяется к реальным байтам при загрузке, даже если Telegram сообщает меньший размер.
+8. Повторить голосом «расход пять тысяч рублей кофе» и «расход двести пятьдесят рублей пятьдесят копеек кофе». Черновик должен показывать соответственно5 000,00 и250,50; при несовпадении модельной суммы с распознанным текстом бот показывает этот текст и просит уточнить, без кнопки сохранения ошибочного черновика. Для Gemini требуется transcript в ответе аудио; согласованность transcript/amount не заменяет проверки человеком.
 
 Локальный браузерный профиль ID1 и Telegram-профиль независимы; произвольный user_id или X-User-Id не выбирает чужую личность.
 Telegram initData проверяется по HMAC, возрасту до часа и допустимому будущему смещению30секунд. Это выбранная политика приложения.
@@ -16,7 +18,7 @@ Telegram initData проверяется по HMAC, возрасту до час
 ## Gemini API
 
 Разработка в Antigravity и API, вызываемый самим ботом, — разные подключения и квоты.
-Поля bot/.env: AI_PROVIDER=gemini, GEMINI_MODEL=gemini-3.8-flash, GEMINI_API_KEY=ваш_ключ, AI_UPLOAD_CONSENT=true.
+Поля bot/.env: AI_PROVIDER=gemini, GEMINI_MODEL=gemini-3.5-flash-lite, GEMINI_API_KEY=ваш_ключ, AI_UPLOAD_CONSENT=true.
 До осознанного включения установлен AI_PROVIDER=disabled; никакого скрытого резервного поставщика нет.
 
 Gemini получает текст/выбранный файл и названия ваших счетов/категорий. Не загружайте чужие выписки или данные, которые нельзя передавать этому поставщику. Условия обработки и тариф нужно проверить в своём аккаунте.
@@ -25,6 +27,26 @@ Gemini получает текст/выбранный файл и названи
 
 Проверить на синтетическом тексте, затем тестовом голосе и чеке: результат — только предложение; сумма и счёт подтверждаются человеком.
 Без облака работает узкая грамматика «расход 250,50 кофе» и «доход 1000 зарплата»; сложные выражения, даты, тысячи словами требуют ручного ввода.
-В интерфейсе загружается аудиофайл; запись микрофона непосредственно браузером не реализована.
+Кнопка микрофона начинает запись в браузере; остановка отправляет аудио для подготовки черновика, отмена освобождает микрофон без отправки. Если запись недоступна, остаётся загрузка аудиофайла. Нужны разрешение браузера и HTTPS (для локального стенда — loopback). См. [MediaRecorder](https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder).
+
+Gemini 3.5 Flash-Lite выбран для уменьшения задержки: поддерживает аудио, изображения и JSON-ответы, по умолчанию использует minimal thinking. [Контракт модели](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite). Это выбор варианта для проверки; фактические скорость и точность проверяются живым голосовым сообщением. Ошибки и timeout не создают операции.
+
+GEMINI_AUDIO_MODE=transcribe включает отдельную Gemini 3.5 Transcribe: аудио → дословный текст → финансовые предложения через GEMINI_MODEL. По умолчанию multimodal сохраняет прежний один вызов; фото и обычный текст режим не меняет. Для нового режима используются тот же ключ Google и согласие, язык ru-RU, VERBATIM вместо редактирующего SMART. JSON/суммы/STOP проверяются как прежде. HTTP timeout транскрипции20s, общий бюджет двух стадий45s. При отказе нет скрытого переключения модели или поставщика. Возврат к multimodal требует сохранения env и перезапуска сервера.
+
+Контракт9октября2026: [Transcribe generateContent](https://ai.google.dev/gemini-api/docs/generate-content/transcribe), [inline audio](https://ai.google.dev/gemini-api/docs/generate-content/audio#pass-audio-data-inline), [цены и free tier](https://ai.google.dev/gemini-api/docs/pricing#gemini-3.5-transcribe). Inline payload укладывается в лимит20МБ при нашем limit5МБ. Доступность конкретной модели для ключа и итоговая задержка требуют живой приёмки; локальные wire tests этого не доказывают.
 
 Официальные источники: [Telegram Mini Apps](https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app), [Gemini generateContent](https://ai.google.dev/api/generate-content), [Structured output](https://ai.google.dev/gemini-api/docs/structured-output). Проверены26.09.2026.
+
+## Режим доставки и production
+
+TELEGRAM_MODE=polling: отдельный scripts/project.py bot; API не получает updates.
+TELEGRAM_MODE=webhook: API регистрирует HTTPS SERVER_URL/api/telegram/webhook; обязательны BOT_TOKEN и TELEGRAM_WEBHOOK_SECRET, local-login запрещён.
+TELEGRAM_MODE=disabled: без Telegram. Один токен — один владелец updates.
+
+Render blueprint собирает frontend+backend в существующем native Python service. Render production требует внешнюю PostgreSQL DATABASE_URL. SQLite разрешается только с явным SQLITE_PERSISTENT_STORAGE=true после настройки постоянного тома (как в compose); без него старт отклоняется. Значения env задаются владельцем; конфигурация не является выполненным deployment.
+
+## Groq
+
+AI_PROVIDER=groq, GROQ_API_KEY и AI_UPLOAD_CONSENT=true явно разрешают текст и аудио. Аудио направляется в Groq OpenAI-compatible /audio/transcriptions (whisper-large-v3-turbo, language=ru), затем текст в chat/completions для финансовых предложений; фото требует Gemini. Каждая стадия использует общий лимит4 запросов, без вложенного захвата слота. Ошибка не переключает поставщика и не записывает операцию. Wire-contract проверяется mock-тестом без загрузки в облако; доступность модели/аккаунта требует синтетической внешней приёмки.
+
+Аудио-контракты сверены8октября2026: [Groq transcriptions](https://github.com/groq/groq-python/blob/main/_autodocs/api-reference/audio.md), [Gemini audio formats](https://ai.google.dev/gemini-api/docs/audio), [aiogram file download](https://docs.aiogram.dev/en/latest/api/download_file.html).

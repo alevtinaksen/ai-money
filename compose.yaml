@@ -7,8 +7,10 @@ services:
     env_file:
       - bot/.env
     environment:
+      TELEGRAM_MODE: disabled
       HOST: 0.0.0.0
       APP_ENV: production
+      SQLITE_PERSISTENT_STORAGE: "true"
       ALLOW_LOCAL_LOGIN: "false"
       DATABASE_URL: sqlite+aiosqlite:////data/finance.db
     volumes:
@@ -21,7 +23,9 @@ services:
     env_file:
       - bot/.env
     environment:
+      TELEGRAM_MODE: polling
       APP_ENV: production
+      SQLITE_PERSISTENT_STORAGE: "true"
       ALLOW_LOCAL_LOGIN: "false"
       DATABASE_URL: sqlite+aiosqlite:////data/finance.db
     volumes:

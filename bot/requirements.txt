@@ -139,6 +139,3 @@ websockets==17.1
     # via uvicorn
 yarl==1.25.1
     # via aiohttp
-speechrecognition==3.17.0
-pydub==0.25.1
-imageio-ffmpeg==0.6.0

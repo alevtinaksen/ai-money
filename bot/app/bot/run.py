@@ -4,10 +4,11 @@ from aiogram import Bot, Dispatcher
 from app.core.config import settings
 from app.core.database import engine, init_db
 from app.bot.handlers.safe_flow import router
-from app.bot.notifier import notify_restart
 
 
 async def main():
+    if settings.TELEGRAM_MODE != "polling":
+        raise SystemExit("Standalone bot requires TELEGRAM_MODE=polling; webhook belongs to API")
     if not settings.BOT_TOKEN:
         raise SystemExit("Set BOT_TOKEN in bot/.env; never paste it in chat")
     await init_db()
@@ -16,7 +17,6 @@ async def main():
     async with Bot(settings.BOT_TOKEN) as bot:
         try:
             await bot.delete_webhook(drop_pending_updates=False)
-            asyncio.create_task(notify_restart(bot))
             await dispatcher.start_polling(bot, handle_as_tasks=True, drop_pending_updates=False)
         finally:
             await engine.dispose()

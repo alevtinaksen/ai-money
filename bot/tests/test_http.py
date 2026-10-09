@@ -63,3 +63,122 @@ async def test_chunked_upload_rejected_before_parsing(client):
 async def test_local_login_foreign_origin_forbidden(client):
     response = await client.post("/api/auth/local", headers={"Origin":"https://evil.example"})
     assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_null_date_rejected_without_financial_mutation(client):
+    login = await client.post('/api/auth/local')
+    client.headers['Authorization'] = f"Bearer {login.json()['access_token']}"
+    await client.post('/api/onboarding')
+    account = (await client.get('/api/accounts')).json()[0]
+    tx = (await client.post('/api/transactions', json={
+        'account_id': account['id'], 'amount': '1.00', 'client_id': 'null-date'
+    })).json()
+    result = await client.put(f"/api/transactions/{tx['id']}", json={
+        'revision': 1, 'amount': '2.00', 'created_at': None
+    })
+    assert result.status_code == 422
+    assert (await client.get('/api/accounts')).json()[0]['balance'] == -1
+    assert (await client.get('/api/transactions')).json()[0]['revision'] == 1
+    assert (await client.get('/api/analytics/dashboard')).status_code == 200
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('name', ['', 'x' * 101])
+async def test_invalid_account_name_update_never_persists(client, name):
+    login = await client.post('/api/auth/local')
+    client.headers['Authorization'] = f"Bearer {login.json()['access_token']}"
+    account = (await client.post('/api/accounts', json={'name': 'Original', 'balance': 100})).json()
+    response = await client.put(f"/api/accounts/{account['id']}", json={
+        'name': name, 'color': '#123456',
+    })
+    assert response.status_code == 422
+    listing = await client.get('/api/accounts')
+    assert listing.status_code == 200
+    assert listing.json() == [account]
+
+
+@pytest.mark.asyncio
+async def test_category_analytics_http_auth_parameters_and_empty_month(client):
+    path = '/api/analytics/categories/uncategorized'
+    assert (await client.get(path)).status_code == 401
+    login = await client.post('/api/auth/local')
+    client.headers['Authorization'] = f"Bearer {login.json()['access_token']}"
+    result = await client.get(path + '?kind=income&currency=USD')
+    assert result.status_code == 200
+    assert result.json()['total_amount'] == 0 and result.json()['transactions'] == []
+    assert (await client.get(path + '?kind=transfer')).status_code == 422
+    assert (await client.get(path + '?offset=-1')).status_code == 422
+    assert (await client.get('/api/analytics/categories/nonexistent')).status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_browser_audio_mime_parameters_are_normalized(client, monkeypatch):
+    from app.schemas.finance import AIParsedResult
+    from app.services.ai_parser import AIParserService
+    seen = []
+    async def parser(data, mime, accounts, categories):
+        seen.append(mime)
+        return AIParsedResult()
+    monkeypatch.setattr(AIParserService, 'parse_media', parser)
+    login = await client.post('/api/auth/local')
+    client.headers['Authorization'] = f"Bearer {login.json()['access_token']}"
+    response = await client.post('/api/ai/parse-voice', files={
+        'file': ('voice.webm', b'synthetic', 'audio/webm;codecs=opus')})
+    assert response.status_code == 200 and seen == ['audio/webm']
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(('mime', 'filename', 'expected'), [
+    ('audio/mp3', 'voice.mp3', 'audio/mpeg'),
+    ('audio/x-m4a', 'voice.m4a', 'audio/mp4'),
+    ('application/ogg', 'voice.ogg', 'audio/ogg'),
+    ('application/octet-stream', 'voice.wav', 'audio/wav'),
+])
+async def test_supported_audio_alias_reaches_parser(client, monkeypatch, mime, filename, expected):
+    from app.schemas.finance import AIParsedResult
+    from app.services.ai_parser import AIParserService
+    seen = []
+    async def parser(data, normalized, accounts, categories):
+        seen.append(normalized)
+        return AIParsedResult()
+    monkeypatch.setattr(AIParserService, 'parse_media', parser)
+    login = await client.post('/api/auth/local')
+    client.headers['Authorization'] = f"Bearer {login.json()['access_token']}"
+    response = await client.post('/api/ai/parse-voice', files={'file': (filename, b'synthetic', mime)})
+    assert response.status_code == 200 and seen == [expected]
+    rejected = await client.post('/api/ai/parse-voice', files={'file': ('voice.exe', b'wrong', 'application/octet-stream')})
+    assert rejected.status_code == 415 and seen == [expected]
+
+
+@pytest.mark.asyncio
+async def test_creation_http_replay_and_input_bounds_keep_legacy_reads(client):
+    from app.models.models import Account, Category
+    login = await client.post('/api/auth/local')
+    client.headers['Authorization'] = f"Bearer {login.json()['access_token']}"
+    payload = {'name': 'Synthetic', 'balance': '1000', 'client_id': 'stable-account'}
+    original = (await client.post('/api/accounts', json=payload)).json()
+    assert (await client.post('/api/accounts', json=payload)).json()['id'] == original['id']
+    assert (await client.post('/api/accounts', json={**payload, 'balance': '2000'})).status_code == 409
+    assert len((await client.get('/api/accounts')).json()) == 1
+    for field, limit in [('bank_name', 50), ('group_name', 50), ('icon', 20), ('color', 30)]:
+        assert (await client.post('/api/accounts', json={'name':'Too long',field:'x'*(limit+1)})).status_code == 422
+    cat_payload = {'name': 'Synthetic category', 'client_id': 'stable-category'}
+    cat = (await client.post('/api/categories', json=cat_payload)).json()
+    assert (await client.post('/api/categories', json=cat_payload)).json()['id'] == cat['id']
+    # Reproduce valid pre-fix SQLite values directly; do not mutate real budgets.
+    async for db in app.dependency_overrides[get_db]():
+        acc_model = await db.get(Account, original['id'])
+        acc_model.bank_name = 'b' * 51
+        acc_model.group_name = 'g' * 51
+        acc_model.icon = 'i' * 21
+        acc_model.color = 'c' * 31
+        cat_model = await db.get(Category, cat['id'])
+        cat_model.icon = 'i' * 21
+        cat_model.color = 'c' * 31
+        await db.commit()
+    accounts = await client.get('/api/accounts')
+    cats = await client.get('/api/categories')
+    assert accounts.status_code == 200 and cats.status_code == 200
+    assert accounts.json()[0]['bank_name'] == 'b' * 51
+    assert cats.json()[0]['icon'] == 'i' * 21

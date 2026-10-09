@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import Optional, List, Literal
-from pydantic import BaseModel, Field, ConfigDict, AfterValidator, AwareDatetime
+from pydantic import BaseModel, Field, ConfigDict, AfterValidator, AwareDatetime, field_validator
 from decimal import Decimal
 from typing import Annotated
 
@@ -28,30 +28,35 @@ class StrictModel(BaseModel):
 # --- Account Schemas ---
 class AccountBase(StrictModel):
     name: str = Field(min_length=1, max_length=100)
-    group_name: str = "Личное"
-    bank_name: Optional[str] = None
+    group_name: str = Field(default="Личное", max_length=50)
+    bank_name: Optional[str] = Field(default=None, max_length=50)
     balance: Money = Decimal("0.00")
     currency: str = Field(default="RUB", pattern="^[A-Z]{3}$")
-    icon: str = "💳"
-    color: str = "#2B5BFF"
+    icon: str = Field(default="💳", max_length=20)
+    color: str = Field(default="#2B5BFF", max_length=30)
     is_default: bool = False
     sort_order: int = 0
 
 
 class AccountCreate(AccountBase):
-    pass
+    client_id: Optional[str] = Field(default=None, min_length=1, max_length=64)
 
 
 class AccountUpdate(StrictModel):
-    name: Optional[str] = None
-    group_name: Optional[str] = None
-    bank_name: Optional[str] = None
-    icon: Optional[str] = None
-    color: Optional[str] = None
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    group_name: Optional[str] = Field(default=None, max_length=50)
+    bank_name: Optional[str] = Field(default=None, max_length=50)
+    icon: Optional[str] = Field(default=None, max_length=20)
+    color: Optional[str] = Field(default=None, max_length=30)
     is_default: Optional[bool] = None
 
 
 class AccountResponse(AccountBase):
+    # SQLite legacy values may exceed PostgreSQL input limits. Read them intact.
+    group_name: str = "Личное"
+    bank_name: Optional[str] = None
+    icon: str = "💳"
+    color: str = "#2B5BFF"
     balance: float
     is_archived: bool = False
     id: str
@@ -64,8 +69,8 @@ class AccountResponse(AccountBase):
 class CategoryBase(StrictModel):
     name: str = Field(min_length=1, max_length=100)
     type: Literal["expense", "income", "both"] = "expense"
-    icon: str = "📦"
-    color: str = "#F3F4F6"
+    icon: str = Field(default="📦", max_length=20)
+    color: str = Field(default="#F3F4F6", max_length=30)
     budget_limit: Optional[Money] = None
     sort_order: int = 0
 
@@ -73,20 +78,22 @@ class CategoryBase(StrictModel):
 
 
 class CategoryCreate(CategoryBase):
-    pass
+    client_id: Optional[str] = Field(default=None, min_length=1, max_length=64)
 
 
 class CategoryUpdate(StrictModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=100)
     type: Optional[Literal["expense", "income", "both"]] = None
-    icon: Optional[str] = None
-    color: Optional[str] = None
+    icon: Optional[str] = Field(default=None, max_length=20)
+    color: Optional[str] = Field(default=None, max_length=30)
     parent_id: Optional[str] = None
     budget_limit: Optional[Money] = None
     sort_order: Optional[int] = None
 
 
 class CategoryResponse(CategoryBase):
+    icon: str = "📦"
+    color: str = "#F3F4F6"
     budget_limit: Optional[float] = None
     is_archived: bool = False
     id: str
@@ -120,6 +127,14 @@ class TransactionUpdate(StrictModel):
     created_at: Optional[UTCInput] = None
 
 
+    @field_validator("created_at", mode="before")
+    @classmethod
+    def date_cannot_be_null(cls, value):
+        if value is None:
+            raise ValueError("Дата операции не может быть пустой")
+        return value
+
+
 class TransactionResponse(BaseModel):
     revision: int
     currency: Optional[str] = None
@@ -136,7 +151,7 @@ class TransactionResponse(BaseModel):
     # Nested preview fields
     account_name: Optional[str] = None
     category_name: Optional[str] = None
-    category_icon: Optional[str] = None
+    category_icon: Optional[str] = Field(default=None, max_length=20)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -163,12 +178,14 @@ class AIParsedTransaction(BaseModel):
 
 
 class PendingClarification(BaseModel):
-    question: str
-    suggested_amount: Optional[float] = None
-    suggested_options: List[float] = Field(default_factory=list)
-    type: str = "expense"
+    question: str = Field(max_length=1000)
+    suggested_amount: Optional[PositiveMoney] = None
+    suggested_options: List[PositiveMoney] = Field(default_factory=list, max_length=2)
+    type: Literal["expense", "income", "transfer"] = "expense"
     category_name: Optional[str] = None
     account_name: Optional[str] = None
+    to_account_name: Optional[str] = None
+    currency: Optional[str] = Field(default=None, pattern="^[A-Z]{3}$")
     note: Optional[str] = Field(default=None, max_length=2000)
 
 
@@ -202,5 +219,17 @@ class DashboardSummary(BaseModel):
     period_label: str
     period_income: float
     period_expense: float
+    income_categories: List[CategoryStat] = Field(default_factory=list)
     categories: List[CategoryStat]
     recent_transactions: List[TransactionResponse]
+
+
+class CategoryAnalytics(BaseModel):
+    category_id: str
+    period_label: str
+    currency: str
+    kind: Literal["expense", "income"]
+    total_amount: float
+    transaction_count: int
+    breakdown: List[CategoryStat]
+    transactions: List[TransactionResponse]

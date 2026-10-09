@@ -65,3 +65,11 @@ bank export. PostgreSQL concurrency and bank-specific formatting remain unverifi
 Source: [models](../../bot/app/models/imports.py), [CSV parser](../../bot/app/services/bank_import_csv.py),
 [service](../../bot/app/services/bank_import.py), [routes](../../bot/app/api/routes/imports.py),
 [tests](../../bot/tests/test_imports.py).
+
+## Некорректный CSV — 9 октября 2026
+
+csv.Error на заголовке или строках преобразуется в безопасную validation-ошибку
+без подробностей содержимого. Превышение стандартного лимита длины поля не становится
+HTTP500. Переполнение при переводе крайних дат в UTC исключает только плохую строку,
+сохраняя соседние валидные строки. Лимит поля не повышается глобально. Регрессии:
+`test_audit_input_boundaries.py`; реальные пользовательские файлы не использованы.

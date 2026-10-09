@@ -21,12 +21,12 @@ async def owned(db, model, user_id, object_id, active=True):
     return await db.scalar(query.execution_options(populate_existing=True))
 
 
-async def validate_links(db, user_id, data):
-    account = await owned(db, Account, user_id, data.account_id)
+async def validate_links(db, user_id, data, historical=False):
+    account = await owned(db, Account, user_id, data.account_id, active=not historical)
     if account is None:
         raise ValueError("Счёт не найден или архивирован")
     if data.type == "transfer":
-        target = await owned(db, Account, user_id, data.to_account_id)
+        target = await owned(db, Account, user_id, data.to_account_id, active=not historical)
         if target is None or target.id == account.id or target.currency != account.currency:
             raise ValueError("Перевод требует два своих счёта в одной валюте")
         if data.category_id:
@@ -34,8 +34,8 @@ async def validate_links(db, user_id, data):
     elif data.to_account_id:
         raise ValueError("Счёт получателя допустим только для перевода")
     if data.category_id:
-        category = await owned(db, Category, user_id, data.category_id)
-        if category is None or category.type not in ("both", data.type):
+        category = await owned(db, Category, user_id, data.category_id, active=not historical)
+        if category is None or (not historical and category.type not in ("both", data.type)):
             raise ValueError("Категория не найдена или не подходит для операции")
 
 
@@ -158,6 +158,8 @@ async def update_transaction(
         tx = await get_transaction(db, user_id, tx_id)
         if tx is None:
             return None
+        if "created_at" in changes and changes["created_at"] is None:
+            raise ValueError("Дата операции не может быть пустой")
         revision = changes.get("revision")
         if revision != tx.revision:
             raise ConflictError("Операция уже изменена. Обновите список")
@@ -165,7 +167,11 @@ async def update_transaction(
         values["created_at"] = persisted_utc(values["created_at"])
         values.update({key: value for key, value in changes.items() if key != "revision"})
         data = TransactionCreate(**values)
-        await validate_links(db, user_id, data)
+        # Notes/dates may retain historical links after archive or category type
+        # changes. Any actual financial change requires valid active links.
+        financial_fields = ("amount", "type", "account_id", "to_account_id", "category_id")
+        metadata_only = all(getattr(data, key) == getattr(tx, key) for key in financial_fields)
+        await validate_links(db, user_id, data, historical=metadata_only)
         result = await db.execute(
             update(Transaction)
             .where(
@@ -182,7 +188,7 @@ async def update_transaction(
         changes = balance_changes(tx, -1)
         for account_id, delta in balance_changes(data).items():
             changes[account_id] = changes.get(account_id, Decimal(0)) + delta
-        await apply_changes(db, user_id, changes)
+        await apply_changes(db, user_id, {key: delta for key, delta in changes.items() if delta})
         await db.execute(
             update(Transaction)
             .where(Transaction.id == tx_id)

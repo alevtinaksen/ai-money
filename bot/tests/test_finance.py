@@ -262,8 +262,11 @@ async def test_category_parent_and_metadata_tenant_ownership(db_session):
     child = await F.create_category(
         db_session, 1, CategoryCreate(name="Child", parent_id=parent.id)
     )
+    parent_id, child_id = parent.id, child.id
     with pytest.raises(ValueError):
-        await F.update_category(db_session, 1, parent.id, {"parent_id": child.id})
-    assert await F.delete_category(db_session, 1, child.id)
-    assert await F.delete_category(db_session, 1, parent.id)
+        await F.update_category(db_session, 1, parent_id, {"parent_id": child_id})
+    # Rejected graph writes now roll back the lock transaction, expiring ORM
+    # objects; stable request IDs remain usable without async lazy loading.
+    assert await F.delete_category(db_session, 1, child_id)
+    assert await F.delete_category(db_session, 1, parent_id)
     assert await F.get_categories(db_session, 1) == []

@@ -26,6 +26,9 @@ async def list_transactions(
     offset: int = 0,
     month_offset: int | None = None,
     currency: str | None = None,
+    category_ids: list[str | None] | None = None,
+    kind: str | None = None,
+    period: tuple[datetime, datetime] | None = None,
 ) -> list[TransactionResponse]:
     if not 1 <= limit <= 100 or not 0 <= offset <= 100000:
         raise ValueError("Некорректная страница")
@@ -39,11 +42,16 @@ async def list_transactions(
             Transaction.is_deleted.is_(False),
         )
     )
-    if month_offset is not None:
-        start, end = period_bounds(month_offset)
+    if month_offset is not None or period is not None:
+        start, end = period or period_bounds(month_offset if month_offset is not None else 0)
         query = query.where(Transaction.created_at >= start, Transaction.created_at < end)
     if currency:
         query = query.where(Account.currency == currency)
+    if category_ids is not None:
+        query = query.where(Transaction.category_id.is_(None) if category_ids == [None]
+                            else Transaction.category_id.in_(category_ids))
+    if kind:
+        query = query.where(Transaction.type == kind)
     rows = (
         await db.execute(
             query.order_by(Transaction.created_at.desc(), Transaction.id.desc())
@@ -95,25 +103,25 @@ async def get_dashboard_summary(
     selected = totals.get(currency, {"income": 0.0, "expense": 0.0})
     stats_query = (
         select(
-            Category.id, Category.name, Category.icon, Category.color, func.sum(Transaction.amount)
+            Category.id, Category.name, Category.icon, Category.color, Transaction.type, func.sum(Transaction.amount)
         )
         .select_from(Transaction)
         .join(Account, Transaction.account_id == Account.id)
         .outerjoin(Category, Transaction.category_id == Category.id)
-        .where(*filters, Account.currency == currency, Transaction.type == "expense")
-        .group_by(Category.id, Category.name, Category.icon, Category.color)
+        .where(*filters, Account.currency == currency, Transaction.type != "transfer")
+        .group_by(Category.id, Category.name, Category.icon, Category.color, Transaction.type)
     )
-    stats = []
-    for cid, name, icon, color, amount in (await db.execute(stats_query)).all():
-        stats.append(
+    stats = {"expense": [], "income": []}
+    for cid, name, icon, color, kind, amount in (await db.execute(stats_query)).all():
+        stats[kind].append(
             CategoryStat(
                 id=cid or "uncategorized",
                 name=name or "Без категории",
                 icon=icon or "📦",
                 color=color or "#F3F4F6",
                 total_amount=float(amount),
-                percentage=round(float(amount) / selected["expense"] * 100, 1)
-                if selected["expense"]
+                percentage=round(float(amount) / selected[kind] * 100, 1)
+                if selected[kind]
                 else 0,
             )
         )
@@ -125,6 +133,7 @@ async def get_dashboard_summary(
         period_label=start.strftime("%Y-%m"),
         period_income=selected["income"],
         period_expense=selected["expense"],
-        categories=stats,
+        categories=stats["expense"],
+        income_categories=stats["income"],
         recent_transactions=await list_transactions(db, user_id, limit=20),
     )

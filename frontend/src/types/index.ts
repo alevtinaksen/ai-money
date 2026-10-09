@@ -12,6 +12,7 @@ export interface Account {
   color: string;
   is_default: boolean;
   sort_order: number;
+  is_archived?: boolean;
 }
 
 export interface Category {
@@ -24,9 +25,12 @@ export interface Category {
   budget_limit?: number | null;
   sort_order?: number;
   subcategories?: string[];
+  parent_id?: string | null;
 }
 
 export interface Transaction {
+  revision: number;
+  currency: string;
   id: string;
   user_id: number;
   account_id: string;
@@ -51,10 +55,19 @@ export interface CategoryStat {
 }
 
 export interface DashboardSummary {
+  currency: string;
+  balances_by_currency: Record<string, number>;
+  totals_by_currency: Record<string, { income: number; expense: number }>;
+  income_categories?: CategoryStat[];
   total_balance: number;
   period_label: string;
   period_income: number;
   period_expense: number;
   categories: CategoryStat[];
   recent_transactions: Transaction[];
+}
+
+export interface CategoryAnalytics {
+  category_id: string; period_label: string; currency: string; kind: 'expense' | 'income';
+  total_amount: number; transaction_count: number; breakdown: CategoryStat[]; transactions: Transaction[];
 }

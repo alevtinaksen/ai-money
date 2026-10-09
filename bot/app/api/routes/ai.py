@@ -9,6 +9,7 @@ from app.schemas.finance import AIParsedResult
 from app.services.ai_parser import AIParserService
 from app.services.finance_svc import FinanceService
 from app.services.preview_budget import consume_preview
+from app.services.ai_provider import audio_mime, AUDIO_ALIASES
 
 router = APIRouter()
 
@@ -36,8 +37,16 @@ async def parse_text(payload: TextParseRequest, user_id: int = Depends(get_curre
 @router.post("/parse-receipt", response_model=AIParsedResult)
 async def parse_media(file: UploadFile = File(...), user_id: int = Depends(get_current_user_id),
                       db: AsyncSession = Depends(get_db)):
-    allowed = {"audio/ogg","audio/mpeg","audio/wav","audio/mp4","image/jpeg","image/png","image/webp"}
-    if file.content_type not in allowed:
+    allowed = {"audio/webm","audio/ogg","audio/mpeg","audio/wav","audio/mp4","image/jpeg","image/png","image/webp"}
+    mime_type = (file.content_type or "").split(";", 1)[0].strip().lower()
+    if mime_type.startswith("audio/") or mime_type in AUDIO_ALIASES or mime_type in {"", "application/octet-stream"}:
+        try:
+            mime_type = audio_mime(mime_type, file.filename)
+        except ValueError:
+            await file.close()
+            raise HTTPException(415, "Поддерживаются аудио OGG/MP3/WAV/M4A/WebM") from None
+    if mime_type not in allowed:
+        await file.close()
         raise HTTPException(415, "Поддерживаются аудио OGG/MP3/WAV/M4A и изображения JPEG/PNG/WebP")
     try:
         data = await file.read(settings.MAX_UPLOAD_BYTES + 1)
@@ -47,4 +56,4 @@ async def parse_media(file: UploadFile = File(...), user_id: int = Depends(get_c
         raise HTTPException(413, "Максимальный размер файла — 5 МБ")
     consume_preview(user_id)
     accounts, categories = await context(db, user_id)
-    return await AIParserService.parse_media(data, file.content_type, accounts, categories)
+    return await AIParserService.parse_media(data, mime_type, accounts, categories)
