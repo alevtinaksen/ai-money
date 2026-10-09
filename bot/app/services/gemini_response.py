@@ -26,8 +26,8 @@ def _fail(stage, reason, *, status=0, finish="UNKNOWN", block="UNKNOWN"):
     raise ValueError(ERROR_MESSAGE) from None
 
 
-def parse_text_response(body):
-    """Accept only complete, non-thought text; JSON validation is a separate step."""
+def _completed_parts(body):
+    """Share envelope/STOP validation across JSON and speech response formats."""
     if not isinstance(body, dict):
         _fail("envelope", "invalid_shape")
     feedback = body.get("promptFeedback")
@@ -46,12 +46,52 @@ def parse_text_response(body):
     parts = content.get("parts") if isinstance(content, dict) else None
     if not isinstance(parts, list) or any(not isinstance(part, dict) for part in parts):
         _fail("content", "invalid_shape", finish=finish)
+    return parts
+
+
+def _plain_text(parts):
     texts = [part.get("text") for part in parts if not part.get("thought") and "text" in part]
     if not texts or any(not isinstance(text, str) for text in texts):
-        _fail("content", "missing_text", finish=finish)
+        _fail("content", "missing_text", finish="STOP")
     text = "".join(texts)
     if not text.strip():
-        _fail("content", "missing_text", finish=finish)
+        _fail("content", "missing_text", finish="STOP")
+    return text
+
+
+def parse_text_response(body):
+    """Accept only complete, non-thought text; JSON validation is separate."""
+    return _plain_text(_completed_parts(body))
+
+
+def parse_transcript_response(body):
+    """Read verbatim text or documented REST word annotations, never both."""
+    parts = [part for part in _completed_parts(body) if not part.get("thought")]
+    if not any("audioTranscription" in part for part in parts):
+        text = _plain_text(parts).strip()
+    else:
+        # Mixing a separate text transcript with word annotations may duplicate
+        # speech or discard a partial segment. Fail rather than infer alignment.
+        words, size = [], 0
+        for part in parts:
+            if "text" in part and (not isinstance(part["text"], str) or part["text"].strip()):
+                _fail("content", "mixed_transcript", finish="STOP")
+            annotation = part.get("audioTranscription")
+            entries = annotation.get("words") if isinstance(annotation, dict) else None
+            if not isinstance(entries, list) or not entries:
+                _fail("content", "invalid_transcript", finish="STOP")
+            for entry in entries:
+                word = entry.get("word") if isinstance(entry, dict) else None
+                if not isinstance(word, str) or not word.strip():
+                    _fail("content", "invalid_transcript", finish="STOP")
+                word = word.strip()
+                size += len(word) + bool(words)
+                if size > 10000:
+                    _fail("content", "too_long", finish="STOP")
+                words.append(word)
+        text = " ".join(words)
+    if len(text) > 10000:
+        _fail("content", "too_long", finish="STOP")
     return text
 
 
@@ -91,7 +131,4 @@ async def generate_json(url: str, payload: dict, api_key: str) -> dict:
 
 @timed_operation("gemini_transcribe")
 async def generate_transcript(url: str, payload: dict, api_key: str) -> str:
-    text = parse_text_response(await _request_body(url, payload, api_key, timeout_seconds=20)).strip()
-    if len(text) > 10000:
-        _fail("content", "too_long", finish="STOP")
-    return text
+    return parse_transcript_response(await _request_body(url, payload, api_key, timeout_seconds=20))

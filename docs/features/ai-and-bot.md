@@ -36,6 +36,26 @@ REST нормализует MIME codec parameters (audio/webm;codecs=opus→audi
 
 Регрессии test_gemini_transcription.py: пятьконтейнеров, Router→STT→JSON→pendingdraft,5000/250.50,ошибки50/0/55, unfinished/quota/timeout/empty/oversize,consent/повреждённыйфайл,общие4слота/безвложенногоlock,общийdeadline,фотобезSTT. Доступность Google и ускорение нового режима пока не подтверждены живым замером.
 
+### Ответ транскрипции: text и REST word annotations
+
+Локальная правка9октября поддерживает документированный REST-ответ
+`content.parts[].audioTranscription.words[].word` наряду с прежним `text`.
+Слова соединяются в исходном порядке без исправления сумм/единиц; metadata speaker/time
+не превращается в пользовательский текст. STOP обязателен, thought-поля исключаются,
+итог до10000символов. Пустые/повреждённые сегменты и смесь непустого text с annotations
+отклоняются, чтобы не терять или дублировать речь. Финансовый JSON по-прежнему читается
+только из text и проходит исходный amount guard; нет смены модели/поставщика.
+
+Основание: в живом запросе15:13MSK скачивание420ms, STT1710ms completedFalse,
+preview3090ms; `gemini_failure stage=content reason=missing_text finish=STOP`.
+Реальный payload не логируется, поэтому его точная форма пока неизвестна.
+Прежний код воспроизводимо отклоняет официальный word-only REST пример; новый принимает.
+См. [Parsing transcription output](https://ai.google.dev/gemini-api/docs/generate-content/transcribe).
+Регрессии test_transcript_contract.py проверяют Router→STT→JSON→pendingdraft5000/250.50,
+отказ ошибочной50, порядок/мысли/пустые/повреждённые/незавершённые/oversize/mixed ответы
+и отсутствие пользовательского текста в диагностике. Это исправление контракта,
+а не доказательство устранения конкретного живого отказа: нужна публикация и повторная приёмка.
+
 ## Границы из аудита — 9 октября 2026
 
 Офлайн-текст теперь проходит тот же `validate_source_amounts` по оригиналу,
